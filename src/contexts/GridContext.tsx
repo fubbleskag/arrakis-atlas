@@ -1,3 +1,4 @@
+
 "use client";
 
 import type React from 'react';
@@ -11,6 +12,7 @@ interface GridContextType {
   gridState: GridState;
   isLoading: boolean;
   toggleIconInCell: (rowIndex: number, colIndex: number, icon: IconType) => void;
+  clearIconsInCell: (rowIndex: number, colIndex: number) => void;
   resetGrid: () => void;
 }
 
@@ -78,6 +80,14 @@ export const GridProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   }, []);
 
+  const clearIconsInCell = useCallback((rowIndex: number, colIndex: number) => {
+    setGridState((prevState) => {
+      const newState = prevState.map(row => row.map(cell => ({ ...cell, icons: [...cell.icons] }))); // Deep copy
+      newState[rowIndex][colIndex].icons = [];
+      return newState;
+    });
+  }, []);
+
   const resetGrid = useCallback(() => {
     const newGrid = initializeGrid();
     setGridState(newGrid);
@@ -89,7 +99,7 @@ export const GridProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   return (
-    <GridContext.Provider value={{ gridState, isLoading, toggleIconInCell, resetGrid }}>
+    <GridContext.Provider value={{ gridState, isLoading, toggleIconInCell, clearIconsInCell, resetGrid }}>
       {children}
     </GridContext.Provider>
   );

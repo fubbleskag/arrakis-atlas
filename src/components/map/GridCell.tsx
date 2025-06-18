@@ -21,7 +21,7 @@ interface GridCellProps {
 const GRID_CELL_INTERNAL_SIZE = 9; // Used for ARIA label calculation
 
 export function GridCell({ rowIndex, colIndex }: GridCellProps) {
-  const { gridState, toggleIconInCell } = useGrid();
+  const { gridState, toggleIconInCell, clearIconsInCell } = useGrid();
   const { isAuthenticated } = useAuth();
   const [popoverOpen, setPopoverOpen] = useState(false);
 
@@ -31,6 +31,12 @@ export function GridCell({ rowIndex, colIndex }: GridCellProps) {
   const handleToggleIcon = (icon: IconType) => {
     if (isAuthenticated) {
       toggleIconInCell(rowIndex, colIndex, icon);
+    }
+  };
+
+  const handleClearAllIcons = () => {
+    if (isAuthenticated) {
+      clearIconsInCell(rowIndex, colIndex);
     }
   };
   
@@ -78,7 +84,8 @@ export function GridCell({ rowIndex, colIndex }: GridCellProps) {
         <PopoverContent className="w-auto p-0" align="start" sideOffset={5}>
           <IconPalette
             currentIcons={cellData.icons}
-            onToggleIcon={handleToggleIcon}
+            onIconChange={handleToggleIcon}
+            onClearAll={handleClearAllIcons}
           />
         </PopoverContent>
       )}
