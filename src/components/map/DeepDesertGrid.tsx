@@ -29,7 +29,7 @@ export function DeepDesertGrid() {
   if (isLoading) {
     return (
       <div className="flex flex-col items-center space-y-4 w-full">
-        <div 
+        <div
           className="grid"
           style={{
             gridTemplateColumns: 'auto 1fr',
@@ -69,7 +69,7 @@ export function DeepDesertGrid() {
 
   return (
     <div className="flex flex-col items-center space-y-4 w-full">
-      <div 
+      <div
         className="grid"
         style={{
           gridTemplateColumns: 'auto 1fr', // Column for row labels, column for main content (col labels + grid)
@@ -85,8 +85,8 @@ export function DeepDesertGrid() {
         {/* Column Labels (1-9) */}
         <div className="grid grid-cols-9 gap-px">
           {Array.from({ length: GRID_SIZE }).map((_, colIndex) => (
-            <div 
-              key={`col-label-${colIndex}`} 
+            <div
+              key={`col-label-${colIndex}`}
               className="flex items-center justify-center text-center h-8 text-sm font-medium text-muted-foreground aspect-square bg-card rounded-sm"
             >
               {colIndex + 1}
@@ -97,8 +97,8 @@ export function DeepDesertGrid() {
         {/* Row Labels (I-A from top to bottom, representing A-I from bottom of grid to top) */}
         <div className="grid grid-rows-9 gap-px">
           {Array.from({ length: GRID_SIZE }).map((_, rowIndex) => (
-            <div 
-              key={`row-label-${rowIndex}`} 
+            <div
+              key={`row-label-${rowIndex}`}
               className="flex items-center justify-center text-center w-8 text-sm font-medium text-muted-foreground aspect-square bg-card rounded-sm"
             >
               {String.fromCharCode(65 + (GRID_SIZE - 1 - rowIndex))}
