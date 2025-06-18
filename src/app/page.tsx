@@ -13,10 +13,10 @@ import { AlertTriangle } from 'lucide-react';
 
 function HomePageContent() {
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
-  const { currentMapId, isLoadingMapList, isLoadingMapData, focusedCellCoordinates, currentLocalGrid } = useMap();
+  const { currentMapId, isLoadingMapList, isLoadingMapData, focusedCellCoordinates, currentLocalGrid, userMapList } = useMap();
 
+  const userMapListIsEmpty = !userMapList || userMapList.length === 0;
   const overallLoading = isAuthLoading || (userMapListIsEmpty && isLoadingMapList);
-  const userMapListIsEmpty = !useMap().userMapList || useMap().userMapList.length === 0;
 
 
   if (overallLoading) {
