@@ -4,85 +4,54 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // User Profiles
+    // Users collection: Basic profile management
     match /users/{userId} {
-      allow read, update: if request.auth.uid == userId;
-      allow create: if request.auth.uid == userId
-                    && request.resource.data.uid == userId
-                    && request.resource.data.email == request.auth.token.email
-                    && (!('displayName' in request.resource.data) || request.resource.data.displayName is string || request.resource.data.displayName == null)
-                    && request.resource.data.lastLogin == request.time;
-      // Disallow delete for simplicity for now
-      allow delete: if false;
+      allow read: if request.auth.uid != null;
+      allow create: if request.auth.uid == userId &&
+                       request.resource.data.uid == userId &&
+                       request.resource.data.email == request.auth.token.email &&
+                       request.resource.data.keys().hasAll(['uid', 'email', 'displayName', 'lastLogin']) &&
+                       request.resource.data.lastLogin == request.time;
+      allow update: if request.auth.uid == userId &&
+                       request.resource.data.uid == userId &&
+                       request.resource.data.email == request.auth.token.email &&
+                       request.resource.data.keys().hasAll(['uid', 'email', 'displayName', 'lastLogin']) &&
+                       request.resource.data.lastLogin == request.time &&
+                       !(request.resource.data.diff(resource.data).affectedKeys().hasAny(['uid', 'email']));
+      allow delete: if false; // Disallow delete for simplicity
     }
 
-    // Maps
+    // Maps collection: Extremely simplified rules
     match /maps/{mapId} {
-      let mapData = resource.data;
-      let requestMapData = request.resource.data;
-      let isAuthenticated = request.auth != null;
-      let currentUserId = request.auth.uid;
+      // Allow authenticated users to create maps.
+      // Creator becomes owner and is added to collaborators.
+      allow create: if request.auth.uid != null &&
+                       request.resource.data.ownerId == request.auth.uid &&
+                       request.resource.data.collaborators[request.auth.uid] == 'owner' &&
+                       request.resource.data.collaborators.keys().size() == 1 &&
+                       request.resource.data.memberUIDs[0] == request.auth.uid &&
+                       request.resource.data.memberUIDs.size() == 1 &&
+                       request.resource.data.name is string &&
+                       request.resource.data.gridState is map &&
+                       request.resource.data.keys().hasAll(['name', 'ownerId', 'memberUIDs', 'collaborators', 'gridState', 'createdAt', 'updatedAt']) &&
+                       request.resource.data.createdAt == request.time &&
+                       request.resource.data.updatedAt == request.time;
 
-      // Helper: Is the current user the owner of the existing map?
-      function isOwner() {
-        return isAuthenticated && currentUserId == mapData.ownerId;
-      }
+      // Allow users to read a map if their UID is a key in the collaborators map.
+      allow read: if request.auth.uid != null &&
+                     request.auth.uid in resource.data.collaborators.keys();
 
-      // Helper: Is the current user a co-owner of the existing map?
-      function isCoOwner() {
-        return isAuthenticated && mapData.collaborators[currentUserId] == 'co-owner';
-      }
+      // Allow updating if the user's UID is a key in the collaborators map.
+      // ownerId and createdAt are immutable.
+      allow update: if request.auth.uid != null &&
+                       request.auth.uid in resource.data.collaborators.keys() &&
+                       request.resource.data.ownerId == resource.data.ownerId && // ownerId is immutable
+                       request.resource.data.createdAt == resource.data.createdAt && // createdAt is immutable
+                       request.resource.data.updatedAt == request.time;
 
-      // Helper: Basic validation for map data on create
-      function isValidNewMapData() {
-        return requestMapData.name is string && requestMapData.name.size() > 0
-               && requestMapData.ownerId == currentUserId
-               && requestMapData.memberUIDs.hasOnly([currentUserId]) // On create, only owner is member
-               && requestMapData.collaborators.keys().hasOnly([currentUserId])
-               && requestMapData.collaborators[currentUserId] == 'owner'
-               && requestMapData.gridState is map // Basic check for gridState
-               && requestMapData.createdAt == request.time
-               && requestMapData.updatedAt == request.time;
-      }
-
-      // Read: User is a member of the map
-      allow read: if isAuthenticated && currentUserId in mapData.memberUIDs;
-
-      // Create: Authenticated user, valid new map data
-      allow create: if isAuthenticated && isValidNewMapData();
-
-      // Update:
-      allow update: if isAuthenticated && (
-        // Case 1: Owner is updating
-        (isOwner()
-          && requestMapData.ownerId == mapData.ownerId // Owner ID cannot change
-          && requestMapData.createdAt == mapData.createdAt // CreatedAt cannot change
-          && requestMapData.updatedAt == request.time
-          // Owner must remain in collaborators and memberUIDs
-          && requestMapData.collaborators[mapData.ownerId] == 'owner'
-          && mapData.ownerId in requestMapData.memberUIDs
-          // All collaborators must be co-owners (except the owner)
-          && requestMapData.collaborators.keys().filter(uid => uid != mapData.ownerId).forall(uid => requestMapData.collaborators[uid] == 'co-owner')
-          // All memberUIDs must be in collaborators and vice-versa
-          && requestMapData.memberUIDs.toSet().hasOnly(requestMapData.collaborators.keys())
-          && requestMapData.collaborators.keys().toSet().hasOnly(requestMapData.memberUIDs)
-        )
-        ||
-        // Case 2: Co-owner is updating (can only change name and gridState)
-        (isCoOwner()
-          && requestMapData.name == request.resource.data.name // Name can change
-          && requestMapData.gridState == request.resource.data.gridState // Grid can change
-          // Ensure other critical fields are NOT changed by co-owner
-          && requestMapData.ownerId == mapData.ownerId
-          && requestMapData.createdAt == mapData.createdAt
-          && requestMapData.collaborators == mapData.collaborators
-          && requestMapData.memberUIDs == mapData.memberUIDs
-          && requestMapData.updatedAt == request.time
-        )
-      );
-
-      // Delete: Only the owner can delete
-      allow delete: if isOwner();
+      // Only the owner can delete the map.
+      allow delete: if request.auth.uid != null &&
+                       request.auth.uid == resource.data.ownerId;
     }
   }
 }
