@@ -11,13 +11,12 @@ import { getFirestore } from "firebase/firestore";
 // You can find these in your Firebase project console:
 // Project settings (gear icon) > General tab > Your apps > Firebase SDK snippet > Config
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY_HERE",
-  authDomain: "YOUR_PROJECT_ID_HERE.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID_HERE",
-  storageBucket: "YOUR_PROJECT_ID_HERE.appspot.com", // Or YOUR_PROJECT_ID_HERE.firebasestorage.app if that's what your console shows
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID_HERE",
-  appId: "YOUR_APP_ID_HERE"
-  // measurementId: "YOUR_MEASUREMENT_ID_HERE" // Optional: for Google Analytics
+  apiKey: "AIzaSyBS8JR7Hn6jRqVg5mitgoiMBHpvsfnQz6w",
+  authDomain: "arrakis-atlas.firebaseapp.com",
+  projectId: "arrakis-atlas",
+  storageBucket: "arrakis-atlas.firebasestorage.app",
+  messagingSenderId: "713153409549",
+  appId: "1:713153409549:web:1e3e92668de0a3a29cdb44"
 };
 
 // Initialize Firebase
