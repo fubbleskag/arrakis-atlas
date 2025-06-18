@@ -34,12 +34,12 @@ export function GridCell({ rowIndex, colIndex }: GridCellProps) {
   const cellData = currentLocalGrid?.[rowIndex]?.[colIndex];
 
   if (!cellData) { 
-      return <div className="aspect-square border border-destructive bg-destructive/20 flex items-center justify-center text-xs">Err</div>;
+      return <div className="aspect-square bg-destructive/20 flex items-center justify-center text-xs text-destructive">Err</div>;
   }
 
   let canEdit = false;
   if (isAuthenticated && user && currentMapData) {
-    // User can edit if they are the creator of the map
+    // User can edit if their UID matches the map's userId
     canEdit = currentMapData.userId === user.uid;
   }
   
@@ -87,10 +87,11 @@ export function GridCell({ rowIndex, colIndex }: GridCellProps) {
           aria-label={ariaLabelContent}
           disabled={!canEdit && !currentMapData}
           className={cn(
-            "aspect-square border border-border flex items-center justify-center p-1 relative group transition-all duration-150 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+            "aspect-square flex items-center justify-center p-1 relative group transition-all duration-150 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+            "bg-card", // Default background for the cell
             canEdit && currentMapData ? "hover:bg-accent/20 cursor-pointer" : "cursor-not-allowed",
-            !canEdit && currentMapData && "bg-muted/30",
-            popoverOpen && canEdit && currentMapData && "bg-accent/30 ring-2 ring-accent"
+            !canEdit && currentMapData && "bg-muted/30", // Overrides bg-card if not editable
+            popoverOpen && canEdit && currentMapData && "bg-accent/30 ring-2 ring-accent" // Overrides bg-card if popover open
           )}
         >
           {!canEdit && currentMapData && !cellData.icons.length && !hasNotes && (
@@ -126,7 +127,7 @@ export function GridCell({ rowIndex, colIndex }: GridCellProps) {
             onClearAll={handleClearAllIcons}
             currentNotes={cellData.notes}
             onNotesChange={handleNotesChange}
-            canEdit={canEdit} // Pass down the determined edit status
+            canEdit={canEdit} 
           />
         </PopoverContent>
       )}
