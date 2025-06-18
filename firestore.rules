@@ -1,0 +1,146 @@
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Users collection rules
+    match /users/{userId} {
+      // Allow authenticated users to read profiles (e.g., for email to UID lookup when adding collaborators)
+      // For production, review if all fields should be readable or if a Cloud Function is better for lookups.
+      allow read: if request.auth != null;
+
+      // Users can create their own profile document.
+      allow create: if request.auth != null && request.auth.uid == userId &&
+                      // Validate incoming data for creation
+                      request.resource.data.uid == userId &&
+                      request.resource.data.email is string &&
+                      (request.resource.data.displayName is string || request.resource.data.displayName == null) &&
+                      request.resource.data.lastLogin == request.time && // Ensure lastLogin is set to server timestamp on create
+                      request.resource.data.keys().hasOnly(['uid', 'email', 'displayName', 'lastLogin']);
+
+      // Users can update their own profile document.
+      allow update: if request.auth != null && request.auth.uid == userId &&
+                      // UID cannot be changed
+                      request.resource.data.uid == resource.data.uid &&
+                      // Validate data types of fields being updated
+                      (request.resource.data.containsKey('email') ? request.resource.data.email is string : true) &&
+                      (request.resource.data.containsKey('displayName') ? (request.resource.data.displayName is string || request.resource.data.displayName == null) : true) &&
+                      (request.resource.data.containsKey('lastLogin') ? request.resource.data.lastLogin == request.time : true) && // lastLogin must be server timestamp if updated
+                      // Allow only specific fields to be updated
+                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['email', 'displayName', 'lastLogin']);
+
+      // Deletes are typically handled by Firebase Auth triggers or admin tools, not direct client deletion.
+      allow delete: if false;
+    }
+
+    // Maps collection rules
+    match /maps/{mapId} {
+      // Helper functions to check user's role based on existing data (resource.data)
+      function isActualOwner() { return request.auth.uid == resource.data.ownerId; }
+      function isActualCoOwner() { return request.auth.uid in resource.data.collaborators && resource.data.collaborators[request.auth.uid] == 'co-owner'; }
+      function isActualAssociate() { return request.auth.uid in resource.data.collaborators && resource.data.collaborators[request.auth.uid] == 'associate'; }
+      function isActualMember() { return request.auth.uid in resource.data.memberUIDs; }
+
+      // Data validation for incoming map data (used for create and update)
+      function isValidMapStructure(mapData) {
+        return mapData.name is string && mapData.name.size() > 0 && mapData.name.size() < 100 &&
+               mapData.ownerId is string &&
+               mapData.memberUIDs is list &&
+               mapData.collaborators is map &&
+               // Owner must be correctly set up in collaborators and memberUIDs
+               mapData.ownerId in mapData.memberUIDs &&
+               mapData.ownerId in mapData.collaborators && mapData.collaborators[mapData.ownerId] == 'owner' &&
+               // Roles must be valid
+               (forall key in mapData.collaborators.keys(): mapData.collaborators[key] in ['owner', 'co-owner', 'associate']) &&
+               mapData.isPublic is bool &&
+               mapData.gridState is map && // Basic check, could be more specific (e.g. size, structure)
+               mapData.keys().hasOnly(['name', 'ownerId', 'memberUIDs', 'collaborators', 'isPublic', 'gridState', 'createdAt', 'updatedAt']);
+      }
+      
+      // --- Field groups for permission checks ---
+      // Fields an Associate can edit
+      let associateEditableFields = ['gridState'];
+      // Fields a Co-Owner can edit (includes Associate fields)
+      let coOwnerEditableFields = associateEditableFields.concat(['name', 'isPublic', 'collaborators', 'memberUIDs']);
+      // Fields only an Owner can edit (includes Co-Owner fields, plus ownerId transfer)
+      // Note: 'ownerId' change is a special case handled separately.
+      let ownerEditableFields = coOwnerEditableFields;
+
+
+      // --- Read Access ---
+      // Public maps are readable by anyone.
+      // Private maps are readable by authenticated members.
+      allow read: if resource.data.isPublic == true || (request.auth != null && isActualMember());
+
+      // --- Create Access ---
+      allow create: if request.auth != null &&
+                      // Validate overall structure and types of incoming data
+                      isValidMapStructure(request.resource.data) &&
+                      // Creator must be the owner
+                      request.resource.data.ownerId == request.auth.uid &&
+                      // Initially, only the owner is a member and collaborator
+                      request.resource.data.memberUIDs.size() == 1 && request.resource.data.memberUIDs[0] == request.auth.uid &&
+                      request.resource.data.collaborators.size() == 1 && request.resource.data.collaborators[request.auth.uid] == 'owner' &&
+                      // Timestamps must be set by the server
+                      request.resource.data.createdAt == request.time &&
+                      request.resource.data.updatedAt == request.time;
+
+      // --- Update Access ---
+      allow update: if request.auth != null && isActualMember() &&
+                      // Common validations for all updates:
+                      // 1. createdAt cannot be changed
+                      request.resource.data.createdAt == resource.data.createdAt &&
+                      // 2. updatedAt must be set to server timestamp
+                      request.resource.data.updatedAt == request.time &&
+                      // 3. The overall structure of the map data must remain valid
+                      isValidMapStructure(request.resource.data)
+      {
+        // Get the set of keys for fields that are actually being changed in this update request.
+        let changedKeys = request.resource.data.diff(resource.data).affectedKeys();
+        // Remove 'updatedAt' from changedKeys as it's always allowed/required to change.
+        let effectiveChangedKeys = changedKeys.removeAll(['updatedAt']);
+
+        // Case 1: Owner is changing (only the current owner can do this)
+        if (resource.data.ownerId != request.resource.data.ownerId) {
+          isActualOwner() &&
+          // New ownerId must be different from old one
+          request.resource.data.ownerId != resource.data.ownerId &&
+          // New owner must be set to 'owner' in collaborators
+          request.resource.data.collaborators[request.resource.data.ownerId] == 'owner' &&
+          // Old owner (the one making the request) must become 'co-owner'
+          request.resource.data.collaborators[request.auth.uid] == 'co-owner' &&
+          // Only 'ownerId', 'collaborators', 'memberUIDs' should be part of this specific type of change
+          effectiveChangedKeys.hasOnly(['ownerId', 'collaborators', 'memberUIDs'])
+        }
+        // Case 2: Edits by an Owner (not changing ownerId itself)
+        else if (isActualOwner()) {
+          // Owner can change any field in ownerEditableFields
+          effectiveChangedKeys.hasOnly(ownerEditableFields)
+        }
+        // Case 3: Edits by a Co-Owner
+        else if (isActualCoOwner()) {
+          // Co-Owner can change fields in coOwnerEditableFields
+          effectiveChangedKeys.hasOnly(coOwnerEditableFields) &&
+          // Co-Owner cannot make themselves the owner
+          request.resource.data.collaborators[request.auth.uid] != 'owner'
+        }
+        // Case 4: Edits by an Associate
+        else if (isActualAssociate()) {
+          // Associate can only change fields in associateEditableFields
+          effectiveChangedKeys.hasOnly(associateEditableFields)
+        }
+        // If none of the roles/conditions match for the changes being made
+        else {
+          false
+        }
+      }
+
+      // --- Delete Access ---
+      // Only the actual owner can delete the map.
+      allow delete: if request.auth != null && isActualOwner();
+    }
+  }
+}
+
+    
