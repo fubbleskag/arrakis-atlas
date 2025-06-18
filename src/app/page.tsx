@@ -1,4 +1,5 @@
-"use client"; // This page uses context and local storage, so it needs to be a client component
+
+"use client"; 
 
 import { AppHeader } from '@/components/AppHeader';
 import { DeepDesertGrid } from '@/components/map/DeepDesertGrid';
