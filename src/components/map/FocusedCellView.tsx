@@ -5,7 +5,7 @@ import type React from 'react';
 import { useMap } from '@/contexts/MapContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { IconPalette } from './IconPalette';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card'; // Removed CardHeader, CardTitle
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertTriangle } from 'lucide-react';
 
@@ -13,8 +13,6 @@ interface FocusedCellViewProps {
   rowIndex: number;
   colIndex: number;
 }
-
-const GRID_SIZE = 9;
 
 export function FocusedCellView({ rowIndex, colIndex }: FocusedCellViewProps) {
   const {
@@ -30,11 +28,20 @@ export function FocusedCellView({ rowIndex, colIndex }: FocusedCellViewProps) {
   const cellData = currentLocalGrid?.[rowIndex]?.[colIndex];
 
   if (isLoadingMapData || !currentMapData) {
+    // Sidebar specific skeleton
     return (
-        <div className="w-full h-full flex flex-col items-center justify-center p-4">
-            <Skeleton className="h-10 w-3/4 mb-6" />
-            <Skeleton className="h-8 w-1/2 mb-4" />
-            <Skeleton className="h-64 w-full" />
+        <div className="w-full h-full flex flex-col p-4 space-y-4">
+            <Skeleton className="h-8 w-3/4 mb-2" />
+            <Skeleton className="h-6 w-1/2 mb-4" />
+            <div className="space-y-3">
+                {Array.from({length: 4}).map((_,i) => (
+                    <div key={i} className="flex items-center space-x-2">
+                        <Skeleton className="h-5 w-5 rounded-sm" />
+                        <Skeleton className="h-5 w-2/3" />
+                    </div>
+                ))}
+            </div>
+            <Skeleton className="h-20 w-full mt-4" />
         </div>
     );
   }
@@ -45,7 +52,7 @@ export function FocusedCellView({ rowIndex, colIndex }: FocusedCellViewProps) {
         <AlertTriangle className="h-16 w-16 text-destructive" />
         <h2 className="text-2xl font-semibold text-destructive-foreground">Error</h2>
         <p className="text-muted-foreground">
-          Could not load data for the selected cell.
+          Cell data unavailable.
         </p>
       </div>
     );
@@ -53,21 +60,12 @@ export function FocusedCellView({ rowIndex, colIndex }: FocusedCellViewProps) {
 
   let canEdit = false;
   if (isAuthenticated && user && currentMapData) {
-    // Simplified permission: if the map belongs to the user, they can edit.
     canEdit = currentMapData.userId === user.uid;
   }
 
-  const rowLabel = String.fromCharCode(65 + (GRID_SIZE - 1 - rowIndex));
-  const colLabel = colIndex + 1;
-  const cellCoordinate = `${rowLabel}${colLabel}`;
-
   return (
-    <Card className="w-full h-full shadow-2xl flex flex-col overflow-hidden border-border bg-card">
-      <CardHeader className="py-3 px-4 md:px-5 flex-shrink-0">
-        <CardTitle className="text-lg md:text-xl text-primary">
-          Editing Cell: {cellCoordinate}
-        </CardTitle>
-      </CardHeader>
+    <Card className="w-full h-full shadow-lg flex flex-col overflow-hidden border-border bg-card">
+      {/* CardHeader removed */}
       <CardContent className="flex-grow overflow-y-auto p-3 md:p-4">
         <IconPalette
           currentIcons={cellData.icons}

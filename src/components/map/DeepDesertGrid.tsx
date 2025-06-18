@@ -27,22 +27,31 @@ export function DeepDesertGrid() {
     currentLocalGrid, 
     isLoadingMapData, 
     resetCurrentMapGrid,
-    currentMapData
+    currentMapData,
+    focusedCellCoordinates // Access focusedCellCoordinates to adjust width if sidebar is visible
   } = useMap(); 
   const { user, isAuthenticated } = useAuth();
 
 
   if (isLoadingMapData || !currentLocalGrid) {
+    // This case should ideally be handled by the skeleton in HomePageContent
     return <div>Loading map grid...</div>; 
   }
   
   const gridToRender: LocalGridState = currentLocalGrid;
 
-  // Determine if the current user can reset the map (must be the creator)
   let canResetMap = false;
   if (isAuthenticated && user && currentMapData) {
     canResetMap = currentMapData.userId === user.uid;
   }
+
+  // Adjust width calculation based on whether the sidebar (focused cell view) is active
+  const sidebarWidth = 350; // Approximate width of the sidebar
+  const gapWidth = 24; // gap-6 from parent, 6*4 = 24px
+  const gridWidthStyle = focusedCellCoordinates 
+    ? `min(calc(100vh - 250px), calc(100vw - 32px - ${sidebarWidth}px - ${gapWidth}px))`
+    : `min(calc(100vh - 250px), calc(100vw - 32px))`;
+
 
   return (
     <div className="flex flex-col items-center space-y-4 w-full">
@@ -52,7 +61,7 @@ export function DeepDesertGrid() {
           gridTemplateColumns: 'auto 1fr', 
           gridTemplateRows: 'auto 1fr',    
           gap: '0.25rem', 
-          width: 'min(calc(100vh - 250px), calc(100vw - 32px))',
+          width: gridWidthStyle, // Dynamic width
           maxWidth: '800px', 
         }}
       >
