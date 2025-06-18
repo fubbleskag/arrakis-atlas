@@ -4,140 +4,124 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions
-    function isAuthenticated() {
-      return request.auth != null;
+    // Helper function to check if a user is an actual owner of a map
+    function isActualOwner(userId, mapData) {
+      return mapData.ownerId == userId && mapData.collaborators[userId] == 'owner';
     }
 
-    function isUserProfile(data) {
-      return data.uid is string &&
-             (data.email == null || data.email is string) &&
-             (data.displayName == null || data.displayName is string) &&
-             (data.lastLogin == null || data.lastLogin is timestamp);
+    // Helper function to check if a user is an actual co-owner of a map
+    function isActualCoOwner(userId, mapData) {
+      return mapData.collaborators[userId] == 'co-owner';
     }
 
-    function isValidTimestamp(ts) {
-      return ts is timestamp && ts == request.time;
+    // Helper function to check if a user is an actual associate of a map
+    function isActualAssociate(userId, mapData) {
+      return mapData.collaborators[userId] == 'associate';
     }
 
-    // Map specific helpers
-    function isOwner(authUid, mapData) {
-      return authUid == mapData.ownerId;
-    }
-
-    function isCoOwner(authUid, mapData) {
-      return mapData.collaborators[authUid] == 'co-owner';
-    }
-
-    function isAssociate(authUid, mapData) {
-      return mapData.collaborators[authUid] == 'associate';
-    }
-
-    function isMember(authUid, mapData) {
-      return authUid in mapData.memberUIDs;
-    }
-    
-    function isOneOwner(collaborators, ownerId) {
-      return collaborators[ownerId] == 'owner' &&
-             collaborators.filter((uid, role) => role == 'owner').size() == 1;
-    }
-
+    // Helper function to validate the structure of MapData
     function isValidMapStructure(data) {
-      return data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
-             data.ownerId is string &&
-             data.memberUIDs is list && data.memberUIDs.size() > 0 &&
-             data.collaborators is map && data.collaborators.size() > 0 &&
+      return data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.ownerId is string && data.ownerId.size() > 0 &&
+             data.memberUIDs is list && data.ownerId in data.memberUIDs &&
+             data.collaborators is map && data.ownerId in data.collaborators.keys() &&
+             data.collaborators[data.ownerId] == 'owner' &&
+             // Ensure all collaborators are members and all members (except public viewers) have a collaborator entry
+             data.memberUIDs.hasOnly(data.collaborators.keys()) && data.collaborators.keys().hasAll(data.memberUIDs) &&
+             data.collaborators.values().hasAny(['owner', 'co-owner', 'associate']) && // Check for valid roles
              data.isPublic is bool &&
              data.gridState is map &&
-             // Ensure all memberUIDs are strings and owner is a member
-             data.memberUIDs.hasAll([data.ownerId]) &&
-             data.memberUIDs.size() == data.memberUIDs.filter(uid => uid is string).size() &&
-             // Ensure collaborator keys are strings (UIDs) and values are valid roles
-             data.collaborators.keys().size() == data.collaborators.keys().filter(k => k is string).size() &&
-             data.collaborators.values().hasOnly(['owner', 'co-owner', 'associate']) &&
-             // Owner must be in collaborators with 'owner' role and only one owner
-             isOneOwner(data.collaborators, data.ownerId) &&
-             // All UIDs in collaborators map must also be in memberUIDs list
-             data.memberUIDs.hasAll(data.collaborators.keys()) &&
-             // All UIDs in memberUIDs list must also be in collaborators map (ensures they are the same set of people, plus potentially public)
-             data.collaborators.keys().hasAll(data.memberUIDs) &&
-             // Basic GridState check: keys are strings (e.g., "0", "1")
-             (data.gridState.size() == 0 || data.gridState.keys().size() == data.gridState.keys().filter(k => k is string).size());
-             // Add more detailed gridState cell validation if necessary
+             // Example: Check if gridState has row keys "0" through "8"
+             // This can be expanded to check cell structure if needed, but can become complex/costly
+             ('0' in data.gridState.keys()) && // Simplified check for brevity
+             data.createdAt is timestamp &&
+             data.updatedAt is timestamp;
     }
 
-    // Let bindings for field lists (allowed at this scope)
-    let ownerEditableFields = ['name', 'gridState', 'isPublic', 'collaborators', 'memberUIDs', 'ownerId'];
-    let coOwnerEditableFields = ['name', 'gridState', 'isPublic', 'collaborators', 'memberUIDs'];
-    let associateEditableFields = ['gridState']; // Changed from ['name', 'gridState'] as per typical associate role. Adjust if 'name' is also desired.
-
-
-    // Users Collection
     match /users/{userId} {
-      allow read: if isAuthenticated(); // Allow authenticated users to read profiles (e.g., for email lookup)
-      allow create: if isAuthenticated() && request.auth.uid == userId &&
-                       isUserProfile(request.resource.data) &&
-                       isValidTimestamp(request.resource.data.lastLogin);
-      allow update: if isAuthenticated() && request.auth.uid == userId &&
-                       isUserProfile(request.resource.data) &&
-                       request.resource.data.uid == resource.data.uid && // uid immutable
-                       isValidTimestamp(request.resource.data.lastLogin);
+      allow read: if request.auth != null; // Allows authenticated users to read profiles (e.g., for email lookup)
+      allow create: if request.auth.uid == userId &&
+                       request.resource.data.uid == userId &&
+                       request.resource.data.email == request.auth.token.email &&
+                       (request.resource.data.displayName == request.auth.token.name || request.resource.data.displayName == null) &&
+                       request.resource.data.lastLogin == request.time;
+      allow update: if request.auth.uid == userId &&
+                       request.resource.data.uid == userId && // uid cannot change
+                       request.resource.data.email == request.auth.token.email && // email can be updated if auth token reflects it
+                       // Allow displayName to be updated
+                       request.resource.data.lastLogin == request.time && // lastLogin updated on every write
+                       // Prevent other fields from being added/changed
+                       request.resource.data.keys().hasOnly(['uid', 'email', 'displayName', 'lastLogin']);
     }
 
-    // Maps Collection
     match /maps/{mapId} {
-      allow read: if resource.data.isPublic == true || (isAuthenticated() && isMember(request.auth.uid, resource.data));
+      let ownerEditableFields = ['name', 'isPublic', 'gridState', 'collaborators', 'memberUIDs', 'ownerId'];
+      let coOwnerEditableFields = ['name', 'isPublic', 'gridState', 'collaborators', 'memberUIDs'];
+      let associateEditableFields = ['gridState']; // Associates can only edit the grid
 
-      allow create: if isAuthenticated() &&
-                       request.auth.uid == request.resource.data.ownerId &&
-                       request.resource.data.memberUIDs == [request.auth.uid] &&
-                       request.resource.data.collaborators == {request.auth.uid: 'owner'} &&
-                       isValidTimestamp(request.resource.data.createdAt) &&
-                       isValidTimestamp(request.resource.data.updatedAt) &&
-                       request.resource.data.createdAt == request.resource.data.updatedAt &&
+      allow read: if resource.data.isPublic == true || (request.auth != null && request.auth.uid in resource.data.memberUIDs);
+
+      allow create: if request.auth.uid == request.resource.data.ownerId &&
+                       request.auth.uid in request.resource.data.memberUIDs &&
+                       request.resource.data.memberUIDs.size() == 1 &&
+                       request.resource.data.collaborators[request.auth.uid] == 'owner' &&
+                       request.resource.data.collaborators.size() == 1 &&
+                       request.resource.data.createdAt == request.time &&
+                       request.resource.data.updatedAt == request.time &&
                        isValidMapStructure(request.resource.data);
 
-      allow delete: if isAuthenticated() && isOwner(request.auth.uid, resource.data);
+      allow update: if request.auth != null && request.auth.uid in resource.data.memberUIDs &&
+                       isValidMapStructure(request.resource.data) &&
+                       request.resource.data.createdAt == resource.data.createdAt && // createdAt is immutable
+                       request.resource.data.updatedAt == request.time { // updatedAt must be set to server time
 
-      // Update Logic
-      allow update: if
-        // Common Pre-conditions
-        isAuthenticated() &&
-        isMember(request.auth.uid, resource.data) && // User must be a current member
-        request.resource.data.createdAt == resource.data.createdAt && // createdAt is immutable
-        isValidTimestamp(request.resource.data.updatedAt) &&
-        isValidMapStructure(request.resource.data) && // New structure must be valid
+                        let changedKeys = request.resource.data.diff(resource.data).affectedKeys().removeAll(['updatedAt']);
 
-        // Field Change Logic
-        (
-          // Case 1: Owner Transfer
-          ( request.resource.data.ownerId != resource.data.ownerId && // ownerId is actually changing
-            isOwner(request.auth.uid, resource.data) && // Only current owner can initiate transfer
-            request.resource.data.collaborators[request.resource.data.ownerId] == 'owner' && // New owner gets 'owner' role in new data
-            (resource.data.ownerId == request.auth.uid ? request.resource.data.collaborators[resource.data.ownerId] == 'co-owner' : true) && // Old owner (if not new owner) becomes co-owner
-            isMember(request.resource.data.ownerId, request.resource.data) && // New owner must be a member in new data
-            request.resource.data.diff(resource.data).affectedKeys().removeAll(['updatedAt']).hasOnly(['ownerId', 'collaborators', 'memberUIDs']) // Only specific fields allowed during transfer
-          ) ||
-          // Case 2: Not an Owner Transfer - Regular Edits
-          ( request.resource.data.ownerId == resource.data.ownerId &&
-            (
-              // Owner edits
-              (isOwner(request.auth.uid, resource.data) &&
-                request.resource.data.diff(resource.data).affectedKeys().removeAll(['updatedAt', 'ownerId', 'createdAt']).hasAny(ownerEditableFields.removeAll(['ownerId']))
-              ) ||
-              // Co-Owner edits
-              (isCoOwner(request.auth.uid, resource.data) &&
-                request.resource.data.collaborators[resource.data.ownerId] == 'owner' && // Ensure original owner remains owner
-                request.resource.data.diff(resource.data).affectedKeys().removeAll(['updatedAt', 'ownerId', 'createdAt']).hasOnly(coOwnerEditableFields.removeAll(['ownerId']))
-              ) ||
-              // Associate edits
-              (isAssociate(request.auth.uid, resource.data) &&
-                request.resource.data.collaborators[resource.data.ownerId] == 'owner' && // Ensure original owner remains owner
-                request.resource.data.diff(resource.data).affectedKeys().removeAll(['updatedAt', 'ownerId', 'createdAt']).hasOnly(associateEditableFields.removeAll(['ownerId']))
-              )
-            )
-          )
-        );
+                        // Case 1: Owner Transfer
+                        // Initiated by current owner, ownerId is changing.
+                        if (resource.data.ownerId == request.auth.uid &&
+                            request.resource.data.ownerId != resource.data.ownerId &&
+                            request.resource.data.collaborators[request.resource.data.ownerId] == 'owner' && // New owner has 'owner' role
+                            request.resource.data.collaborators[resource.data.ownerId] == 'co-owner' && // Old owner becomes 'co-owner'
+                            request.resource.data.memberUIDs.hasAll([request.resource.data.ownerId, resource.data.ownerId]) && // Both involved UIDs are members
+                            changedKeys.hasOnly(['ownerId', 'collaborators', 'memberUIDs']) // Only these fields can change during owner transfer
+                           ) {
+                          allow update: true;
+                        }
+                        // Case 2: Regular Edits (Owner, Co-Owner, Associate)
+                        // ownerId is NOT changing, and original owner must remain 'owner'.
+                        else if (request.resource.data.ownerId == resource.data.ownerId &&
+                                 request.resource.data.collaborators[resource.data.ownerId] == 'owner'
+                                ) {
+                          // Owner edits
+                          if (isActualOwner(request.auth.uid, resource.data) &&
+                              changedKeys.removeAll(['createdAt', 'ownerId']).hasOnly(ownerEditableFields.removeAll(['ownerId']))) { // Owner can edit all their fields except transferring ownership this way
+                             allow update: true;
+                          }
+                          // Co-Owner edits
+                          else if (isActualCoOwner(request.auth.uid, resource.data) &&
+                                   changedKeys.removeAll(['createdAt', 'ownerId']).hasOnly(coOwnerEditableFields) && // Co-owner cannot change ownerId
+                                   !(request.resource.data.ownerId != resource.data.ownerId) // double check ownerId not changed
+                                  ) {
+                             allow update: true;
+                          }
+                          // Associate edits
+                          else if (isActualAssociate(request.auth.uid, resource.data) &&
+                                   changedKeys.removeAll(['createdAt', 'ownerId', 'name', 'isPublic', 'collaborators', 'memberUIDs']).hasOnly(associateEditableFields) && // Associate can only edit gridState
+                                   !(request.resource.data.ownerId != resource.data.ownerId) // double check ownerId not changed
+                                  ) {
+                             allow update: true;
+                          }
+                          else {
+                            allow update: false;
+                          }
+                        }
+                        else {
+                          allow update: false;
+                        }
+                       }
+
+      allow delete: if request.auth != null && request.auth.uid == resource.data.ownerId;
     }
   }
 }
