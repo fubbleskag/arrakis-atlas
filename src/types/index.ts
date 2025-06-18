@@ -28,8 +28,6 @@ export interface IconConfig {
   IconComponent: React.FC<React.SVGProps<SVGSVGElement>>;
 }
 
-// Removed UserRole and CollaboratorEntry types
-
 export interface MapData {
   id: string; // Firestore document ID
   userId: string; // UID of the user who created this map
@@ -45,3 +43,10 @@ export interface UserProfile {
   displayName: string | null;
   lastLogin?: Timestamp;
 }
+
+export interface FocusedCellCoordinates {
+  rowIndex: number;
+  colIndex: number;
+}
+
+    

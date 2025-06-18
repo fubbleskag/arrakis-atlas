@@ -3,7 +3,7 @@
 
 import type React from 'react';
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import type { LocalGridState, FirestoreGridState, IconType, MapData } from '@/types';
+import type { LocalGridState, FirestoreGridState, IconType, MapData, FocusedCellCoordinates } from '@/types';
 import { useAuth } from './AuthContext';
 import { db } from '@/firebase/firebaseConfig';
 import {
@@ -17,7 +17,6 @@ import {
   serverTimestamp,
   deleteDoc,
   Timestamp,
-  // getDocs, // No longer needed for findUserByEmail
 } from 'firebase/firestore';
 import { useToast } from "@/hooks/use-toast";
 
@@ -70,6 +69,8 @@ interface MapContextType {
   currentLocalGrid: LocalGridState | null;
   isLoadingMapList: boolean;
   isLoadingMapData: boolean;
+  focusedCellCoordinates: FocusedCellCoordinates | null; // New state for focused cell
+  setFocusedCellCoordinates: (coordinates: FocusedCellCoordinates | null) => void; // New function
   selectMap: (mapId: string | null) => void;
   createMap: (name: string) => Promise<string | null>;
   deleteMap: (mapId: string) => Promise<void>;
@@ -78,7 +79,6 @@ interface MapContextType {
   clearIconsInCell: (rowIndex: number, colIndex: number) => void;
   updateCellNotes: (rowIndex: number, colIndex: number, notes: string) => void;
   resetCurrentMapGrid: () => void;
-  // Removed addCollaborator and removeCollaborator
 }
 
 const MapContext = createContext<MapContextType | undefined>(undefined);
@@ -91,6 +91,8 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [currentMapId, setCurrentMapId] = useState<string | null>(null);
   const [currentMapData, setCurrentMapData] = useState<MapData | null>(null);
   const [currentLocalGrid, setCurrentLocalGrid] = useState<LocalGridState | null>(null);
+  const [focusedCellCoordinates, setFocusedCellCoordinates] = useState<FocusedCellCoordinates | null>(null);
+
 
   const [isLoadingMapList, setIsLoadingMapList] = useState<boolean>(true);
   const [isLoadingMapData, setIsLoadingMapData] = useState<boolean>(false);
@@ -101,13 +103,13 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setCurrentMapId(null);
       setCurrentMapData(null);
       setCurrentLocalGrid(null);
+      setFocusedCellCoordinates(null);
       setIsLoadingMapList(user ? true : false);
       return;
     }
 
     setIsLoadingMapList(true);
     const mapsCollectionRef = collection(db, "maps");
-    // Query maps where the current user is the creator
     const q = query(mapsCollectionRef, where("userId", "==", user.uid));
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
@@ -130,6 +132,7 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!currentMapId) {
       setCurrentMapData(null);
       setCurrentLocalGrid(null);
+      setFocusedCellCoordinates(null);
       setIsLoadingMapData(false);
       return;
     }
@@ -139,7 +142,6 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const unsubscribe = onSnapshot(mapDocRef, (docSnap) => {
       if (docSnap.exists()) {
         const mapData = { id: docSnap.id, ...docSnap.data() } as MapData;
-        // Ensure the current user is the owner of this map before setting it
         if (user && mapData.userId === user.uid) {
           setCurrentMapData(mapData);
           setCurrentLocalGrid(convertFirestoreToLocalGrid(mapData.gridState));
@@ -148,12 +150,14 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           setCurrentMapData(null);
           setCurrentLocalGrid(null);
           setCurrentMapId(null); 
+          setFocusedCellCoordinates(null);
         }
       } else {
         toast({ title: "Error", description: `Map with ID ${currentMapId} not found. Selecting no map.`, variant: "destructive" });
         setCurrentMapData(null);
         setCurrentLocalGrid(null);
-        setCurrentMapId(null); 
+        setCurrentMapId(null);
+        setFocusedCellCoordinates(null);
       }
       setIsLoadingMapData(false);
     }, (error) => {
@@ -168,6 +172,7 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const selectMap = useCallback((mapId: string | null) => {
     if (mapId === currentMapId) return; 
     setCurrentMapId(mapId);
+    setFocusedCellCoordinates(null); // Reset focused cell when changing maps
   }, [currentMapId]);
 
   const createMap = useCallback(async (name: string): Promise<string | null> => {
@@ -179,7 +184,7 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const now = serverTimestamp();
     const newMapData: Omit<MapData, 'id'> = {
       name,
-      userId: user.uid, // Set the creator as the userId
+      userId: user.uid,
       gridState: convertLocalToFirestoreGrid(initializeLocalGrid()),
       createdAt: now as Timestamp,
       updatedAt: now as Timestamp,
@@ -199,12 +204,12 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [user, toast, selectMap]);
   
-  const updateMapInFirestore = useCallback(async (mapId: string, updates: Partial<Omit<MapData, 'id' | 'userId' | 'createdAt'>>) => {
+  const updateMapInFirestore = useCallback(async (mapId: string, updates: Partial<Omit<MapData, 'id' | 'createdAt'>>) => {
     if (!user) {
         toast({ title: "Error", description: "Authentication required.", variant: "destructive" });
         throw new Error("Authentication required");
     }
-    const mapToUpdate = userMapList.find(m => m.id === mapId);
+    const mapToUpdate = userMapList.find(m => m.id === mapId) || (currentMapData?.id === mapId ? currentMapData : null) ;
     if (!mapToUpdate || mapToUpdate.userId !== user.uid) {
         toast({ title: "Permission Denied", description: "You do not have permission to update this map.", variant: "destructive" });
         throw new Error("Permission denied");
@@ -218,14 +223,13 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       toast({ title: "Save Error", description: `Could not save map changes: ${error.message}`, variant: "destructive" });
       throw error; 
     }
-  }, [user, toast, userMapList]);
+  }, [user, toast, userMapList, currentMapData]);
 
   const updateCurrentMapGridInFirestore = useCallback(async (newLocalGrid: LocalGridState) => {
     if (!currentMapId || !user) return;
     
-    const mapData = currentMapData; // Use currentMapData from state
+    const mapData = currentMapData;
     if (!mapData || mapData.userId !== user.uid) {
-        // This check might be redundant if selectMap already filters, but good for safety
         toast({ title: "Permission Denied", description: "You cannot modify this map's grid.", variant: "destructive" });
         return;
     }
@@ -334,8 +338,8 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           toast({ title: "Error", description: "Authentication required.", variant: "destructive" });
           return;
       }
-      const mapData = userMapList.find(m => m.id === mapId);
-       if (!mapData || mapData.userId !== user.uid) {
+      const mapDataToUpdate = userMapList.find(m => m.id === mapId) || (currentMapData?.id === mapId ? currentMapData : null);
+       if (!mapDataToUpdate || mapDataToUpdate.userId !== user.uid) {
            toast({ title: "Permission Denied", description: "You do not have permission to change the map name.", variant: "destructive" });
            return;
        }
@@ -345,7 +349,7 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       } catch (error) {
           // Error already handled by updateMapInFirestore
       }
-  }, [user, userMapList, toast, updateMapInFirestore]);
+  }, [user, userMapList, currentMapData, toast, updateMapInFirestore]);
 
   return (
     <MapContext.Provider value={{
@@ -355,6 +359,8 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       currentLocalGrid,
       isLoadingMapList,
       isLoadingMapData: isLoadingMapData || (currentMapId ? !currentMapData : false),
+      focusedCellCoordinates,
+      setFocusedCellCoordinates,
       selectMap,
       createMap,
       deleteMap,
@@ -376,3 +382,5 @@ export const useMap = (): MapContextType => {
   }
   return context;
 };
+
+    

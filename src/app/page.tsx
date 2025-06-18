@@ -4,15 +4,16 @@
 import { AppHeader } from '@/components/AppHeader';
 import { DeepDesertGrid } from '@/components/map/DeepDesertGrid';
 import { MapManager } from '@/components/map/MapManager';
+import { FocusedCellView } from '@/components/map/FocusedCellView'; // Import new component
 import { AuthProvider } from '@/contexts/AuthContext';
-import { MapProvider, useMap } from '@/contexts/MapContext'; // Changed from GridProvider
+import { MapProvider, useMap } from '@/contexts/MapContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertTriangle } from 'lucide-react';
 
 function HomePageContent() {
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
-  const { currentMapId, isLoadingMapList, isLoadingMapData, userMapList } = useMap();
+  const { currentMapId, isLoadingMapList, isLoadingMapData, focusedCellCoordinates, currentLocalGrid } = useMap(); // Added focusedCellCoordinates and currentLocalGrid
 
   const overallLoading = isAuthLoading || isLoadingMapList;
 
@@ -42,7 +43,20 @@ function HomePageContent() {
     return <MapManager />;
   }
 
-  if (isLoadingMapData || !currentMapId) { // Show loading for selected map data
+  // If a cell is focused, show the FocusedCellView
+  if (focusedCellCoordinates && currentLocalGrid) {
+    const cellData = currentLocalGrid[focusedCellCoordinates.rowIndex]?.[focusedCellCoordinates.colIndex];
+    if (cellData) {
+      return <FocusedCellView 
+                rowIndex={focusedCellCoordinates.rowIndex} 
+                colIndex={focusedCellCoordinates.colIndex} 
+             />;
+    }
+    // Fallback or error if cellData is not found, though ideally setFocusedCellCoordinates would prevent this
+  }
+
+
+  if (isLoadingMapData || !currentMapId) { 
      return (
       <div className="flex flex-col items-center space-y-4 w-full p-8 flex-grow">
          <Skeleton className="h-10 w-full max-w-lg mb-4" />
@@ -52,7 +66,7 @@ function HomePageContent() {
             gridTemplateColumns: 'auto 1fr',
             gridTemplateRows: 'auto 1fr',
             gap: '0.25rem', 
-            width: 'min(calc(100vh - 250px), calc(100vw - 32px))', // Adjusted height
+            width: 'min(calc(100vh - 250px), calc(100vw - 32px))',
             maxWidth: '800px',
           }}
         >
@@ -77,14 +91,14 @@ function HomePageContent() {
       </div>
     );
   }
-
+  
   return <DeepDesertGrid />;
 }
 
 export default function Home() {
   return (
     <AuthProvider>
-      <MapProvider> {/* Changed from GridProvider */}
+      <MapProvider> 
         <div className="flex flex-col min-h-screen bg-background">
           <AppHeader />
           <main className="flex-grow container mx-auto px-4 py-8 flex flex-col items-center">
@@ -98,3 +112,5 @@ export default function Home() {
     </AuthProvider>
   );
 }
+
+    
