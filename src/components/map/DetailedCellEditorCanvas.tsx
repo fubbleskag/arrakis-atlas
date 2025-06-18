@@ -4,10 +4,11 @@
 import type React from 'react';
 import { useMap } from '@/contexts/MapContext';
 import { ICON_CONFIG_MAP } from '@/components/icons';
-import { ICON_TYPES, type PlacedIcon, type IconType } from '@/types';
+import { ICON_TYPES, type PlacedIcon, type IconType } from '@/types'; // ICON_TYPES is from @/types
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertTriangle } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext'; // Import useAuth
 
 interface DetailedCellEditorCanvasProps {
   rowIndex: number;
@@ -16,7 +17,9 @@ interface DetailedCellEditorCanvasProps {
 }
 
 export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: DetailedCellEditorCanvasProps) {
-  const { currentLocalGrid, isLoadingMapData, currentMapData, addPlacedIconToCell, user } = useMap();
+  const { currentLocalGrid, isLoadingMapData, currentMapData, addPlacedIconToCell } = useMap();
+  const { user } = useAuth(); // Get user from AuthContext
+
   const cellData = currentLocalGrid?.[rowIndex]?.[colIndex];
 
   let canEdit = false;
@@ -52,53 +55,32 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    if (!canEdit) return;
+    if (!canEdit) {
+      console.warn("Attempted to drop icon, but editing is not allowed.");
+      return;
+    }
 
     const iconTypeString = e.dataTransfer.getData("iconType");
-    // Validate if iconTypeString is one of the allowed IconType values
     if (!ICON_TYPES.includes(iconTypeString as IconType)) {
         console.warn("Invalid icon type dropped:", iconTypeString);
-        return; // Or handle error appropriately
+        return;
     }
     const iconType = iconTypeString as IconType;
 
-
     const canvasRect = e.currentTarget.getBoundingClientRect();
-    // Calculate position ensuring it's within 0-100 bounds and accounts for icon size (centering roughly)
-    // Icon width/height assumed to be 32px for this calculation.
-    const iconWidthPx = 32; 
-    const iconHeightPx = 32;
-
     let x = ((e.clientX - canvasRect.left) / canvasRect.width) * 100;
     let y = ((e.clientY - canvasRect.top) / canvasRect.height) * 100;
 
-    // Adjust to center the icon on the drop point
-    // The icon's transform: translate(-50%, -50%) means its 'left' and 'top' CSS properties
-    // refer to its center. So, the raw x and y are already the center.
-    // We just need to clamp them to be within the canvas bounds (0-100).
-    
     x = Math.max(0, Math.min(100, x));
     y = Math.max(0, Math.min(100, y));
 
-
+    console.log(`DetailedCellEditorCanvas: Dropped ${iconType} at ${x.toFixed(1)}%, ${y.toFixed(1)}% for cell ${rowIndex},${colIndex}. Calling addPlacedIconToCell.`);
     addPlacedIconToCell(rowIndex, colIndex, iconType, x, y);
   };
 
-  // TODO: Implement handleIconDragStart for moving existing icons
-  // const handleIconDragStart = (e: React.DragEvent<HTMLDivElement>, placedIconId: string) => {
-  //   if (!canEdit) {
-  //     e.preventDefault();
-  //     return;
-  //   }
-  //   e.dataTransfer.setData("placedIconId", placedIconId);
-  //   e.dataTransfer.setData("sourceRowIndex", rowIndex.toString());
-  //   e.dataTransfer.setData("sourceColIndex", colIndex.toString());
-  //   e.dataTransfer.effectAllowed = "move";
-  // };
-
   return (
     <div 
-      className={cn("relative overflow-hidden", className)} // Canvas is made square by parent in page.tsx
+      className={cn("relative overflow-hidden", className)}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
@@ -109,13 +91,11 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
         return (
           <div
             key={icon.id}
-            // draggable={canEdit} // Will be enabled later for moving existing icons
-            // onDragStart={(e) => handleIconDragStart(e, icon.id)} // Will be implemented later
             className={cn("absolute", canEdit ? "cursor-move" : "cursor-default")}
             style={{
               left: `${icon.x}%`,
               top: `${icon.y}%`,
-              transform: 'translate(-50%, -50%)', // Center the icon on its (x,y)
+              transform: 'translate(-50%, -50%)',
               width: '32px', 
               height: '32px',
             }}
