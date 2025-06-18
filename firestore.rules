@@ -4,60 +4,72 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check user profile structure
-    function isValidUserProfile(data) {
-      return data.keys().hasAll(['email', 'displayName', 'lastLogin']) &&
-             (data.email == null || data.email is string) &&
-             (data.displayName == null || data.displayName is string) &&
-             data.lastLogin == request.time;
+    // Helper function to check if the user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
     }
 
-    // Helper function to check map data structure (simplified)
-    function isValidMapData(data, isCreate) {
-      let baseValidation = data.keys().hasAll(['userId', 'name', 'gridState', 'createdAt', 'updatedAt']) &&
-             data.userId is string &&
-             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
-             data.gridState is map; // Simple check for gridState
-
-      if (isCreate) {
-        return baseValidation &&
-               data.createdAt == request.time &&
-               data.updatedAt == request.time &&
-               data.userId == request.auth.uid;
-      }
-      return baseValidation;
+    // Helper function to check if the request.auth.uid matches the document's userId
+    function isOwner(docData) {
+      return isAuthenticated() && request.auth.uid == docData.userId;
     }
+
+    // Helper function to validate the basic structure of a user profile
+    // Note: uid is the document ID, not a field in the document itself.
+    function isValidUserProfileData(data) {
+      return data.keys().hasAll(['email', 'displayName', 'lastLogin'])
+             && data.email is string || data.email == null
+             && data.displayName is string || data.displayName == null
+             && data.lastLogin is timestamp;
+    }
+
+    // Helper function to validate the basic structure of a map document
+    function isValidMapData(data) {
+      return data.keys().hasAll(['userId', 'name', 'gridState', 'createdAt', 'updatedAt'])
+             && data.userId is string
+             && data.userId == request.auth.uid // On create, userId must be the creator
+             && data.name is string
+             && data.gridState is map
+             && data.createdAt is timestamp
+             && data.updatedAt is timestamp;
+    }
+     function isValidMapDataForUpdate(newData, oldData) {
+      return newData.keys().hasAll(['userId', 'name', 'gridState', 'createdAt', 'updatedAt'])
+             && newData.userId is string
+             && newData.userId == oldData.userId // userId cannot change
+             && newData.name is string
+             && newData.gridState is map
+             && newData.createdAt is timestamp
+             && newData.createdAt == oldData.createdAt // createdAt cannot change
+             && newData.updatedAt is timestamp;
+    }
+
 
     // Rules for user profiles
     match /users/{userId} {
-      allow get: if request.auth.uid != null;
-      allow list: if request.auth.uid != null; // To allow querying users by email if needed in future, but not used now.
-      allow create: if request.auth.uid == userId && isValidUserProfile(request.resource.data);
-      allow update: if request.auth.uid == userId &&
-                      request.resource.data.keys().hasAll(['email', 'displayName', 'lastLogin']) &&
-                      (request.resource.data.email == null || request.resource.data.email is string) &&
-                      (request.resource.data.displayName == null || request.resource.data.displayName is string) &&
-                      request.resource.data.lastLogin == request.time;
-      // No delete rule for user profiles for now
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      allow create: if isAuthenticated() && request.auth.uid == userId
+                      && isValidUserProfileData(request.resource.data);
+      allow update: if isAuthenticated() && request.auth.uid == userId
+                      && isValidUserProfileData(request.resource.data)
+                      && request.resource.data.lastLogin == request.time; // Ensure lastLogin is updated to server time
+      allow delete: if false; // Generally, users don't delete their own profiles directly
     }
 
-    // Rules for maps (simplified)
+    // Rules for maps
     match /maps/{mapId} {
-      let mapData = resource.data;
-      let requestMapData = request.resource.data;
+      allow read: if isAuthenticated() && isOwner(resource.data);
 
-      allow read: if request.auth.uid != null && mapData.userId == request.auth.uid;
+      allow create: if isAuthenticated()
+                      && isValidMapData(request.resource.data)
+                      && request.resource.data.createdAt == request.time
+                      && request.resource.data.updatedAt == request.time;
 
-      allow create: if request.auth.uid != null && isValidMapData(requestMapData, true);
+      allow update: if isAuthenticated() && isOwner(resource.data)
+                      && isValidMapDataForUpdate(request.resource.data, resource.data)
+                      && request.resource.data.updatedAt == request.time; // Ensure updatedAt is server time
 
-      allow update: if request.auth.uid != null &&
-                      mapData.userId == request.auth.uid && // Only creator can update
-                      isValidMapData(requestMapData, false) &&
-                      requestMapData.userId == mapData.userId && // userId cannot change
-                      requestMapData.createdAt == mapData.createdAt && // createdAt cannot change
-                      requestMapData.updatedAt == request.time; // updatedAt must be server timestamp
-
-      allow delete: if request.auth.uid != null && mapData.userId == request.auth.uid; // Only creator can delete
+      allow delete: if isAuthenticated() && isOwner(resource.data);
     }
   }
 }
