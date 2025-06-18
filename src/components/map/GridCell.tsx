@@ -7,7 +7,7 @@ import { ICON_CONFIG_MAP } from '@/components/icons';
 import { useMap } from '@/contexts/MapContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
-import { Lock, StickyNote } from 'lucide-react';
+import { Lock, StickyNote, Eye } from 'lucide-react';
 
 interface GridCellProps {
   rowIndex: number;
@@ -114,16 +114,12 @@ export function GridCell({ rowIndex, colIndex, onMouseEnterCell, onMouseLeaveCel
           </div>
         )}
 
-         {isEmptyCell && currentMapData && (
-           <span className="absolute text-xs text-muted-foreground group-hover:text-accent-foreground">
-             {canEdit ? "Edit" : "View"}
-           </span>
-         )}
-         {(!isEmptyCell) && currentMapData && ( 
-             <span className="absolute bottom-1 right-1 text-[10px] text-muted-foreground/70 group-hover:text-accent-foreground opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-              {canEdit ? "Edit" : "View"}
-            </span>
-          )}
+        {currentMapData && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <Eye className="h-1/2 w-1/2 text-foreground opacity-10 group-hover:opacity-30 transition-opacity duration-150" />
+            </div>
+        )}
+         
       </button>
   );
 }
