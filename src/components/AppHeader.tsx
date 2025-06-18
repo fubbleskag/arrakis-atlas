@@ -26,24 +26,20 @@ export function AppHeader() {
     }
   }
 
-  const handleBackOrMapsClick = () => {
-    if (focusedCellCoordinates) {
-      setFocusedCellCoordinates(null); // Go back from focused cell view
-    } else {
-      selectMap(null); // Go back to map list
-    }
+  const handleBackOrHomeClick = () => {
+    selectMap(null); // Always go back to map list view
   };
 
-  const showBackButton = currentMapId; // Show back button if a map is selected (even if a cell is focused)
+  const showNavigationButton = currentMapId; 
 
   return (
     <header className="py-4 px-6 border-b border-border">
       <div className="container mx-auto flex justify-between items-center">
         <div className="flex items-center gap-4">
-          {showBackButton && (
-            <Button variant="outline" size="sm" onClick={handleBackOrMapsClick} title={focusedCellCoordinates ? "Back to Map" : "Back to Map List"}>
+          {showNavigationButton && (
+            <Button variant="outline" size="sm" onClick={handleBackOrHomeClick} title={"Back to Map List"}>
               <ChevronLeft className="h-4 w-4 mr-1" />
-              {focusedCellCoordinates ? "Back" : "Maps"}
+              {focusedCellCoordinates ? "Home" : "Maps"}
             </Button>
           )}
           <h1 className="text-xl md:text-2xl font-headline font-semibold text-primary truncate max-w-[200px] sm:max-w-xs md:max-w-sm lg:max-w-lg xl:max-w-2xl">
@@ -55,5 +51,3 @@ export function AppHeader() {
     </header>
   );
 }
-
-    

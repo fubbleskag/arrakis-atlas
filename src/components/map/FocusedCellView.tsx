@@ -5,9 +5,10 @@ import type React from 'react';
 import { useMap } from '@/contexts/MapContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { IconPalette } from './IconPalette';
-import { Card, CardContent } from '@/components/ui/card'; // Removed CardHeader, CardTitle
+import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, X as XIcon } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface FocusedCellViewProps {
   rowIndex: number;
@@ -22,13 +23,13 @@ export function FocusedCellView({ rowIndex, colIndex }: FocusedCellViewProps) {
     updateCellNotes,
     currentMapData,
     isLoadingMapData,
+    setFocusedCellCoordinates, // For the close button
   } = useMap();
   const { isAuthenticated, user } = useAuth();
 
   const cellData = currentLocalGrid?.[rowIndex]?.[colIndex];
 
   if (isLoadingMapData || !currentMapData) {
-    // Sidebar specific skeleton
     return (
         <div className="w-full h-full flex flex-col p-4 space-y-4">
             <Skeleton className="h-8 w-3/4 mb-2" />
@@ -65,8 +66,18 @@ export function FocusedCellView({ rowIndex, colIndex }: FocusedCellViewProps) {
 
   return (
     <Card className="w-full h-full shadow-lg flex flex-col overflow-hidden border-border bg-card">
-      {/* CardHeader removed */}
       <CardContent className="flex-grow overflow-y-auto p-3 md:p-4">
+        <div className="flex justify-end mb-1">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => setFocusedCellCoordinates(null)}
+            aria-label="Close sidebar"
+            className="h-7 w-7 text-muted-foreground hover:text-foreground"
+          >
+            <XIcon className="h-4 w-4" />
+          </Button>
+        </div>
         <IconPalette
           currentIcons={cellData.icons}
           onIconChange={(icon) => toggleIconInCell(rowIndex, colIndex, icon)}
