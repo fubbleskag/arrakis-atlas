@@ -7,6 +7,7 @@ import { ICON_TYPES, type IconType } from '@/types';
 import { ICON_CONFIG_MAP } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label'; // Added import
 import { Separator } from '@/components/ui/separator';
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -27,7 +28,7 @@ export function IconSourcePalette({ rowIndex, colIndex }: IconSourcePaletteProps
   const {
     currentLocalGrid,
     updateCellNotes,
-    clearAllPlacedIconsInCell, // Using the new function
+    clearAllPlacedIconsInCell, 
     setFocusedCellCoordinates,
     currentMapData,
     isLoadingMapData,
@@ -90,13 +91,14 @@ export function IconSourcePalette({ rowIndex, colIndex }: IconSourcePaletteProps
     }
   };
 
-  const handleIconClick = (iconType: IconType) => {
-    if (!canEdit) return;
-    // In the future, this will initiate a drag or directly add the icon.
-    // For now, it's a placeholder for future DnD.
-    // Example: addPlacedIconToCell(rowIndex, colIndex, iconType, 50, 50); // Add to center
-    console.log(`Icon ${iconType} clicked/dragged - future DnD add`);
-    // toast({ title: "Drag & Drop", description: `Drag ${ICON_CONFIG_MAP[iconType].label} to the canvas.`});
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, iconType: IconType) => {
+    if (!canEdit) {
+      e.preventDefault();
+      return;
+    }
+    e.dataTransfer.setData("iconType", iconType as string);
+    e.dataTransfer.effectAllowed = "copy";
+    // console.log(`Dragging ${iconType}`);
   };
 
 
@@ -136,18 +138,16 @@ export function IconSourcePalette({ rowIndex, colIndex }: IconSourcePaletteProps
             {ICON_TYPES.map((iconType) => {
               const config = ICON_CONFIG_MAP[iconType];
               const Icon = config.IconComponent;
-              // TODO: Add draggable props here in the future
               return (
                 <div
                   key={iconType}
-                  onClick={() => handleIconClick(iconType)} // Placeholder for DnD
-                  // onDragStart={(e) => handleDragStart(e, iconType)} // Future DnD
-                  // draggable={canEdit} // Future DnD
+                  onDragStart={(e) => handleDragStart(e, iconType)}
+                  draggable={canEdit}
                   title={canEdit ? `Drag to add ${config.label}` : config.label}
                   className={cn(
                     "text-sm font-normal flex items-center p-2 rounded-md border border-transparent transition-colors", 
-                    canEdit ? "cursor-grab hover:bg-accent/50 hover:border-accent" : "cursor-not-allowed opacity-70",
-                    "text-muted-foreground"
+                    canEdit ? "cursor-grab active:cursor-grabbing hover:bg-accent/50 hover:border-accent" : "cursor-not-allowed opacity-70",
+                    "text-muted-foreground bg-card hover:text-accent-foreground"
                   )}
                 >
                   <Icon className={cn("mr-2 h-5 w-5 text-primary", !canEdit && "opacity-70")} />
@@ -179,3 +179,4 @@ export function IconSourcePalette({ rowIndex, colIndex }: IconSourcePaletteProps
     </Card>
   );
 }
+
