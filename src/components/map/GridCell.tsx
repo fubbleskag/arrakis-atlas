@@ -75,7 +75,7 @@ export function GridCell({ rowIndex, colIndex }: GridCellProps) {
         </button>
       </PopoverTrigger>
       {isAuthenticated && (
-        <PopoverContent className="w-60 p-0" align="start" sideOffset={5}>
+        <PopoverContent className="w-auto p-0" align="start" sideOffset={5}>
           <IconPalette
             currentIcons={cellData.icons}
             onToggleIcon={handleToggleIcon}
