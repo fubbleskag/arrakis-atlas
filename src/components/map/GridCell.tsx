@@ -46,16 +46,29 @@ export function GridCell({ rowIndex, colIndex }: GridCellProps) {
   const colLabel = colIndex + 1;
   const cellCoordinate = `${rowLabel}${colLabel}`;
   const hasNotes = cellData.notes && cellData.notes.trim() !== '';
-  const hasPlacedIcons = cellData.placedIcons.length > 0;
+  
+  // Get unique icon types for display
+  const uniqueIconTypesInCell: IconType[] = [];
+  if (cellData.placedIcons.length > 0) {
+    const seenTypes = new Set<IconType>();
+    cellData.placedIcons.forEach(pi => {
+      if (!seenTypes.has(pi.type)) {
+        seenTypes.add(pi.type);
+        uniqueIconTypesInCell.push(pi.type);
+      }
+    });
+  }
+  const hasPlacedIcons = uniqueIconTypesInCell.length > 0;
   const isEmptyCell = !hasPlacedIcons && !hasNotes;
+
 
   let ariaLabelContent = `Grid cell ${cellCoordinate}. `;
   if (hasPlacedIcons) {
-    const iconLabels = cellData.placedIcons
-      .slice(0, 3) // Limit to first 3 icons for aria label brevity
-      .map(pi => ICON_CONFIG_MAP[pi.type]?.label || 'icon')
+    const iconLabels = uniqueIconTypesInCell
+      .slice(0, 3) // Limit to first 3 unique icon types for aria label brevity
+      .map(iconType => ICON_CONFIG_MAP[iconType]?.label || 'icon')
       .join(', ');
-    ariaLabelContent += `Contains ${iconLabels}${cellData.placedIcons.length > 3 ? ' and others' : ''}. `;
+    ariaLabelContent += `Contains ${iconLabels}${uniqueIconTypesInCell.length > 3 ? ' and others' : ''}. `;
   }
   if (hasNotes) {
     ariaLabelContent += `Contains notes. `;
@@ -85,13 +98,13 @@ export function GridCell({ rowIndex, colIndex }: GridCellProps) {
           <StickyNote className="absolute top-0.5 right-0.5 h-3 w-3 text-primary/70 group-hover:text-accent-foreground/70" />
         )}
         
-        {/* Display for Placed Icons - simple grid for now, max 9 icons */}
+        {/* Display for Placed Icons - simple grid for now, max 9 unique icons */}
         {hasPlacedIcons && (
           <div className="grid grid-cols-3 grid-rows-3 gap-px h-[calc(100%-4px)] w-[calc(100%-4px)] p-px">
-            {cellData.placedIcons.slice(0, 9).map((placedIcon, index) => {
-              const { IconComponent, label } = ICON_CONFIG_MAP[placedIcon.type];
+            {uniqueIconTypesInCell.slice(0, 9).map((iconType, index) => {
+              const { IconComponent, label } = ICON_CONFIG_MAP[iconType];
               return (
-                <div key={placedIcon.id || index} className="flex items-center justify-center overflow-hidden" title={label}>
+                <div key={`${iconType}-${index}`} className="flex items-center justify-center overflow-hidden" title={label}>
                   <IconComponent className="w-[60%] h-[60%] text-primary" />
                 </div>
               );
