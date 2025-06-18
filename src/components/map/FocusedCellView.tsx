@@ -17,10 +17,10 @@ interface FocusedCellViewProps {
 const GRID_SIZE = 9;
 
 export function FocusedCellView({ rowIndex, colIndex }: FocusedCellViewProps) {
-  const { 
-    currentLocalGrid, 
-    toggleIconInCell, 
-    clearIconsInCell, 
+  const {
+    currentLocalGrid,
+    toggleIconInCell,
+    clearIconsInCell,
     updateCellNotes,
     currentMapData,
     isLoadingMapData,
@@ -31,17 +31,17 @@ export function FocusedCellView({ rowIndex, colIndex }: FocusedCellViewProps) {
 
   if (isLoadingMapData || !currentMapData) {
     return (
-        <div className="w-full max-w-2xl mx-auto p-4 flex flex-col items-center">
+        <div className="w-full h-full flex flex-col items-center justify-center p-4">
             <Skeleton className="h-10 w-3/4 mb-6" />
             <Skeleton className="h-8 w-1/2 mb-4" />
             <Skeleton className="h-64 w-full" />
         </div>
     );
   }
-  
+
   if (!cellData) {
     return (
-      <div className="flex flex-col items-center justify-center text-center p-8 space-y-4 flex-grow">
+      <div className="w-full h-full flex flex-col items-center justify-center text-center p-8 space-y-4">
         <AlertTriangle className="h-16 w-16 text-destructive" />
         <h2 className="text-2xl font-semibold text-destructive-foreground">Error</h2>
         <p className="text-muted-foreground">
@@ -53,6 +53,7 @@ export function FocusedCellView({ rowIndex, colIndex }: FocusedCellViewProps) {
 
   let canEdit = false;
   if (isAuthenticated && user && currentMapData) {
+    // Simplified permission: if the map belongs to the user, they can edit.
     canEdit = currentMapData.userId === user.uid;
   }
 
@@ -61,13 +62,13 @@ export function FocusedCellView({ rowIndex, colIndex }: FocusedCellViewProps) {
   const cellCoordinate = `${rowLabel}${colLabel}`;
 
   return (
-    <Card className="w-full max-w-2xl mx-auto shadow-2xl">
-      <CardHeader>
-        <CardTitle className="text-2xl text-primary">
+    <Card className="w-full h-full shadow-2xl flex flex-col overflow-hidden border-border bg-card">
+      <CardHeader className="py-3 px-4 md:px-5 flex-shrink-0">
+        <CardTitle className="text-lg md:text-xl text-primary">
           Editing Cell: {cellCoordinate}
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-grow overflow-y-auto p-3 md:p-4">
         <IconPalette
           currentIcons={cellData.icons}
           onIconChange={(icon) => toggleIconInCell(rowIndex, colIndex, icon)}
@@ -80,5 +81,3 @@ export function FocusedCellView({ rowIndex, colIndex }: FocusedCellViewProps) {
     </Card>
   );
 }
-
-    
