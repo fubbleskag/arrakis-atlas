@@ -4,7 +4,7 @@
 import { useMap } from '@/contexts/MapContext';
 import { GridCell } from './GridCell';
 import { Button } from '@/components/ui/button';
-import { RotateCcw } from 'lucide-react';
+import { RotateCcw } from 'lucide-react'; // Icon can remain, only text changes
 import { useAuth } from '@/contexts/AuthContext';
 import {
   AlertDialog,
@@ -28,13 +28,12 @@ export function DeepDesertGrid() {
     isLoadingMapData, 
     resetCurrentMapGrid,
     currentMapData,
-    focusedCellCoordinates // Access focusedCellCoordinates to adjust width if sidebar is visible
+    focusedCellCoordinates 
   } = useMap(); 
   const { user, isAuthenticated } = useAuth();
 
 
   if (isLoadingMapData || !currentLocalGrid) {
-    // This case should ideally be handled by the skeleton in HomePageContent
     return <div>Loading map grid...</div>; 
   }
   
@@ -45,11 +44,10 @@ export function DeepDesertGrid() {
     canResetMap = currentMapData.userId === user.uid;
   }
 
-  // Adjust width calculation based on whether the sidebar (focused cell view) is active
-  const sidebarWidth = 350; // Approximate width of the sidebar
-  const gapWidth = 24; // gap-6 from parent, 6*4 = 24px
+  const sidebarWidth = 300; 
+  const gapWidth = 24; 
   const gridWidthStyle = focusedCellCoordinates 
-    ? `min(calc(100vh - 250px), calc(100vw - 32px - ${sidebarWidth}px - ${gapWidth}px))`
+    ? `min(calc(100vh - 250px - ${sidebarWidth}px - ${gapWidth}px), calc(100vw - 32px - ${sidebarWidth}px - ${gapWidth}px))`
     : `min(calc(100vh - 250px), calc(100vw - 32px))`;
 
 
@@ -61,7 +59,7 @@ export function DeepDesertGrid() {
           gridTemplateColumns: 'auto 1fr', 
           gridTemplateRows: 'auto 1fr',    
           gap: '0.25rem', 
-          width: gridWidthStyle, // Dynamic width
+          width: gridWidthStyle, 
           maxWidth: '800px', 
         }}
       >
@@ -107,15 +105,15 @@ export function DeepDesertGrid() {
          <AlertDialog>
           <AlertDialogTrigger asChild>
             <Button variant="destructive" size="sm" disabled={isLoadingMapData}>
-              <RotateCcw className="mr-2 h-4 w-4" /> Reset Map Grid
+              <RotateCcw className="mr-2 h-4 w-4" /> Coriolis Storm
             </Button>
           </AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+              <AlertDialogTitle>Invoke a Coriolis Storm?</AlertDialogTitle>
               <AlertDialogDescription>
                 This action cannot be undone. This will permanently reset the grid for the current map
-                (&quot;{currentMapData?.name || 'Unnamed Map'}&quot;).
+                (&quot;{currentMapData?.name || 'Unnamed Map'}&quot;), clearing all placed icons and notes.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
