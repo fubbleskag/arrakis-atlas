@@ -3,6 +3,7 @@
 import type React from 'react';
 import { useState } from 'react';
 import type { IconType } from '@/types';
+import { ICON_TYPES } from '@/types'; // Added import
 import { useGrid } from '@/contexts/GridContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { ICON_CONFIG_MAP } from '@/components/icons';
