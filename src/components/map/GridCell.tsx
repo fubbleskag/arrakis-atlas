@@ -5,7 +5,7 @@ import type React from 'react';
 import { useState } from 'react';
 import type { IconType } from '@/types';
 import { ICON_TYPES } from '@/types'; 
-import { useMap } from '@/contexts/MapContext'; // Changed from useGrid
+import { useMap } from '@/contexts/MapContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { ICON_CONFIG_MAP } from '@/components/icons';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -26,22 +26,21 @@ export function GridCell({ rowIndex, colIndex }: GridCellProps) {
     toggleIconInCell, 
     clearIconsInCell, 
     updateCellNotes,
-    currentMapData, // To check edit permissions
-  } = useMap(); // Changed from useGrid
+    currentMapData,
+  } = useMap();
   const { isAuthenticated, user } = useAuth();
   const [popoverOpen, setPopoverOpen] = useState(false);
 
   const cellData = currentLocalGrid?.[rowIndex]?.[colIndex];
 
-  if (!cellData) { // Should not happen if currentLocalGrid is properly initialized
+  if (!cellData) { 
       return <div className="aspect-square border border-destructive bg-destructive/20 flex items-center justify-center text-xs">Err</div>;
   }
 
-  // Determine if the current user can edit this map
   let canEdit = false;
   if (isAuthenticated && user && currentMapData) {
     const userRole = currentMapData.collaborators[user.uid];
-    canEdit = userRole === 'owner' || userRole === 'co-owner' || userRole === 'associate';
+    canEdit = userRole === 'owner' || userRole === 'co-owner';
   }
   
   const handleToggleIcon = (icon: IconType) => {
@@ -86,14 +85,15 @@ export function GridCell({ rowIndex, colIndex }: GridCellProps) {
         <button
           id={cellId}
           aria-label={ariaLabelContent}
-          disabled={!canEdit}
+          disabled={!canEdit && !currentMapData} // Disable if no map data or cannot edit. Still allow viewing if map data present but no edit rights.
           className={cn(
             "aspect-square border border-border flex items-center justify-center p-1 relative group transition-all duration-150 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-            canEdit ? "hover:bg-accent/20 cursor-pointer" : "cursor-not-allowed bg-muted/30",
-            popoverOpen && canEdit && "bg-accent/30 ring-2 ring-accent"
+            canEdit && currentMapData ? "hover:bg-accent/20 cursor-pointer" : "cursor-not-allowed",
+            !canEdit && currentMapData && "bg-muted/30", // For view-only cells with map data
+            popoverOpen && canEdit && currentMapData && "bg-accent/30 ring-2 ring-accent"
           )}
         >
-          {!canEdit && !cellData.icons.length && !hasNotes && (
+          {!canEdit && currentMapData && !cellData.icons.length && !hasNotes && ( // Show lock if view-only and cell is empty
              <Lock className="h-1/2 w-1/2 text-muted-foreground/50 absolute inset-0 m-auto" />
           )}
           {hasNotes && (
@@ -113,12 +113,12 @@ export function GridCell({ rowIndex, colIndex }: GridCellProps) {
               return <div key={iconType} className="opacity-0" />; 
             })}
           </div>
-           {cellData.icons.length === 0 && !hasNotes && canEdit && (
+           {cellData.icons.length === 0 && !hasNotes && canEdit && currentMapData && (
              <span className="absolute text-xs text-muted-foreground group-hover:text-accent-foreground">Edit</span>
            )}
         </button>
       </PopoverTrigger>
-      {canEdit && (
+      {canEdit && currentMapData && ( // Only show popover content if editable and map is loaded
         <PopoverContent className="w-auto p-0" align="start" sideOffset={5}>
           <IconPalette
             currentIcons={cellData.icons}

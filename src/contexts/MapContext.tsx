@@ -3,7 +3,7 @@
 
 import type React from 'react';
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import type { LocalGridState, FirestoreGridState, IconType, GridCellData, MapData, UserRole } from '@/types';
+import type { LocalGridState, FirestoreGridState, IconType, MapData, UserRole, UserProfile } from '@/types';
 import { useAuth } from './AuthContext';
 import { db } from '@/firebase/firebaseConfig';
 import {
@@ -16,15 +16,14 @@ import {
   where,
   serverTimestamp,
   deleteDoc,
-  writeBatch,
   Timestamp,
   getDocs,
+  // Removed writeBatch as changeOwner is removed
 } from 'firebase/firestore';
 import { useToast } from "@/hooks/use-toast";
 
 const GRID_SIZE = 9;
 
-// Helper to initialize a new grid state
 const initializeLocalGrid = (): LocalGridState => {
   return Array(GRID_SIZE)
     .fill(null)
@@ -75,22 +74,22 @@ interface MapContextType {
   selectMap: (mapId: string | null) => void;
   createMap: (name: string) => Promise<string | null>;
   deleteMap: (mapId: string) => Promise<void>;
-  updateMapName: (mapId: string, newName: string) => Promise<void>;
+  updateMapName: (mapId: string, newName: string) => Promise<void>; // Kept as owner/co-owner can change name
   toggleIconInCell: (rowIndex: number, colIndex: number, icon: IconType) => void;
   clearIconsInCell: (rowIndex: number, colIndex: number) => void;
   updateCellNotes: (rowIndex: number, colIndex: number, notes: string) => void;
   resetCurrentMapGrid: () => void;
-  updateMapSettings: (mapId: string, settings: Partial<Pick<MapData, 'name' | 'isPublic'>>) => Promise<void>;
-  addCollaborator: (mapId: string, email: string, role: UserRole) => Promise<void>;
+  // updateMapSettings: (mapId: string, settings: Partial<Pick<MapData, 'name'>>) => Promise<void>; // Simplified: Only name is a "setting" editable by owner/co-owner
+  addCollaborator: (mapId: string, email: string) => Promise<void>; // Role is implicitly 'co-owner'
   removeCollaborator: (mapId: string, collaboratorUid: string) => Promise<void>;
-  updateCollaboratorRole: (mapId: string, collaboratorUid: string, role: UserRole) => Promise<void>;
-  changeOwner: (mapId: string, newOwnerEmail: string) => Promise<void>;
+  // updateCollaboratorRole: (mapId: string, collaboratorUid: string, role: UserRole) => Promise<void>; // Removed as only 'co-owner' role besides owner
+  // changeOwner: (mapId: string, newOwnerEmail: string) => Promise<void>; // Removed
 }
 
 const MapContext = createContext<MapContextType | undefined>(undefined);
 
 export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, isLoading: isAuthLoading, userProfile } = useAuth();
+  const { user, isLoading: isAuthLoading } = useAuth(); // Removed userProfile as it's handled by AuthContext
   const { toast } = useToast();
 
   const [userMapList, setUserMapList] = useState<MapData[]>([]);
@@ -101,11 +100,13 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isLoadingMapList, setIsLoadingMapList] = useState<boolean>(true);
   const [isLoadingMapData, setIsLoadingMapData] = useState<boolean>(false);
 
-  // Effect for loading user's map list
   useEffect(() => {
     if (isAuthLoading || !user) {
       setUserMapList([]);
-      setIsLoadingMapList(true);
+      setCurrentMapId(null); // Clear selected map on logout
+      setCurrentMapData(null);
+      setCurrentLocalGrid(null);
+      setIsLoadingMapList(true); // Set to true initially, false after check
       return;
     }
 
@@ -118,7 +119,7 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       querySnapshot.forEach((doc) => {
         maps.push({ id: doc.id, ...doc.data() } as MapData);
       });
-      setUserMapList(maps.sort((a,b) => b.updatedAt.toMillis() - a.updatedAt.toMillis()));
+      setUserMapList(maps.sort((a,b) => (b.updatedAt?.toMillis() || 0) - (a.updatedAt?.toMillis() || 0) ));
       setIsLoadingMapList(false);
     }, (error) => {
       console.error("Error fetching map list:", error);
@@ -129,7 +130,6 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => unsubscribe();
   }, [user, isAuthLoading, toast]);
 
-  // Effect for loading current map data when currentMapId changes
   useEffect(() => {
     if (!currentMapId) {
       setCurrentMapData(null);
@@ -149,7 +149,7 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         toast({ title: "Error", description: `Map with ID ${currentMapId} not found.`, variant: "destructive" });
         setCurrentMapData(null);
         setCurrentLocalGrid(null);
-        setCurrentMapId(null); // Deselect if not found
+        setCurrentMapId(null); 
       }
       setIsLoadingMapData(false);
     }, (error) => {
@@ -162,24 +162,22 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [currentMapId, toast]);
 
   const selectMap = useCallback((mapId: string | null) => {
-    if (mapId === currentMapId) return; // Avoid re-selecting the same map
+    if (mapId === currentMapId) return; 
     setCurrentMapId(mapId);
-    // Data loading is handled by the useEffect hook listening to currentMapId
   }, [currentMapId]);
 
-
   const createMap = useCallback(async (name: string): Promise<string | null> => {
-    if (!user || !userProfile) {
+    if (!user) {
       toast({ title: "Error", description: "You must be logged in to create a map.", variant: "destructive" });
       return null;
     }
-    setIsLoadingMapData(true); // Use general loading state for creation
+    setIsLoadingMapData(true);
     const newMapData: Omit<MapData, 'id'> = {
       name,
       ownerId: user.uid,
       memberUIDs: [user.uid],
       collaborators: { [user.uid]: 'owner' },
-      isPublic: false,
+      // isPublic: false, // Removed
       gridState: convertLocalToFirestoreGrid(initializeLocalGrid()),
       createdAt: serverTimestamp() as Timestamp,
       updatedAt: serverTimestamp() as Timestamp,
@@ -188,16 +186,16 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       const docRef = await addDoc(collection(db, "maps"), newMapData);
       toast({ title: "Success", description: `Map "${name}" created.` });
-      setIsLoadingMapData(false);
-      selectMap(docRef.id); // Automatically select the new map
+      selectMap(docRef.id);
       return docRef.id;
     } catch (error: any) {
       console.error("Error creating map:", error);
       toast({ title: "Error", description: `Failed to create map: ${error.message}`, variant: "destructive" });
-      setIsLoadingMapData(false);
       return null;
+    } finally {
+      setIsLoadingMapData(false);
     }
-  }, [user, userProfile, toast, selectMap]);
+  }, [user, toast, selectMap]);
   
   const updateMapInFirestore = useCallback(async (mapId: string, updates: Partial<MapData>) => {
     const mapDocRef = doc(db, "maps", mapId);
@@ -206,7 +204,7 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (error: any) {
       console.error("Error updating map in Firestore:", error);
       toast({ title: "Save Error", description: `Could not save map changes: ${error.message}`, variant: "destructive" });
-      throw error; // Re-throw for caller to handle
+      throw error; 
     }
   }, [toast]);
 
@@ -215,12 +213,10 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newFirestoreGrid = convertLocalToFirestoreGrid(newLocalGrid);
     try {
       await updateMapInFirestore(currentMapId, { gridState: newFirestoreGrid });
-      // Optimistic update already happened locally in setGridState callbacks
     } catch (error) {
        // Error already toasted by updateMapInFirestore
     }
   }, [currentMapId, updateMapInFirestore]);
-
 
   const toggleIconInCell = useCallback((rowIndex: number, colIndex: number, icon: IconType) => {
     setCurrentLocalGrid(prevGrid => {
@@ -271,27 +267,31 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [updateCurrentMapGridInFirestore]);
 
   const resetCurrentMapGrid = useCallback(async () => {
-    if (!currentMapId) {
-      toast({ title: "Error", description: "No map selected to reset.", variant: "destructive" });
+    if (!currentMapId || !user) {
+      toast({ title: "Error", description: "No map selected or not authenticated.", variant: "destructive" });
       return;
     }
+    const mapData = userMapList.find(m => m.id === currentMapId);
+    if (!mapData || (mapData.ownerId !== user.uid && mapData.collaborators[user.uid] !== 'co-owner')) {
+        toast({ title: "Permission Denied", description: "You do not have permission to reset this map.", variant: "destructive" });
+        return;
+    }
+
     const newLocalGrid = initializeLocalGrid();
-    setCurrentLocalGrid(newLocalGrid); // Optimistic local update
+    setCurrentLocalGrid(newLocalGrid); 
     try {
       await updateCurrentMapGridInFirestore(newLocalGrid);
       toast({ title: "Map Reset", description: "Current map grid has been reset." });
     } catch (error) {
-      // Error handled by updateCurrentMapGridInFirestore
-      // Potentially revert optimistic update if needed, or rely on Firestore listener to correct state
+      // Error handled
     }
-  }, [currentMapId, toast, updateCurrentMapGridInFirestore]);
+  }, [currentMapId, user, userMapList, toast, updateCurrentMapGridInFirestore]);
   
   const deleteMap = useCallback(async (mapId: string) => {
     if (!user) {
         toast({ title: "Error", description: "Authentication required.", variant: "destructive" });
         return;
     }
-    // Basic check: only owner can delete. More robust checks in security rules.
     const mapToDelete = userMapList.find(m => m.id === mapId);
     if (mapToDelete?.ownerId !== user.uid) {
         toast({ title: "Error", description: "Only the map owner can delete it.", variant: "destructive" });
@@ -302,7 +302,7 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         await deleteDoc(doc(db, "maps", mapId));
         toast({ title: "Success", description: "Map deleted successfully." });
         if (currentMapId === mapId) {
-            selectMap(null); // Deselect if current map was deleted
+            selectMap(null); 
         }
     } catch (error: any) {
         console.error("Error deleting map:", error);
@@ -315,56 +315,35 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           toast({ title: "Error", description: "Authentication required.", variant: "destructive" });
           return;
       }
-      // Add permission checks if needed, though security rules are primary
+      const mapData = userMapList.find(m => m.id === mapId);
+       if (!mapData || (mapData.ownerId !== user.uid && mapData.collaborators[user.uid] !== 'co-owner')) {
+           toast({ title: "Permission Denied", description: "You do not have permission to change the map name.", variant: "destructive" });
+           return;
+       }
       try {
           await updateMapInFirestore(mapId, { name: newName });
           toast({ title: "Success", description: "Map name updated." });
       } catch (error) {
-          // Error already handled by updateMapInFirestore
+          // Error already handled
       }
-  }, [user, toast, updateMapInFirestore]);
-
-
-  // Stubbed collaborator functions
-  const updateMapSettings = useCallback(async (mapId: string, settings: Partial<Pick<MapData, 'name' | 'isPublic'>>) => {
-    console.warn("updateMapSettings not fully implemented", mapId, settings);
-    // Actual implementation would involve permission checks and calling updateMapInFirestore
-    // For now, let's allow name and isPublic updates with basic checks
-    const mapToUpdate = userMapList.find(m => m.id === mapId);
-    if (!user || !mapToUpdate) {
-        toast({ title: "Error", description: "Map not found or not authenticated.", variant: "destructive" });
-        return;
-    }
-    if (mapToUpdate.ownerId !== user.uid && (!mapToUpdate.collaborators[user.uid] || mapToUpdate.collaborators[user.uid] !== 'co-owner')) {
-        toast({ title: "Permission Denied", description: "You don't have permission to change these settings.", variant: "destructive" });
-        return;
-    }
-    try {
-        await updateMapInFirestore(mapId, settings);
-        toast({ title: "Success", description: "Map settings updated." });
-    } catch (error) {
-      // Error already handled
-    }
-  }, [user, toast, updateMapInFirestore, userMapList]);
+  }, [user, userMapList, toast, updateMapInFirestore]);
 
   const findUserByEmail = async (email: string): Promise<UserProfile | null> => {
     const usersRef = collection(db, "users");
     const q = query(usersRef, where("email", "==", email));
     const querySnapshot = await getDocs(q);
     if (!querySnapshot.empty) {
-      // Assuming email is unique, take the first one
       return querySnapshot.docs[0].data() as UserProfile;
     }
     return null;
   };
 
-
-  const addCollaborator = useCallback(async (mapId: string, email: string, role: UserRole) => {
+  const addCollaborator = useCallback(async (mapId: string, email: string) => { // Role is implicitly 'co-owner'
     if (!user) { toast({ title: "Error", description: "Authentication required.", variant: "destructive" }); return; }
     
     const mapData = userMapList.find(m => m.id === mapId);
-    if (!mapData || (mapData.ownerId !== user.uid && mapData.collaborators[user.uid] !== 'co-owner')) {
-      toast({ title: "Permission Denied", description: "Only owners or co-owners can add collaborators.", variant: "destructive" });
+    if (!mapData || mapData.ownerId !== user.uid) { // Only owner can add collaborators
+      toast({ title: "Permission Denied", description: "Only the map owner can add collaborators.", variant: "destructive" });
       return;
     }
 
@@ -377,13 +356,17 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       toast({ title: "Error", description: "You cannot add yourself as a collaborator.", variant: "destructive" });
       return;
     }
+    if (mapData.collaborators[collaboratorUser.uid]) {
+      toast({ title: "Info", description: `${collaboratorUser.displayName || email} is already a collaborator.`, variant: "default" });
+      return;
+    }
 
-    const newCollaborators = { ...mapData.collaborators, [collaboratorUser.uid]: role };
+    const newCollaborators = { ...mapData.collaborators, [collaboratorUser.uid]: 'co-owner' as UserRole };
     const newMemberUIDs = Array.from(new Set([...mapData.memberUIDs, collaboratorUser.uid]));
 
     try {
       await updateMapInFirestore(mapId, { collaborators: newCollaborators, memberUIDs: newMemberUIDs });
-      toast({ title: "Success", description: `${collaboratorUser.displayName || email} added as ${role}.` });
+      toast({ title: "Success", description: `${collaboratorUser.displayName || email} added as co-owner.` });
     } catch (error) {
       // Error handled
     }
@@ -393,12 +376,16 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
      if (!user) { toast({ title: "Error", description: "Authentication required.", variant: "destructive" }); return; }
     
     const mapData = userMapList.find(m => m.id === mapId);
-    if (!mapData || (mapData.ownerId !== user.uid && mapData.collaborators[user.uid] !== 'co-owner')) {
-      toast({ title: "Permission Denied", description: "Only owners or co-owners can remove collaborators.", variant: "destructive" });
+    if (!mapData || mapData.ownerId !== user.uid) { // Only owner can remove collaborators
+      toast({ title: "Permission Denied", description: "Only the map owner can remove collaborators.", variant: "destructive" });
       return;
     }
     if (collaboratorUid === mapData.ownerId) {
       toast({ title: "Error", description: "Cannot remove the map owner.", variant: "destructive" });
+      return;
+    }
+    if (!mapData.collaborators[collaboratorUid]) {
+      toast({ title: "Error", description: "User is not a collaborator on this map.", variant: "destructive" });
       return;
     }
 
@@ -413,76 +400,6 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // Error handled
     }
   }, [user, userMapList, toast, updateMapInFirestore]);
-  
-  const updateCollaboratorRole = useCallback(async (mapId: string, collaboratorUid: string, role: UserRole) => {
-    if (!user) { toast({ title: "Error", description: "Authentication required.", variant: "destructive" }); return; }
-    
-    const mapData = userMapList.find(m => m.id === mapId);
-    if (!mapData || (mapData.ownerId !== user.uid && mapData.collaborators[user.uid] !== 'co-owner')) {
-      toast({ title: "Permission Denied", description: "Only owners or co-owners can change roles.", variant: "destructive" });
-      return;
-    }
-     if (collaboratorUid === mapData.ownerId && role !== 'owner') {
-      toast({ title: "Error", description: "Owner role cannot be changed this way. Use 'Change Owner'.", variant: "destructive" });
-      return;
-    }
-
-    const newCollaborators = { ...mapData.collaborators, [collaboratorUid]: role };
-    try {
-      await updateMapInFirestore(mapId, { collaborators: newCollaborators });
-      toast({ title: "Success", description: `Collaborator role updated to ${role}.` });
-    } catch (error) {
-      // Error handled
-    }
-  }, [user, userMapList, toast, updateMapInFirestore]);
-
-  const changeOwner = useCallback(async (mapId: string, newOwnerEmail: string) => {
-    if (!user) { toast({ title: "Error", description: "Authentication required.", variant: "destructive" }); return; }
-    
-    const mapData = userMapList.find(m => m.id === mapId);
-    if (!mapData || mapData.ownerId !== user.uid) {
-      toast({ title: "Permission Denied", description: "Only the current owner can change ownership.", variant: "destructive" });
-      return;
-    }
-
-    const newOwnerUser = await findUserByEmail(newOwnerEmail);
-    if (!newOwnerUser) {
-      toast({ title: "Error", description: `User with email ${newOwnerEmail} not found.`, variant: "destructive" });
-      return;
-    }
-    if (newOwnerUser.uid === user.uid) {
-      toast({ title: "No Change", description: "You are already the owner.", variant: "default" });
-      return;
-    }
-    
-    const batch = writeBatch(db);
-    const mapDocRef = doc(db, "maps", mapId);
-
-    // New owner becomes 'owner'
-    const newCollaborators = { ...mapData.collaborators, [newOwnerUser.uid]: 'owner' as UserRole };
-    // Old owner becomes 'co-owner'
-    if (user.uid !== newOwnerUser.uid) {
-      newCollaborators[user.uid] = 'co-owner' as UserRole;
-    }
-    
-    const newMemberUIDs = Array.from(new Set([...mapData.memberUIDs, newOwnerUser.uid]));
-
-    batch.update(mapDocRef, {
-      ownerId: newOwnerUser.uid,
-      collaborators: newCollaborators,
-      memberUIDs: newMemberUIDs,
-      updatedAt: serverTimestamp()
-    });
-
-    try {
-      await batch.commit();
-      toast({ title: "Success", description: `Ownership transferred to ${newOwnerUser.displayName || newOwnerEmail}. You are now a co-owner.` });
-    } catch (error: any) {
-      console.error("Error changing owner:", error);
-      toast({ title: "Error", description: `Failed to change owner: ${error.message}`, variant: "destructive" });
-    }
-  }, [user, userMapList, toast]);
-
 
   return (
     <MapContext.Provider value={{
@@ -491,7 +408,7 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       currentMapData,
       currentLocalGrid,
       isLoadingMapList,
-      isLoadingMapData: isLoadingMapData || (currentMapId ? !currentMapData : false), // Derived loading state
+      isLoadingMapData: isLoadingMapData || (currentMapId ? !currentMapData : false),
       selectMap,
       createMap,
       deleteMap,
@@ -500,11 +417,11 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       clearIconsInCell,
       updateCellNotes,
       resetCurrentMapGrid,
-      updateMapSettings,
+      // updateMapSettings, // Removed as only name setting is left, covered by updateMapName
       addCollaborator,
       removeCollaborator,
-      updateCollaboratorRole,
-      changeOwner,
+      // updateCollaboratorRole, // Removed
+      // changeOwner, // Removed
     }}>
       {children}
     </MapContext.Provider>
