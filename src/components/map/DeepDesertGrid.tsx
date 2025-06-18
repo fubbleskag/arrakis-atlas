@@ -87,7 +87,7 @@ export function DeepDesertGrid() {
           {Array.from({ length: GRID_SIZE }).map((_, colIndex) => (
             <div 
               key={`col-label-${colIndex}`} 
-              className="flex items-center justify-center h-8 text-sm font-medium text-muted-foreground aspect-square bg-card rounded-sm"
+              className="flex items-center justify-center text-center h-8 text-sm font-medium text-muted-foreground aspect-square bg-card rounded-sm"
             >
               {colIndex + 1}
             </div>
@@ -99,7 +99,7 @@ export function DeepDesertGrid() {
           {Array.from({ length: GRID_SIZE }).map((_, rowIndex) => (
             <div 
               key={`row-label-${rowIndex}`} 
-              className="flex items-center justify-center w-8 text-sm font-medium text-muted-foreground aspect-square bg-card rounded-sm"
+              className="flex items-center justify-center text-center w-8 text-sm font-medium text-muted-foreground aspect-square bg-card rounded-sm"
             >
               {String.fromCharCode(65 + (GRID_SIZE - 1 - rowIndex))}
             </div>
