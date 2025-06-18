@@ -17,7 +17,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import type { LocalGridState, UserRole } from '@/types'; // Added UserRole
+import type { LocalGridState } from '@/types';
 
 
 const GRID_SIZE = 9;
@@ -29,7 +29,7 @@ export function DeepDesertGrid() {
     resetCurrentMapGrid,
     currentMapData
   } = useMap(); 
-  const { user, isAuthenticated } = useAuth(); // Added user
+  const { user, isAuthenticated } = useAuth();
 
 
   if (isLoadingMapData || !currentLocalGrid) {
@@ -38,11 +38,10 @@ export function DeepDesertGrid() {
   
   const gridToRender: LocalGridState = currentLocalGrid;
 
-  // Determine if the current user can reset the map (owner or co-owner)
+  // Determine if the current user can reset the map (must be the creator)
   let canResetMap = false;
   if (isAuthenticated && user && currentMapData) {
-    const userRole = currentMapData.collaborators[user.uid];
-    canResetMap = userRole === 'owner' || userRole === 'co-owner';
+    canResetMap = currentMapData.userId === user.uid;
   }
 
   return (
@@ -95,7 +94,7 @@ export function DeepDesertGrid() {
         </div>
       </div>
 
-      {canResetMap && ( // Use the new canResetMap variable
+      {canResetMap && (
          <AlertDialog>
           <AlertDialogTrigger asChild>
             <Button variant="destructive" size="sm" disabled={isLoadingMapData}>

@@ -28,22 +28,12 @@ export interface IconConfig {
   IconComponent: React.FC<React.SVGProps<SVGSVGElement>>;
 }
 
-export type UserRole = 'owner' | 'co-owner';
-
-export interface CollaboratorEntry {
-  uid: string;
-  email: string; // For display, actual permission based on UID
-  role: UserRole;
-  displayName?: string; 
-}
+// Removed UserRole and CollaboratorEntry types
 
 export interface MapData {
   id: string; // Firestore document ID
+  userId: string; // UID of the user who created this map
   name: string;
-  ownerId: string; // Immutable after creation
-  memberUIDs: string[]; // [ownerId, collaborator1Id, ...] for querying
-  collaborators: Record<string, UserRole>; // { [uid]: role (owner or co-owner) }
-  // isPublic: boolean; // Removed for simplification
   gridState: FirestoreGridState;
   createdAt: Timestamp;
   updatedAt: Timestamp;

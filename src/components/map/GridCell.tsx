@@ -39,8 +39,8 @@ export function GridCell({ rowIndex, colIndex }: GridCellProps) {
 
   let canEdit = false;
   if (isAuthenticated && user && currentMapData) {
-    const userRole = currentMapData.collaborators[user.uid];
-    canEdit = userRole === 'owner' || userRole === 'co-owner';
+    // User can edit if they are the creator of the map
+    canEdit = currentMapData.userId === user.uid;
   }
   
   const handleToggleIcon = (icon: IconType) => {
@@ -85,15 +85,15 @@ export function GridCell({ rowIndex, colIndex }: GridCellProps) {
         <button
           id={cellId}
           aria-label={ariaLabelContent}
-          disabled={!canEdit && !currentMapData} // Disable if no map data or cannot edit. Still allow viewing if map data present but no edit rights.
+          disabled={!canEdit && !currentMapData}
           className={cn(
             "aspect-square border border-border flex items-center justify-center p-1 relative group transition-all duration-150 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
             canEdit && currentMapData ? "hover:bg-accent/20 cursor-pointer" : "cursor-not-allowed",
-            !canEdit && currentMapData && "bg-muted/30", // For view-only cells with map data
+            !canEdit && currentMapData && "bg-muted/30",
             popoverOpen && canEdit && currentMapData && "bg-accent/30 ring-2 ring-accent"
           )}
         >
-          {!canEdit && currentMapData && !cellData.icons.length && !hasNotes && ( // Show lock if view-only and cell is empty
+          {!canEdit && currentMapData && !cellData.icons.length && !hasNotes && (
              <Lock className="h-1/2 w-1/2 text-muted-foreground/50 absolute inset-0 m-auto" />
           )}
           {hasNotes && (
@@ -118,7 +118,7 @@ export function GridCell({ rowIndex, colIndex }: GridCellProps) {
            )}
         </button>
       </PopoverTrigger>
-      {canEdit && currentMapData && ( // Only show popover content if editable and map is loaded
+      {canEdit && currentMapData && (
         <PopoverContent className="w-auto p-0" align="start" sideOffset={5}>
           <IconPalette
             currentIcons={cellData.icons}
@@ -126,7 +126,7 @@ export function GridCell({ rowIndex, colIndex }: GridCellProps) {
             onClearAll={handleClearAllIcons}
             currentNotes={cellData.notes}
             onNotesChange={handleNotesChange}
-            canEdit={canEdit}
+            canEdit={canEdit} // Pass down the determined edit status
           />
         </PopoverContent>
       )}
