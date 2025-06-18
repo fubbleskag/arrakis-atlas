@@ -43,14 +43,14 @@ export function DeepDesertGrid() {
           <div />
 
           {/* Column Labels Skeleton */}
-          <div className="grid grid-cols-9 gap-px">
+          <div className="grid grid-cols-9 gap-px justify-items-center">
             {Array.from({ length: GRID_SIZE }).map((_, i) => (
               <Skeleton key={`sk-col-${i}`} className="h-8 aspect-square rounded-sm" />
             ))}
           </div>
 
           {/* Row Labels Skeleton */}
-          <div className="grid grid-rows-9 gap-px">
+          <div className="grid grid-rows-9 gap-px items-center">
             {Array.from({ length: GRID_SIZE }).map((_, i) => (
               <Skeleton key={`sk-row-${i}`} className="w-8 aspect-square rounded-sm" />
             ))}
@@ -83,7 +83,7 @@ export function DeepDesertGrid() {
         <div />
 
         {/* Column Labels (1-9) */}
-        <div className="grid grid-cols-9 gap-px">
+        <div className="grid grid-cols-9 gap-px justify-items-center">
           {Array.from({ length: GRID_SIZE }).map((_, colIndex) => (
             <div
               key={`col-label-${colIndex}`}
@@ -95,7 +95,7 @@ export function DeepDesertGrid() {
         </div>
 
         {/* Row Labels (I-A from top to bottom, representing A-I from bottom of grid to top) */}
-        <div className="grid grid-rows-9 gap-px">
+        <div className="grid grid-rows-9 gap-px items-center">
           {Array.from({ length: GRID_SIZE }).map((_, rowIndex) => (
             <div
               key={`row-label-${rowIndex}`}
