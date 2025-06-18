@@ -2,23 +2,23 @@
 "use client";
 
 import type React from 'react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react'; // Added useRef
 import { ICON_TYPES, type IconType } from '@/types';
 import { ICON_CONFIG_MAP } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardFooter } from '@/components/ui/card'; // Added CardFooter
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { Trash2, X as XIcon } from 'lucide-react';
+import { Trash2, X as XIcon, Upload, Loader2, Image as ImageIcon } from 'lucide-react'; // Added Upload, Loader2, ImageIcon
 import { useMap } from '@/contexts/MapContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-
+import NextImage from 'next/image'; // For preview
 
 interface IconSourcePaletteProps {
   rowIndex: number;
@@ -34,12 +34,16 @@ export function IconSourcePalette({ rowIndex, colIndex, className }: IconSourceP
     setFocusedCellCoordinates,
     currentMapData,
     isLoadingMapData,
+    uploadCellBackgroundImage,
+    removeCellBackgroundImage,
   } = useMap();
   const { isAuthenticated, user } = useAuth();
   const { toast } = useToast();
 
   const cellData = currentLocalGrid?.[rowIndex]?.[colIndex];
   const [localNotes, setLocalNotes] = useState(cellData?.notes || '');
+  const [isUploadingBackground, setIsUploadingBackground] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (cellData) {
@@ -59,6 +63,9 @@ export function IconSourcePalette({ rowIndex, colIndex, className }: IconSourceP
             <Separator />
             <Skeleton className="h-5 w-1/3 mb-1" />
             <Skeleton className="h-20 w-full" />
+            <Separator />
+            <Skeleton className="h-5 w-1/3 mb-1" />
+            <Skeleton className="h-10 w-full" />
         </CardContent>
       </Card>
     );
@@ -80,8 +87,8 @@ export function IconSourcePalette({ rowIndex, colIndex, className }: IconSourceP
   }
   
   let canEdit = false;
-  if (isAuthenticated && user && currentMapData) {
-    canEdit = currentMapData.userId === user.uid;
+  if (isAuthenticated && user && currentMapData && currentMapData.userId === user.uid) {
+    canEdit = true;
   }
 
   const handleNotesInputChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -102,15 +109,45 @@ export function IconSourcePalette({ rowIndex, colIndex, className }: IconSourceP
       return;
     }
     e.dataTransfer.setData("iconType", iconType as string);
-    e.dataTransfer.setData("action", "add"); // Differentiate from moving an existing icon
+    e.dataTransfer.setData("action", "add"); 
     e.dataTransfer.effectAllowed = "copy";
+  };
+
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!canEdit) return;
+    const file = event.target.files?.[0];
+    if (file) {
+      setIsUploadingBackground(true);
+      try {
+        await uploadCellBackgroundImage(rowIndex, colIndex, file);
+      } catch (error) {
+        // Toast is handled in context
+      } finally {
+        setIsUploadingBackground(false);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = ""; // Reset file input
+        }
+      }
+    }
+  };
+
+  const handleRemoveBackground = async () => {
+    if (!canEdit) return;
+    setIsUploadingBackground(true); // Use same state for loading indication
+    try {
+      await removeCellBackgroundImage(rowIndex, colIndex);
+    } catch (error) {
+      // Toast is handled in context
+    } finally {
+      setIsUploadingBackground(false);
+    }
   };
 
   return (
     <Card className={cn("w-full h-full shadow-lg flex flex-col overflow-hidden border-border bg-card", className)}>
       <CardContent className="flex-grow flex flex-col p-3 md:p-4 overflow-hidden">
         <div className="flex justify-between items-center mb-2">
-          <h4 className="text-base font-semibold leading-none text-foreground">Edit Cell Resources</h4>
+          <h4 className="text-base font-semibold leading-none text-foreground">Edit Cell Details</h4>
           <Button 
             variant="ghost" 
             size="icon" 
@@ -122,6 +159,7 @@ export function IconSourcePalette({ rowIndex, colIndex, className }: IconSourceP
           </Button>
         </div>
         
+        {/* Resource Icons */}
         <div className="flex justify-between items-center mb-1 mt-2">
             <h5 className="text-sm font-medium text-foreground">Available Resources</h5>
             {canEdit && (
@@ -140,7 +178,7 @@ export function IconSourcePalette({ rowIndex, colIndex, className }: IconSourceP
               </Button>
             )}
         </div>
-        <ScrollArea className="flex-shrink pr-1 max-h-[300px] min-h-[150px]">
+        <ScrollArea className="flex-shrink pr-1 max-h-[200px] min-h-[100px]"> {/* Adjusted height */}
           <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 p-1 border-t border-border">
             {ICON_TYPES.map((iconType) => {
               const config = ICON_CONFIG_MAP[iconType];
@@ -167,16 +205,66 @@ export function IconSourcePalette({ rowIndex, colIndex, className }: IconSourceP
         
         <Separator className="my-3" />
 
+        {/* Cell Background Image */}
+        <h5 className="text-sm font-medium text-foreground mb-1">Cell Background</h5>
+        {canEdit && (
+          <div className="space-y-2 mb-2">
+            <input
+              type="file"
+              accept="image/*"
+              ref={fileInputRef}
+              onChange={handleFileSelect}
+              className="hidden"
+              disabled={isUploadingBackground}
+            />
+            <Button
+              onClick={() => fileInputRef.current?.click()}
+              variant="outline"
+              className="w-full"
+              disabled={isUploadingBackground}
+            >
+              {isUploadingBackground && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              <Upload className="mr-2 h-4 w-4" />
+              {cellData.backgroundImageUrl ? 'Replace Background' : 'Upload Background'}
+            </Button>
+            {cellData.backgroundImageUrl && (
+              <Button
+                onClick={handleRemoveBackground}
+                variant="destructive"
+                className="w-full"
+                disabled={isUploadingBackground}
+              >
+                {isUploadingBackground && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <Trash2 className="mr-2 h-4 w-4" />
+                Remove Background
+              </Button>
+            )}
+          </div>
+        )}
+        {cellData.backgroundImageUrl && (
+          <div className="relative w-full aspect-video rounded-md overflow-hidden border border-border mb-2">
+            <NextImage src={cellData.backgroundImageUrl} alt="Cell background preview" layout="fill" objectFit="contain" />
+          </div>
+        )}
+        {!cellData.backgroundImageUrl && !canEdit && (
+            <div className="flex items-center justify-center text-xs text-muted-foreground p-2 border border-dashed rounded-md">
+                <ImageIcon className="mr-2 h-4 w-4" /> No background image.
+            </div>
+        )}
+        
+        <Separator className="my-3" />
+
+        {/* Cell Notes */}
         <div className="flex-grow flex flex-col mt-1">
           <Label htmlFor="cell-notes" className="text-sm font-medium text-foreground mb-1 block">
-            Notes
+            Cell Notes
           </Label>
           <Textarea
             id="cell-notes"
             value={localNotes}
             onChange={handleNotesInputChange}
             onBlur={handleNotesBlur}
-            placeholder={canEdit ? "Add notes for this cell..." : "No notes or view only."}
+            placeholder={canEdit ? "Add general notes for this cell..." : "No notes or view only."}
             className="min-h-[80px] w-full text-sm bg-input placeholder:text-muted-foreground flex-grow"
             aria-label="Cell notes"
             disabled={!canEdit}

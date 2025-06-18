@@ -2,20 +2,20 @@
 "use client";
 
 import type React from 'react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react'; // Added useRef
 import { useMap } from '@/contexts/MapContext';
 import { ICON_CONFIG_MAP } from '@/components/icons';
 import { ICON_TYPES, type PlacedIcon, type IconType } from '@/types';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AlertTriangle, Trash2, XCircle } from 'lucide-react';
+import { AlertTriangle, Trash2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverAnchor } from "@/components/ui/popover";
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-
+import Image from 'next/image'; // For optimized image display
 
 interface DetailedCellEditorCanvasProps {
   rowIndex: number;
@@ -39,11 +39,11 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
   const [editingIcon, setEditingIcon] = useState<PlacedIcon | null>(null);
   const [editedNote, setEditedNote] = useState<string>('');
   const [popoverAnchor, setPopoverAnchor] = useState<HTMLElement | null>(null);
+  const canvasRef = useRef<HTMLDivElement>(null); // Ref for the canvas div
 
   const cellData = currentLocalGrid?.[rowIndex]?.[colIndex];
 
   useEffect(() => {
-    // If editingIcon changes, close the popover by default unless a new one is set
     if (!editingIcon) {
       setPopoverAnchor(null);
     }
@@ -82,13 +82,14 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    if (!canEdit) return;
+    if (!canEdit || !canvasRef.current) return;
 
     const action = e.dataTransfer.getData("action");
-    const canvasRect = e.currentTarget.getBoundingClientRect();
+    const canvasRect = canvasRef.current.getBoundingClientRect();
     let x = ((e.clientX - canvasRect.left) / canvasRect.width) * 100;
     let y = ((e.clientY - canvasRect.top) / canvasRect.height) * 100;
 
+    // Clamp values between 0 and 100 to keep icons within bounds
     x = Math.max(0, Math.min(100, x));
     y = Math.max(0, Math.min(100, y));
 
@@ -97,7 +98,7 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
       if (placedIconId) {
         updatePlacedIconPositionInCell(rowIndex, colIndex, placedIconId, x, y);
       }
-    } else { 
+    } else if (action === "add") { // Check for "add" action from palette
       const iconTypeString = e.dataTransfer.getData("iconType");
       if (ICON_TYPES.includes(iconTypeString as IconType)) {
         const iconType = iconTypeString as IconType;
@@ -107,7 +108,7 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
   };
 
   const handlePlacedIconDragStart = (e: React.DragEvent<HTMLDivElement>, placedIcon: PlacedIcon) => {
-    if (!canEdit || editingIcon?.id === placedIcon.id) { // Prevent drag if popover is open for this icon
+    if (!canEdit || editingIcon?.id === placedIcon.id) {
       e.preventDefault();
       return;
     }
@@ -128,7 +129,7 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
     if (editingIcon) {
       updatePlacedIconNote(rowIndex, colIndex, editingIcon.id, editedNote);
       toast({ title: "Note Saved", description: "The icon's note has been updated." });
-      setEditingIcon(null); // This will close the popover via useEffect or direct open prop
+      setEditingIcon(null);
     }
   };
 
@@ -142,10 +143,22 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
 
   return (
     <div 
-      className={cn("relative overflow-hidden", className)}
+      ref={canvasRef}
+      className={cn("relative overflow-hidden", className)} // Ensure this div has a defined size
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
+      {cellData.backgroundImageUrl && (
+        <Image
+          src={cellData.backgroundImageUrl}
+          alt="Cell background"
+          layout="fill"
+          objectFit="contain" // Ensures entire image is visible, letterboxed if not square
+          className="pointer-events-none -z-10" // Keep behind icons
+          priority // Consider if this is critical content
+          data-ai-hint="map texture"
+        />
+      )}
       {cellData.placedIcons.map((icon: PlacedIcon) => {
         const Config = ICON_CONFIG_MAP[icon.type];
         if (!Config) return null;
@@ -156,13 +169,13 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
           <Popover key={icon.id} open={editingIcon?.id === icon.id} onOpenChange={(isOpen) => { if(!isOpen) setEditingIcon(null);}}>
             <PopoverAnchor asChild>
               <div
-                draggable={canEdit && editingIcon?.id !== icon.id} // Only draggable if not currently being edited
+                draggable={canEdit && editingIcon?.id !== icon.id}
                 onDragStart={(e) => handlePlacedIconDragStart(e, icon)}
                 onContextMenu={(e) => handleContextMenu(e, icon)}
                 className={cn(
                   "absolute w-8 h-8", 
                   canEdit ? "cursor-pointer" : "cursor-default",
-                  editingIcon?.id === icon.id && "ring-2 ring-primary ring-offset-2 ring-offset-background rounded-md z-10"
+                  editingIcon?.id === icon.id && "ring-2 ring-primary ring-offset-2 ring-offset-background rounded-md z-10" // Ensure icons are above background
                 )}
                 style={{
                   left: `${icon.x}%`,
@@ -176,16 +189,11 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
             </PopoverAnchor>
             {editingIcon?.id === icon.id && (
               <PopoverContent 
-                className="w-64 p-3" 
+                className="w-64 p-3 z-20" // Ensure popover is above other elements
                 side="bottom" 
                 align="center"
                 onEscapeKeyDown={() => setEditingIcon(null)}
-                onInteractOutside={() => {
-                  // Optional: Save on interact outside, or require explicit save.
-                  // For now, we close without saving if they click outside without hitting save.
-                  // handleSaveNote(); // Uncomment to save on click outside
-                  setEditingIcon(null);
-                }}
+                onInteractOutside={() => setEditingIcon(null)}
               >
                 <div className="space-y-2">
                   <Label htmlFor={`note-${icon.id}`} className="text-sm font-medium leading-none">Edit Note for {Config.label}</Label>
@@ -211,10 +219,10 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
           </Popover>
         );
       })}
-      {cellData.placedIcons.length === 0 && (
+      {cellData.placedIcons.length === 0 && !cellData.backgroundImageUrl && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <p className="text-muted-foreground text-lg">
-            {canEdit ? "Drag resources here" : "No resources placed"}
+            {canEdit ? "Drag resources or upload background" : "No resources placed"}
           </p>
         </div>
       )}

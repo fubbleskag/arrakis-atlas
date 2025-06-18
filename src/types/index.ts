@@ -26,6 +26,7 @@ export interface GridCellData {
   id: string; // e.g., "0-0", "row-col"
   placedIcons: PlacedIcon[];
   notes: string; // Notes for the overall cell
+  backgroundImageUrl?: string; // URL for the cell's background image
 }
 
 export type LocalGridState = GridCellData[][]; // For client-side manipulation
