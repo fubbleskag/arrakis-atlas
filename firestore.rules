@@ -4,54 +4,57 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Users collection: Basic profile management
-    match /users/{userId} {
-      allow read: if request.auth.uid != null;
-      allow create: if request.auth.uid == userId &&
-                       request.resource.data.uid == userId &&
-                       request.resource.data.email == request.auth.token.email &&
-                       request.resource.data.keys().hasAll(['uid', 'email', 'displayName', 'lastLogin']) &&
-                       request.resource.data.lastLogin == request.time;
-      allow update: if request.auth.uid == userId &&
-                       request.resource.data.uid == userId &&
-                       request.resource.data.email == request.auth.token.email &&
-                       request.resource.data.keys().hasAll(['uid', 'email', 'displayName', 'lastLogin']) &&
-                       request.resource.data.lastLogin == request.time &&
-                       !(request.resource.data.diff(resource.data).affectedKeys().hasAny(['uid', 'email']));
-      allow delete: if false; // Disallow delete for simplicity
+    // Helper functions
+    function isSignedIn() {
+      return request.auth.uid != null;
     }
 
-    // Maps collection: Extremely simplified rules
+    // Users
+    match /users/{userId} {
+      allow read, update: if isSignedIn() && request.auth.uid == userId;
+      allow create: if isSignedIn() && request.auth.uid == userId
+                    && request.resource.data.uid == userId
+                    && request.resource.data.email == request.auth.token.email
+                    && (!('displayName' in request.resource.data) || request.resource.data.displayName is string)
+                    && request.resource.data.lastLogin == request.time;
+      // Deletion of user profiles is disallowed for simplicity
+      allow delete: if false;
+    }
+
+    // Maps
     match /maps/{mapId} {
-      // Allow authenticated users to create maps.
-      // Creator becomes owner and is added to collaborators.
-      allow create: if request.auth.uid != null &&
-                       request.resource.data.ownerId == request.auth.uid &&
-                       request.resource.data.collaborators[request.auth.uid] == 'owner' &&
-                       request.resource.data.collaborators.keys().size() == 1 &&
-                       request.resource.data.memberUIDs[0] == request.auth.uid &&
-                       request.resource.data.memberUIDs.size() == 1 &&
-                       request.resource.data.name is string &&
-                       request.resource.data.gridState is map &&
-                       request.resource.data.keys().hasAll(['name', 'ownerId', 'memberUIDs', 'collaborators', 'gridState', 'createdAt', 'updatedAt']) &&
-                       request.resource.data.createdAt == request.time &&
-                       request.resource.data.updatedAt == request.time;
+      function isMapOwner() {
+        return isSignedIn() && request.auth.uid == resource.data.ownerId;
+      }
 
-      // Allow users to read a map if their UID is a key in the collaborators map.
-      allow read: if request.auth.uid != null &&
-                     request.auth.uid in resource.data.collaborators.keys();
+      function isCollaborator() {
+        // Checks if the user's UID is a key in the collaborators map
+        return isSignedIn() && request.auth.uid in resource.data.collaborators.keys();
+      }
 
-      // Allow updating if the user's UID is a key in the collaborators map.
-      // ownerId and createdAt are immutable.
-      allow update: if request.auth.uid != null &&
-                       request.auth.uid in resource.data.collaborators.keys() &&
-                       request.resource.data.ownerId == resource.data.ownerId && // ownerId is immutable
-                       request.resource.data.createdAt == resource.data.createdAt && // createdAt is immutable
-                       request.resource.data.updatedAt == request.time;
+      // Updated read rule
+      allow read: if isSignedIn()
+                  && 'memberUIDs' in resource.data // Check if memberUIDs field exists
+                  && resource.data.memberUIDs is list // Check if it's a list
+                  && request.auth.uid in resource.data.memberUIDs; // Check if user is in the list
 
-      // Only the owner can delete the map.
-      allow delete: if request.auth.uid != null &&
-                       request.auth.uid == resource.data.ownerId;
+      allow create: if isSignedIn()
+                    && request.resource.data.ownerId == request.auth.uid
+                    && request.resource.data.collaborators[request.auth.uid] == 'owner'
+                    && request.resource.data.memberUIDs.hasOnly([request.auth.uid])
+                    && request.resource.data.createdAt == request.time
+                    && request.resource.data.updatedAt == request.time
+                    && request.resource.data.name is string && request.resource.data.name.size() > 0
+                    && request.resource.data.gridState is map; // Basic check for gridState
+
+      // Simplified update: allow if user is in collaborators.
+      // Add specific field immutability.
+      allow update: if isSignedIn() && isCollaborator()
+                    && request.resource.data.ownerId == resource.data.ownerId         // OwnerId is immutable
+                    && request.resource.data.createdAt == resource.data.createdAt     // CreatedAt is immutable
+                    && request.resource.data.updatedAt == request.time;               // UpdatedAt must be server timestamp
+
+      allow delete: if isMapOwner();
     }
   }
 }
