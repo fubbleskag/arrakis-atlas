@@ -5,7 +5,7 @@ import type React from 'react';
 import { useState } from 'react';
 import type { IconType } from '@/types';
 import { ICON_TYPES } from '@/types'; 
-import { useGrid } from '@/contexts/GridContext';
+import { useMap } from '@/contexts/MapContext'; // Changed from useGrid
 import { useAuth } from '@/contexts/AuthContext';
 import { ICON_CONFIG_MAP } from '@/components/icons';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -21,27 +21,43 @@ interface GridCellProps {
 const GRID_CELL_INTERNAL_SIZE = 9; 
 
 export function GridCell({ rowIndex, colIndex }: GridCellProps) {
-  const { gridState, toggleIconInCell, clearIconsInCell, updateCellNotes } = useGrid();
-  const { isAuthenticated } = useAuth();
+  const { 
+    currentLocalGrid, 
+    toggleIconInCell, 
+    clearIconsInCell, 
+    updateCellNotes,
+    currentMapData, // To check edit permissions
+  } = useMap(); // Changed from useGrid
+  const { isAuthenticated, user } = useAuth();
   const [popoverOpen, setPopoverOpen] = useState(false);
 
-  const cellData = gridState[rowIndex]?.[colIndex];
-  if (!cellData) return null; 
+  const cellData = currentLocalGrid?.[rowIndex]?.[colIndex];
 
+  if (!cellData) { // Should not happen if currentLocalGrid is properly initialized
+      return <div className="aspect-square border border-destructive bg-destructive/20 flex items-center justify-center text-xs">Err</div>;
+  }
+
+  // Determine if the current user can edit this map
+  let canEdit = false;
+  if (isAuthenticated && user && currentMapData) {
+    const userRole = currentMapData.collaborators[user.uid];
+    canEdit = userRole === 'owner' || userRole === 'co-owner' || userRole === 'associate';
+  }
+  
   const handleToggleIcon = (icon: IconType) => {
-    if (isAuthenticated) {
+    if (canEdit) {
       toggleIconInCell(rowIndex, colIndex, icon);
     }
   };
 
   const handleClearAllIcons = () => {
-    if (isAuthenticated) {
+    if (canEdit) {
       clearIconsInCell(rowIndex, colIndex);
     }
   };
 
   const handleNotesChange = (notes: string) => {
-    if (isAuthenticated) {
+    if (canEdit) {
       updateCellNotes(rowIndex, colIndex, notes);
     }
   };
@@ -61,7 +77,7 @@ export function GridCell({ rowIndex, colIndex }: GridCellProps) {
   if (hasNotes) {
     ariaLabelContent += 'Contains notes. ';
   }
-  ariaLabelContent += 'Click to edit.';
+  ariaLabelContent += canEdit ? 'Click to edit.' : 'View only.';
 
 
   return (
@@ -70,14 +86,14 @@ export function GridCell({ rowIndex, colIndex }: GridCellProps) {
         <button
           id={cellId}
           aria-label={ariaLabelContent}
-          disabled={!isAuthenticated}
+          disabled={!canEdit}
           className={cn(
             "aspect-square border border-border flex items-center justify-center p-1 relative group transition-all duration-150 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-            isAuthenticated ? "hover:bg-accent/20 cursor-pointer" : "cursor-not-allowed bg-muted/30",
-            popoverOpen && isAuthenticated && "bg-accent/30 ring-2 ring-accent"
+            canEdit ? "hover:bg-accent/20 cursor-pointer" : "cursor-not-allowed bg-muted/30",
+            popoverOpen && canEdit && "bg-accent/30 ring-2 ring-accent"
           )}
         >
-          {!isAuthenticated && !cellData.icons.length && !hasNotes && (
+          {!canEdit && !cellData.icons.length && !hasNotes && (
              <Lock className="h-1/2 w-1/2 text-muted-foreground/50 absolute inset-0 m-auto" />
           )}
           {hasNotes && (
@@ -97,12 +113,12 @@ export function GridCell({ rowIndex, colIndex }: GridCellProps) {
               return <div key={iconType} className="opacity-0" />; 
             })}
           </div>
-           {cellData.icons.length === 0 && !hasNotes && isAuthenticated && (
+           {cellData.icons.length === 0 && !hasNotes && canEdit && (
              <span className="absolute text-xs text-muted-foreground group-hover:text-accent-foreground">Edit</span>
            )}
         </button>
       </PopoverTrigger>
-      {isAuthenticated && (
+      {canEdit && (
         <PopoverContent className="w-auto p-0" align="start" sideOffset={5}>
           <IconPalette
             currentIcons={cellData.icons}
@@ -110,6 +126,7 @@ export function GridCell({ rowIndex, colIndex }: GridCellProps) {
             onClearAll={handleClearAllIcons}
             currentNotes={cellData.notes}
             onNotesChange={handleNotesChange}
+            canEdit={canEdit}
           />
         </PopoverContent>
       )}
