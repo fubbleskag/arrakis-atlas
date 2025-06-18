@@ -11,17 +11,17 @@ import { ICON_CONFIG_MAP } from '@/components/icons';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { IconPalette } from './IconPalette';
 import { cn } from '@/lib/utils';
-import { Lock } from 'lucide-react';
+import { Lock, StickyNote } from 'lucide-react';
 
 interface GridCellProps {
   rowIndex: number;
   colIndex: number;
 }
 
-const GRID_CELL_INTERNAL_SIZE = 9; // Used for ARIA label calculation
+const GRID_CELL_INTERNAL_SIZE = 9; 
 
 export function GridCell({ rowIndex, colIndex }: GridCellProps) {
-  const { gridState, toggleIconInCell, clearIconsInCell } = useGrid();
+  const { gridState, toggleIconInCell, clearIconsInCell, updateCellNotes } = useGrid();
   const { isAuthenticated } = useAuth();
   const [popoverOpen, setPopoverOpen] = useState(false);
 
@@ -39,18 +39,37 @@ export function GridCell({ rowIndex, colIndex }: GridCellProps) {
       clearIconsInCell(rowIndex, colIndex);
     }
   };
+
+  const handleNotesChange = (notes: string) => {
+    if (isAuthenticated) {
+      updateCellNotes(rowIndex, colIndex, notes);
+    }
+  };
   
   const cellId = `cell-${rowIndex}-${colIndex}`;
   const rowLabel = String.fromCharCode(65 + (GRID_CELL_INTERNAL_SIZE - 1 - rowIndex));
   const colLabel = colIndex + 1;
   const cellCoordinate = `${rowLabel}${colLabel}`;
+  const hasNotes = cellData.notes && cellData.notes.trim() !== '';
+
+  let ariaLabelContent = `Grid cell ${cellCoordinate}. `;
+  if (cellData.icons.length > 0) {
+    ariaLabelContent += `Contains ${cellData.icons.map(icon => ICON_CONFIG_MAP[icon].label).join(', ')}. `;
+  } else {
+    ariaLabelContent += 'Empty. ';
+  }
+  if (hasNotes) {
+    ariaLabelContent += 'Contains notes. ';
+  }
+  ariaLabelContent += 'Click to edit.';
+
 
   return (
     <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
       <PopoverTrigger asChild>
         <button
           id={cellId}
-          aria-label={`Grid cell ${cellCoordinate}. ${cellData.icons.length > 0 ? 'Contains ' + cellData.icons.map(icon => ICON_CONFIG_MAP[icon].label).join(', ') : 'Empty.'} Click to edit.`}
+          aria-label={ariaLabelContent}
           disabled={!isAuthenticated}
           className={cn(
             "aspect-square border border-border flex items-center justify-center p-1 relative group transition-all duration-150 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
@@ -58,8 +77,11 @@ export function GridCell({ rowIndex, colIndex }: GridCellProps) {
             popoverOpen && isAuthenticated && "bg-accent/30 ring-2 ring-accent"
           )}
         >
-          {!isAuthenticated && !cellData.icons.length && (
+          {!isAuthenticated && !cellData.icons.length && !hasNotes && (
              <Lock className="h-1/2 w-1/2 text-muted-foreground/50 absolute inset-0 m-auto" />
+          )}
+          {hasNotes && (
+            <StickyNote className="absolute top-0.5 right-0.5 h-3 w-3 text-primary/70 group-hover:text-accent-foreground/70" />
           )}
           <div className="grid grid-cols-3 gap-0.5 h-full w-full">
             {ICON_TYPES.map((iconType) => {
@@ -75,7 +97,7 @@ export function GridCell({ rowIndex, colIndex }: GridCellProps) {
               return <div key={iconType} className="opacity-0" />; 
             })}
           </div>
-           {cellData.icons.length === 0 && isAuthenticated && (
+           {cellData.icons.length === 0 && !hasNotes && isAuthenticated && (
              <span className="absolute text-xs text-muted-foreground group-hover:text-accent-foreground">Edit</span>
            )}
         </button>
@@ -86,6 +108,8 @@ export function GridCell({ rowIndex, colIndex }: GridCellProps) {
             currentIcons={cellData.icons}
             onIconChange={handleToggleIcon}
             onClearAll={handleClearAllIcons}
+            currentNotes={cellData.notes}
+            onNotesChange={handleNotesChange}
           />
         </PopoverContent>
       )}

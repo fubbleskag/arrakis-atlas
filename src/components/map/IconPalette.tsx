@@ -2,11 +2,14 @@
 "use client";
 
 import type React from 'react';
+import { useState, useEffect } from 'react';
 import { ICON_TYPES, type IconType } from '@/types';
 import { ICON_CONFIG_MAP } from '@/components/icons';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { Trash2 } from 'lucide-react';
 
@@ -14,9 +17,22 @@ interface IconPaletteProps {
   currentIcons: IconType[];
   onIconChange: (icon: IconType) => void;
   onClearAll: () => void;
+  currentNotes: string;
+  onNotesChange: (notes: string) => void;
 }
 
-export function IconPalette({ currentIcons, onIconChange, onClearAll }: IconPaletteProps) {
+export function IconPalette({ currentIcons, onIconChange, onClearAll, currentNotes, onNotesChange }: IconPaletteProps) {
+  const [localNotes, setLocalNotes] = useState(currentNotes);
+
+  useEffect(() => {
+    setLocalNotes(currentNotes);
+  }, [currentNotes]);
+
+  const handleNotesInputChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setLocalNotes(event.target.value);
+    onNotesChange(event.target.value);
+  };
+
   return (
     <div className="p-1">
       <div className="flex justify-between items-center mb-2">
@@ -52,6 +68,20 @@ export function IconPalette({ currentIcons, onIconChange, onClearAll }: IconPale
             </Label>
           );
         })}
+      </div>
+      <Separator className="my-3" />
+      <div>
+        <Label htmlFor="cell-notes" className="text-sm font-medium text-foreground mb-1 block">
+          Notes
+        </Label>
+        <Textarea
+          id="cell-notes"
+          value={localNotes}
+          onChange={handleNotesInputChange}
+          placeholder="Add notes for this cell..."
+          className="min-h-[80px] w-full text-sm bg-input placeholder:text-muted-foreground"
+          aria-label="Cell notes"
+        />
       </div>
     </div>
   );

@@ -15,6 +15,7 @@ export type IconType = typeof ICON_TYPES[number];
 export interface GridCellData {
   id: string; // e.g., "0-0", "row-col"
   icons: IconType[];
+  notes: string; // Added notes field
 }
 
 export type GridState = GridCellData[][];
