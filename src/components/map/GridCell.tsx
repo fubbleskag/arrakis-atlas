@@ -2,7 +2,7 @@
 "use client";
 
 import type React from 'react';
-import type { IconType } from '@/types'; // Keep IconType for ICON_CONFIG_MAP
+import type { IconType } from '@/types';
 import { ICON_CONFIG_MAP } from '@/components/icons';
 import { useMap } from '@/contexts/MapContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -12,11 +12,13 @@ import { Lock, StickyNote } from 'lucide-react';
 interface GridCellProps {
   rowIndex: number;
   colIndex: number;
+  onMouseEnterCell: () => void;
+  onMouseLeaveCell: () => void;
 }
 
 const GRID_CELL_INTERNAL_SIZE = 9; // For label calculation
 
-export function GridCell({ rowIndex, colIndex }: GridCellProps) {
+export function GridCell({ rowIndex, colIndex, onMouseEnterCell, onMouseLeaveCell }: GridCellProps) {
   const { 
     currentLocalGrid, 
     currentMapData,
@@ -47,7 +49,6 @@ export function GridCell({ rowIndex, colIndex }: GridCellProps) {
   const cellCoordinate = `${rowLabel}${colLabel}`;
   const hasNotes = cellData.notes && cellData.notes.trim() !== '';
   
-  // Get unique icon types for display
   const uniqueIconTypesInCell: IconType[] = [];
   if (cellData.placedIcons.length > 0) {
     const seenTypes = new Set<IconType>();
@@ -65,7 +66,7 @@ export function GridCell({ rowIndex, colIndex }: GridCellProps) {
   let ariaLabelContent = `Grid cell ${cellCoordinate}. `;
   if (hasPlacedIcons) {
     const iconLabels = uniqueIconTypesInCell
-      .slice(0, 3) // Limit to first 3 unique icon types for aria label brevity
+      .slice(0, 3) 
       .map(iconType => ICON_CONFIG_MAP[iconType]?.label || 'icon')
       .join(', ');
     ariaLabelContent += `Contains ${iconLabels}${uniqueIconTypesInCell.length > 3 ? ' and others' : ''}. `;
@@ -84,6 +85,8 @@ export function GridCell({ rowIndex, colIndex }: GridCellProps) {
         aria-label={ariaLabelContent}
         disabled={!currentMapData} 
         onClick={handleCellClick}
+        onMouseEnter={onMouseEnterCell}
+        onMouseLeave={onMouseLeaveCell}
         className={cn(
           "aspect-square flex items-center justify-center p-0.5 relative group transition-all duration-150 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
           "bg-card", 
@@ -98,7 +101,6 @@ export function GridCell({ rowIndex, colIndex }: GridCellProps) {
           <StickyNote className="absolute top-0.5 right-0.5 h-3 w-3 text-primary/70 group-hover:text-accent-foreground/70" />
         )}
         
-        {/* Display for Placed Icons - simple grid for now, max 9 unique icons */}
         {hasPlacedIcons && (
           <div className="grid grid-cols-3 grid-rows-3 gap-px h-[calc(100%-4px)] w-[calc(100%-4px)] p-px">
             {uniqueIconTypesInCell.slice(0, 9).map((iconType, index) => {
@@ -117,7 +119,7 @@ export function GridCell({ rowIndex, colIndex }: GridCellProps) {
              {canEdit ? "Edit" : "View"}
            </span>
          )}
-         {(!isEmptyCell) && currentMapData && ( // Show "Edit/View" text if not empty
+         {(!isEmptyCell) && currentMapData && ( 
              <span className="absolute bottom-1 right-1 text-[10px] text-muted-foreground/70 group-hover:text-accent-foreground opacity-0 group-hover:opacity-100 transition-opacity duration-150">
               {canEdit ? "Edit" : "View"}
             </span>

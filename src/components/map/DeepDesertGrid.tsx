@@ -1,10 +1,11 @@
 
 "use client";
 
+import { useState } from 'react';
 import { useMap } from '@/contexts/MapContext';
 import { GridCell } from './GridCell';
 import { Button } from '@/components/ui/button';
-import { RotateCcw } from 'lucide-react'; // Icon can remain, only text changes
+import { RotateCcw } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   AlertDialog,
@@ -18,6 +19,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import type { LocalGridState } from '@/types';
+import { cn } from '@/lib/utils';
 
 
 const GRID_SIZE = 9;
@@ -31,6 +33,7 @@ export function DeepDesertGrid() {
     focusedCellCoordinates 
   } = useMap(); 
   const { user, isAuthenticated } = useAuth();
+  const [hoveredCell, setHoveredCell] = useState<{row: number | null, col: number | null}>({ row: null, col: null });
 
 
   if (isLoadingMapData || !currentLocalGrid) {
@@ -68,7 +71,10 @@ export function DeepDesertGrid() {
           {Array.from({ length: GRID_SIZE }).map((_, colIndex) => (
             <div
               key={`col-label-${colIndex}`}
-              className="flex items-center justify-center text-center h-8 text-sm font-medium text-muted-foreground aspect-square bg-card rounded-sm"
+              className={cn(
+                "flex items-center justify-center text-center h-8 text-sm font-medium text-muted-foreground aspect-square bg-card rounded-sm transition-colors",
+                hoveredCell.col === colIndex && "bg-accent text-accent-foreground"
+              )}
             >
               {colIndex + 1}
             </div>
@@ -78,7 +84,10 @@ export function DeepDesertGrid() {
           {Array.from({ length: GRID_SIZE }).map((_, rowIndex) => (
             <div
               key={`row-label-${rowIndex}`}
-              className="flex items-center justify-center text-center w-8 text-sm font-medium text-muted-foreground aspect-square bg-card rounded-sm"
+              className={cn(
+                "flex items-center justify-center text-center w-8 text-sm font-medium text-muted-foreground aspect-square bg-card rounded-sm transition-colors",
+                hoveredCell.row === rowIndex && "bg-accent text-accent-foreground"
+              )}
             >
               {String.fromCharCode(65 + (GRID_SIZE - 1 - rowIndex))}
             </div>
@@ -95,6 +104,8 @@ export function DeepDesertGrid() {
                 key={cellData.id || `${rIndex}-${cIndex}`}
                 rowIndex={rIndex}
                 colIndex={cIndex}
+                onMouseEnterCell={() => setHoveredCell({ row: rIndex, col: cIndex })}
+                onMouseLeaveCell={() => setHoveredCell({ row: null, col: null })}
               />
             ))
           )}
