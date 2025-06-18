@@ -6,13 +6,18 @@ import { initializeApp, getApp, getApps } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
+// IMPORTANT: Replace ALL of the placeholder values below with your
+// actual Firebase project's configuration details.
+// You can find these in your Firebase project console:
+// Project settings (gear icon) > General tab > Your apps > Firebase SDK snippet > Config
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_STORAGE_BUCKET",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID",
+  apiKey: "YOUR_API_KEY_HERE",
+  authDomain: "YOUR_PROJECT_ID_HERE.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID_HERE",
+  storageBucket: "YOUR_PROJECT_ID_HERE.appspot.com", // Or YOUR_PROJECT_ID_HERE.firebasestorage.app if that's what your console shows
+  messagingSenderId: "YOUR_MESSAGING_SENDER_ID_HERE",
+  appId: "YOUR_APP_ID_HERE"
+  // measurementId: "YOUR_MEASUREMENT_ID_HERE" // Optional: for Google Analytics
 };
 
 // Initialize Firebase
