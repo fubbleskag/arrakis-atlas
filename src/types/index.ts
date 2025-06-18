@@ -14,9 +14,16 @@ export const ICON_TYPES = [
 
 export type IconType = typeof ICON_TYPES[number];
 
+export interface PlacedIcon {
+  id: string; // Unique ID for this placed icon instance (e.g., crypto.randomUUID())
+  type: IconType;
+  x: number; // Percentage from left (0-100)
+  y: number; // Percentage from top (0-100)
+}
+
 export interface GridCellData {
   id: string; // e.g., "0-0", "row-col"
-  icons: IconType[];
+  placedIcons: PlacedIcon[]; // Changed from icons: IconType[]
   notes: string;
 }
 
@@ -48,5 +55,3 @@ export interface FocusedCellCoordinates {
   rowIndex: number;
   colIndex: number;
 }
-
-    

@@ -3,7 +3,7 @@
 
 import type React from 'react';
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import type { LocalGridState, FirestoreGridState, IconType, MapData, FocusedCellCoordinates } from '@/types';
+import type { LocalGridState, FirestoreGridState, IconType, MapData, FocusedCellCoordinates, PlacedIcon } from '@/types';
 import { useAuth } from './AuthContext';
 import { db } from '@/firebase/firebaseConfig';
 import {
@@ -17,6 +17,7 @@ import {
   serverTimestamp,
   deleteDoc,
   Timestamp,
+  updateDoc,
 } from 'firebase/firestore';
 import { useToast } from "@/hooks/use-toast";
 
@@ -30,7 +31,7 @@ const initializeLocalGrid = (): LocalGridState => {
         .fill(null)
         .map((__, colIndex) => ({
           id: `${rowIndex}-${colIndex}`,
-          icons: [],
+          placedIcons: [], // Changed from icons: []
           notes: '',
         }))
     );
@@ -39,7 +40,10 @@ const initializeLocalGrid = (): LocalGridState => {
 const convertLocalToFirestoreGrid = (localGrid: LocalGridState): FirestoreGridState => {
   const firestoreGrid: FirestoreGridState = {};
   localGrid.forEach((row, rIndex) => {
-    firestoreGrid[rIndex.toString()] = row;
+    firestoreGrid[rIndex.toString()] = row.map(cell => ({
+      ...cell,
+      placedIcons: cell.placedIcons || [], // Ensure placedIcons is always an array
+    }));
   });
   return firestoreGrid;
 };
@@ -53,7 +57,12 @@ const convertFirestoreToLocalGrid = (firestoreGrid: FirestoreGridState | undefin
       if (rowData && Array.isArray(rowData) && rowData.length === GRID_SIZE) {
         newLocalGrid[r] = rowData.map((cell: any, c: number) => ({
           id: cell.id || `${r}-${c}`,
-          icons: Array.isArray(cell.icons) ? cell.icons.filter(icon => typeof icon === 'string') : [],
+          placedIcons: Array.isArray(cell.placedIcons) ? cell.placedIcons.map((pi: any) => ({
+            id: pi.id || crypto.randomUUID(), // Ensure id exists
+            type: pi.type,
+            x: typeof pi.x === 'number' ? pi.x : 0,
+            y: typeof pi.y === 'number' ? pi.y : 0,
+          })).filter(pi => pi.type && ICON_TYPES.includes(pi.type as IconType)) : [],
           notes: typeof cell.notes === 'string' ? cell.notes : '',
         }));
       }
@@ -69,14 +78,19 @@ interface MapContextType {
   currentLocalGrid: LocalGridState | null;
   isLoadingMapList: boolean;
   isLoadingMapData: boolean;
-  focusedCellCoordinates: FocusedCellCoordinates | null; // New state for focused cell
-  setFocusedCellCoordinates: (coordinates: FocusedCellCoordinates | null) => void; // New function
+  focusedCellCoordinates: FocusedCellCoordinates | null;
+  setFocusedCellCoordinates: (coordinates: FocusedCellCoordinates | null) => void;
   selectMap: (mapId: string | null) => void;
   createMap: (name: string) => Promise<string | null>;
   deleteMap: (mapId: string) => Promise<void>;
   updateMapName: (mapId: string, newName: string) => Promise<void>;
-  toggleIconInCell: (rowIndex: number, colIndex: number, icon: IconType) => void;
-  clearIconsInCell: (rowIndex: number, colIndex: number) => void;
+  
+  // New functions for placed icons
+  addPlacedIconToCell: (rowIndex: number, colIndex: number, iconType: IconType, x: number, y: number) => void;
+  updatePlacedIconPositionInCell: (rowIndex: number, colIndex: number, placedIconId: string, newX: number, newY: number) => void;
+  removePlacedIconFromCell: (rowIndex: number, colIndex: number, placedIconId: string) => void;
+  clearAllPlacedIconsInCell: (rowIndex: number, colIndex: number) => void; // New for clearing all
+
   updateCellNotes: (rowIndex: number, colIndex: number, notes: string) => void;
   resetCurrentMapGrid: () => void;
 }
@@ -92,7 +106,6 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [currentMapData, setCurrentMapData] = useState<MapData | null>(null);
   const [currentLocalGrid, setCurrentLocalGrid] = useState<LocalGridState | null>(null);
   const [focusedCellCoordinates, setFocusedCellCoordinates] = useState<FocusedCellCoordinates | null>(null);
-
 
   const [isLoadingMapList, setIsLoadingMapList] = useState<boolean>(true);
   const [isLoadingMapData, setIsLoadingMapData] = useState<boolean>(false);
@@ -132,7 +145,7 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!currentMapId) {
       setCurrentMapData(null);
       setCurrentLocalGrid(null);
-      setFocusedCellCoordinates(null);
+      // Do not reset focusedCellCoordinates here, allow it to persist if map data reloads
       setIsLoadingMapData(false);
       return;
     }
@@ -170,9 +183,9 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [currentMapId, user, toast]);
 
   const selectMap = useCallback((mapId: string | null) => {
-    if (mapId === currentMapId) return; 
+    if (mapId === currentMapId && mapId !== null) return; 
     setCurrentMapId(mapId);
-    setFocusedCellCoordinates(null); // Reset focused cell when changing maps
+    setFocusedCellCoordinates(null); 
   }, [currentMapId]);
 
   const createMap = useCallback(async (name: string): Promise<string | null> => {
@@ -217,7 +230,8 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const mapDocRef = doc(db, "maps", mapId);
     try {
-      await setDoc(mapDocRef, { ...updates, updatedAt: serverTimestamp() }, { merge: true });
+      // Use updateDoc for partial updates, setDoc with merge can also work
+      await updateDoc(mapDocRef, { ...updates, updatedAt: serverTimestamp() });
     } catch (error: any) {
       console.error("Error updating map in Firestore:", error);
       toast({ title: "Save Error", description: `Could not save map changes: ${error.message}`, variant: "destructive" });
@@ -242,18 +256,16 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [currentMapId, user, currentMapData, updateMapInFirestore, toast]);
 
-  const toggleIconInCell = useCallback((rowIndex: number, colIndex: number, icon: IconType) => {
+  // --- New Placed Icon Functions ---
+  const addPlacedIconToCell = useCallback((rowIndex: number, colIndex: number, iconType: IconType, x: number, y: number) => {
     setCurrentLocalGrid(prevGrid => {
       if (!prevGrid) return null;
       const newGrid = prevGrid.map((row, rIdx) =>
         rIdx === rowIndex
           ? row.map((cell, cIdx) => {
               if (cIdx === colIndex) {
-                const newIcons = [...cell.icons];
-                const iconIndex = newIcons.indexOf(icon);
-                if (iconIndex > -1) newIcons.splice(iconIndex, 1);
-                else newIcons.push(icon);
-                return { ...cell, icons: newIcons };
+                const newPlacedIcon: PlacedIcon = { id: crypto.randomUUID(), type: iconType, x, y };
+                return { ...cell, placedIcons: [...cell.placedIcons, newPlacedIcon] };
               }
               return cell;
             })
@@ -264,18 +276,60 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   }, [updateCurrentMapGridInFirestore]);
 
-  const clearIconsInCell = useCallback((rowIndex: number, colIndex: number) => {
+  const updatePlacedIconPositionInCell = useCallback((rowIndex: number, colIndex: number, placedIconId: string, newX: number, newY: number) => {
     setCurrentLocalGrid(prevGrid => {
       if (!prevGrid) return null;
       const newGrid = prevGrid.map((row, rIdx) =>
         rIdx === rowIndex
-          ? row.map((cell, cIdx) => (cIdx === colIndex ? { ...cell, icons: [] } : cell))
+          ? row.map((cell, cIdx) => {
+              if (cIdx === colIndex) {
+                return { 
+                  ...cell, 
+                  placedIcons: cell.placedIcons.map(pi => 
+                    pi.id === placedIconId ? { ...pi, x: newX, y: newY } : pi
+                  ) 
+                };
+              }
+              return cell;
+            })
           : row
       );
       updateCurrentMapGridInFirestore(newGrid);
       return newGrid;
     });
   }, [updateCurrentMapGridInFirestore]);
+
+  const removePlacedIconFromCell = useCallback((rowIndex: number, colIndex: number, placedIconId: string) => {
+    setCurrentLocalGrid(prevGrid => {
+      if (!prevGrid) return null;
+      const newGrid = prevGrid.map((row, rIdx) =>
+        rIdx === rowIndex
+          ? row.map((cell, cIdx) => {
+              if (cIdx === colIndex) {
+                return { ...cell, placedIcons: cell.placedIcons.filter(pi => pi.id !== placedIconId) };
+              }
+              return cell;
+            })
+          : row
+      );
+      updateCurrentMapGridInFirestore(newGrid);
+      return newGrid;
+    });
+  }, [updateCurrentMapGridInFirestore]);
+  
+  const clearAllPlacedIconsInCell = useCallback((rowIndex: number, colIndex: number) => {
+    setCurrentLocalGrid(prevGrid => {
+      if (!prevGrid) return null;
+      const newGrid = prevGrid.map((row, rIdx) =>
+        rIdx === rowIndex
+          ? row.map((cell, cIdx) => (cIdx === colIndex ? { ...cell, placedIcons: [] } : cell))
+          : row
+      );
+      updateCurrentMapGridInFirestore(newGrid);
+      return newGrid;
+    });
+  }, [updateCurrentMapGridInFirestore]);
+
 
   const updateCellNotes = useCallback((rowIndex: number, colIndex: number, notes: string) => {
     setCurrentLocalGrid(prevGrid => {
@@ -365,8 +419,10 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createMap,
       deleteMap,
       updateMapName,
-      toggleIconInCell,
-      clearIconsInCell,
+      addPlacedIconToCell,
+      updatePlacedIconPositionInCell,
+      removePlacedIconFromCell,
+      clearAllPlacedIconsInCell,
       updateCellNotes,
       resetCurrentMapGrid,
     }}>
@@ -382,5 +438,3 @@ export const useMap = (): MapContextType => {
   }
   return context;
 };
-
-    

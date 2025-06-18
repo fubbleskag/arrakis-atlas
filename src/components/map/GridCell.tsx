@@ -2,11 +2,10 @@
 "use client";
 
 import type React from 'react';
-import type { IconType } from '@/types';
-import { ICON_TYPES } from '@/types'; 
+import type { IconType } from '@/types'; // Keep IconType for ICON_CONFIG_MAP
+import { ICON_CONFIG_MAP } from '@/components/icons';
 import { useMap } from '@/contexts/MapContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { ICON_CONFIG_MAP } from '@/components/icons';
 import { cn } from '@/lib/utils';
 import { Lock, StickyNote } from 'lucide-react';
 
@@ -15,7 +14,7 @@ interface GridCellProps {
   colIndex: number;
 }
 
-const GRID_CELL_INTERNAL_SIZE = 9; 
+const GRID_CELL_INTERNAL_SIZE = 9; // For label calculation
 
 export function GridCell({ rowIndex, colIndex }: GridCellProps) {
   const { 
@@ -37,7 +36,6 @@ export function GridCell({ rowIndex, colIndex }: GridCellProps) {
   }
   
   const handleCellClick = () => {
-    // Only allow focusing if the map exists and the user can edit it OR if the map exists for viewing
      if (currentMapData) {
       setFocusedCellCoordinates({ rowIndex, colIndex });
     }
@@ -48,12 +46,16 @@ export function GridCell({ rowIndex, colIndex }: GridCellProps) {
   const colLabel = colIndex + 1;
   const cellCoordinate = `${rowLabel}${colLabel}`;
   const hasNotes = cellData.notes && cellData.notes.trim() !== '';
-  const hasIcons = cellData.icons.length > 0;
-  const isEmptyCell = !hasIcons && !hasNotes;
+  const hasPlacedIcons = cellData.placedIcons.length > 0;
+  const isEmptyCell = !hasPlacedIcons && !hasNotes;
 
   let ariaLabelContent = `Grid cell ${cellCoordinate}. `;
-  if (hasIcons) {
-    ariaLabelContent += `Contains ${cellData.icons.map(icon => ICON_CONFIG_MAP[icon].label).join(', ')}. `;
+  if (hasPlacedIcons) {
+    const iconLabels = cellData.placedIcons
+      .slice(0, 3) // Limit to first 3 icons for aria label brevity
+      .map(pi => ICON_CONFIG_MAP[pi.type]?.label || 'icon')
+      .join(', ');
+    ariaLabelContent += `Contains ${iconLabels}${cellData.placedIcons.length > 3 ? ' and others' : ''}. `;
   }
   if (hasNotes) {
     ariaLabelContent += `Contains notes. `;
@@ -63,15 +65,14 @@ export function GridCell({ rowIndex, colIndex }: GridCellProps) {
   }
   ariaLabelContent += canEdit ? 'Click to view or edit.' : 'Click to view.';
 
-
   return (
       <button
         id={cellId}
         aria-label={ariaLabelContent}
-        disabled={!currentMapData} // Disabled if no map is loaded
+        disabled={!currentMapData} 
         onClick={handleCellClick}
         className={cn(
-          "aspect-square flex items-center justify-center p-1 relative group transition-all duration-150 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+          "aspect-square flex items-center justify-center p-0.5 relative group transition-all duration-150 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
           "bg-card", 
           currentMapData ? "hover:bg-accent/20 cursor-pointer" : "cursor-not-allowed",
           !canEdit && currentMapData && "bg-muted/30"
@@ -83,26 +84,27 @@ export function GridCell({ rowIndex, colIndex }: GridCellProps) {
         {hasNotes && (
           <StickyNote className="absolute top-0.5 right-0.5 h-3 w-3 text-primary/70 group-hover:text-accent-foreground/70" />
         )}
-        <div className="grid grid-cols-3 gap-0.5 h-full w-full">
-          {ICON_TYPES.map((iconType) => {
-            const isActive = cellData.icons.includes(iconType);
-            const { IconComponent, label } = ICON_CONFIG_MAP[iconType];
-            if (isActive) {
+        
+        {/* Display for Placed Icons - simple grid for now, max 9 icons */}
+        {hasPlacedIcons && (
+          <div className="grid grid-cols-3 grid-rows-3 gap-px h-[calc(100%-4px)] w-[calc(100%-4px)] p-px">
+            {cellData.placedIcons.slice(0, 9).map((placedIcon, index) => {
+              const { IconComponent, label } = ICON_CONFIG_MAP[placedIcon.type];
               return (
-                <div key={iconType} className="flex items-center justify-center" title={label}>
-                  <IconComponent className="w-4 h-4 text-primary" />
+                <div key={placedIcon.id || index} className="flex items-center justify-center overflow-hidden" title={label}>
+                  <IconComponent className="w-[60%] h-[60%] text-primary" />
                 </div>
               );
-            }
-            return <div key={iconType} className="opacity-0" />; 
-          })}
-        </div>
+            })}
+          </div>
+        )}
+
          {isEmptyCell && currentMapData && (
            <span className="absolute text-xs text-muted-foreground group-hover:text-accent-foreground">
              {canEdit ? "Edit" : "View"}
            </span>
          )}
-          {(hasIcons || hasNotes) && !isEmptyCell && currentMapData && (
+         {(!isEmptyCell) && currentMapData && ( // Show "Edit/View" text if not empty
              <span className="absolute bottom-1 right-1 text-[10px] text-muted-foreground/70 group-hover:text-accent-foreground opacity-0 group-hover:opacity-100 transition-opacity duration-150">
               {canEdit ? "Edit" : "View"}
             </span>
@@ -110,5 +112,3 @@ export function GridCell({ rowIndex, colIndex }: GridCellProps) {
       </button>
   );
 }
-
-    

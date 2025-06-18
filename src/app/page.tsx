@@ -4,7 +4,8 @@
 import { AppHeader } from '@/components/AppHeader';
 import { DeepDesertGrid } from '@/components/map/DeepDesertGrid';
 import { MapManager } from '@/components/map/MapManager';
-import { FocusedCellView } from '@/components/map/FocusedCellView';
+import { IconSourcePalette } from '@/components/map/IconSourcePalette'; // Renamed from FocusedCellView
+import { DetailedCellEditorCanvas } from '@/components/map/DetailedCellEditorCanvas'; // New component
 import { AuthProvider } from '@/contexts/AuthContext';
 import { MapProvider, useMap } from '@/contexts/MapContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -18,6 +19,7 @@ function HomePageContent() {
   const userMapListIsEmpty = !userMapList || userMapList.length === 0;
   const overallLoading = isAuthLoading || (userMapListIsEmpty && isLoadingMapList);
 
+  const gridWidthStyle = `min(calc(100vh - 250px), calc(100vw - 32px))`; // Base width for grid or editor
 
   if (overallLoading) {
     return (
@@ -41,15 +43,51 @@ function HomePageContent() {
     );
   }
 
-  // If not loading map list and no map ID is current (e.g., user has no maps, or hasn't selected one)
   if (!currentMapId && !isLoadingMapList) {
     return <MapManager />;
   }
 
+  // If a cell is focused, show the detailed editor view
+  if (focusedCellCoordinates && currentLocalGrid && currentMapId) {
+    const editorCanvasWidthStyle = `min(calc(100vh - 250px - 300px - 24px), calc(100vw - 32px - 300px - 24px))`; // Adjusted for palette
+    
+    return (
+      <div className="flex flex-row w-full flex-grow gap-6 p-4 md:p-6 items-start">
+        {/* Detailed Cell Editor Canvas */}
+        <div 
+          className="flex-grow flex flex-col items-center justify-start"
+          style={{ 
+            width: `calc(100% - 300px - 24px)`, // Full width minus palette and gap
+           }} 
+        >
+           {(isLoadingMapData) && (
+             <div className="w-full aspect-square bg-card rounded-lg shadow-xl flex items-center justify-center">
+                <Skeleton className="w-full h-full"/>
+             </div>
+           )}
+           {(!isLoadingMapData && currentLocalGrid) && (
+             <DetailedCellEditorCanvas
+                rowIndex={focusedCellCoordinates.rowIndex}
+                colIndex={focusedCellCoordinates.colIndex}
+                className="w-full aspect-square bg-background rounded-lg shadow-xl border border-border" 
+             />
+           )}
+        </div>
 
+        {/* Icon Source Palette (formerly FocusedCellView/sidebar) */}
+        <div className="w-[300px] flex-shrink-0">
+          <IconSourcePalette
+            rowIndex={focusedCellCoordinates.rowIndex}
+            colIndex={focusedCellCoordinates.colIndex}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // Default view: Deep Desert Grid
   return (
     <div className="flex flex-row w-full flex-grow gap-6 p-4 md:p-6">
-      {/* Grid Area */}
       <div className="flex-grow flex flex-col items-center justify-start">
         {(isLoadingMapData && currentMapId) && (
           <div className="flex flex-col items-center space-y-4 w-full p-4">
@@ -60,7 +98,7 @@ function HomePageContent() {
                 gridTemplateColumns: 'auto 1fr',
                 gridTemplateRows: 'auto 1fr',
                 gap: '0.25rem',
-                width: 'min(calc(100vh - 250px), calc(100vw - 32px - 350px - 24px))', // Adjusted for sidebar
+                width: gridWidthStyle,
                 maxWidth: '800px',
               }}
             >
@@ -97,16 +135,7 @@ function HomePageContent() {
             </div>
         )}
       </div>
-
-      {/* Sidebar Area */}
-      {focusedCellCoordinates && currentLocalGrid && (
-        <div className="w-[350px] flex-shrink-0">
-          <FocusedCellView
-            rowIndex={focusedCellCoordinates.rowIndex}
-            colIndex={focusedCellCoordinates.colIndex}
-          />
-        </div>
-      )}
+      {/* Sidebar area is now conditionally part of the focused cell view */}
     </div>
   );
 }
