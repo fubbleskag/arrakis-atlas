@@ -3,7 +3,7 @@
 
 import type React from 'react';
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import type { LocalGridState, FirestoreGridState, IconType, MapData, FocusedCellCoordinates, PlacedIcon } from '@/types';
+import type { LocalGridState, FirestoreGridState, IconType, MapData, FocusedCellCoordinates, PlacedIcon, GridCellData } from '@/types';
 import { ICON_TYPES } from '@/types'; // Import ICON_TYPES for validation
 import { useAuth } from './AuthContext';
 import { db } from '@/firebase/firebaseConfig';
@@ -42,7 +42,6 @@ const convertLocalToFirestoreGrid = (localGrid: LocalGridState): FirestoreGridSt
   const firestoreGrid: FirestoreGridState = {};
   localGrid.forEach((rowArray, rIndex) => {
     firestoreGrid[rIndex.toString()] = rowArray.map(cell => {
-      // Explicitly construct the cell object for Firestore for clarity and safety
       const firestoreCell: GridCellData = {
         id: cell.id,
         notes: cell.notes,
@@ -234,7 +233,6 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         console.error("MapContext: updateMapInFirestore - User not authenticated.");
         throw new Error("Authentication required");
     }
-    // Find the map data from either userMapList or currentMapData to check ownership
     const mapToUpdate = userMapList.find(m => m.id === mapId) || (currentMapData?.id === mapId ? currentMapData : null) ;
     
     if (!mapToUpdate) {
@@ -266,7 +264,7 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return;
     }
     
-    const mapData = currentMapData; // Use currentMapData from context's state
+    const mapData = currentMapData; 
     if (!mapData) {
         console.warn("MapContext: updateCurrentMapGridInFirestore - Aborted: currentMapData is null.");
         toast({ title: "Error", description: "Map data not loaded. Cannot save changes.", variant: "destructive" });
@@ -285,7 +283,6 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.log("MapContext: updateCurrentMapGridInFirestore - Firestore update successful.");
     } catch (error) {
        console.error("MapContext: updateCurrentMapGridInFirestore - Error during Firestore update:", error);
-       // Error already toasted by updateMapInFirestore
     }
   }, [currentMapId, user, currentMapData, updateMapInFirestore, toast]);
 
@@ -311,18 +308,23 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           : row
       );
       console.log("MapContext: addPlacedIconToCell - Local grid updated. Calling updateCurrentMapGridInFirestore.");
-      updateCurrentMapGridInFirestore(newGrid); // This is async, result not awaited here
+      updateCurrentMapGridInFirestore(newGrid); 
       return newGrid;
     });
   }, [updateCurrentMapGridInFirestore]);
 
   const updatePlacedIconPositionInCell = useCallback((rowIndex: number, colIndex: number, placedIconId: string, newX: number, newY: number) => {
+    console.log(`MapContext: updatePlacedIconPosition - Args: ${rowIndex},${colIndex}, iconId:${placedIconId}, newX:${newX}, newY:${newY}`);
     setCurrentLocalGrid(prevGrid => {
-      if (!prevGrid) return null;
+      if (!prevGrid) {
+        console.warn("MapContext: updatePlacedIconPosition - prevGrid is null.");
+        return null;
+      }
       const newGrid = prevGrid.map((row, rIdx) =>
         rIdx === rowIndex
           ? row.map((cell, cIdx) => {
               if (cIdx === colIndex) {
+                console.log(`MapContext: updatePlacedIconPosition - Updating icon ${placedIconId} in cell ${cell.id}`);
                 return { 
                   ...cell, 
                   placedIcons: cell.placedIcons.map(pi => 
@@ -340,12 +342,17 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [updateCurrentMapGridInFirestore]);
 
   const removePlacedIconFromCell = useCallback((rowIndex: number, colIndex: number, placedIconId: string) => {
+    console.log(`MapContext: removePlacedIconFromCell - Args: ${rowIndex},${colIndex}, iconId:${placedIconId}`);
     setCurrentLocalGrid(prevGrid => {
-      if (!prevGrid) return null;
+      if (!prevGrid) {
+        console.warn("MapContext: removePlacedIconFromCell - prevGrid is null.");
+        return null;
+      }
       const newGrid = prevGrid.map((row, rIdx) =>
         rIdx === rowIndex
           ? row.map((cell, cIdx) => {
               if (cIdx === colIndex) {
+                console.log(`MapContext: removePlacedIconFromCell - Removing icon ${placedIconId} from cell ${cell.id}`);
                 return { ...cell, placedIcons: cell.placedIcons.filter(pi => pi.id !== placedIconId) };
               }
               return cell;
@@ -477,4 +484,3 @@ export const useMap = (): MapContextType => {
   }
   return context;
 };
-

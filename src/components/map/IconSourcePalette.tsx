@@ -12,7 +12,7 @@ import { Separator } from '@/components/ui/separator';
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { Trash2, X as XIcon, GripVertical } from 'lucide-react'; // Added GripVertical
+import { Trash2, X as XIcon } from 'lucide-react';
 import { useMap } from '@/contexts/MapContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -102,6 +102,7 @@ export function IconSourcePalette({ rowIndex, colIndex, className }: IconSourceP
       return;
     }
     e.dataTransfer.setData("iconType", iconType as string);
+    e.dataTransfer.setData("action", "add"); // Differentiate from moving an existing icon
     e.dataTransfer.effectAllowed = "copy";
   };
 
@@ -156,7 +157,6 @@ export function IconSourcePalette({ rowIndex, colIndex, className }: IconSourceP
                     "text-muted-foreground bg-card hover:text-accent-foreground"
                   )}
                 >
-                  {canEdit && <GripVertical className="h-4 w-4 mr-1.5 text-muted-foreground/70 group-hover:text-accent-foreground" />}
                   <Icon className={cn("mr-1.5 h-5 w-5 text-primary", !canEdit && "opacity-70")} />
                   <span className="truncate">{config.label}</span>
                 </div>
