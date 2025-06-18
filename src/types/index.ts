@@ -19,12 +19,13 @@ export interface PlacedIcon {
   type: IconType;
   x: number; // Percentage from left (0-100)
   y: number; // Percentage from top (0-100)
+  note?: string; // Optional note for the placed icon
 }
 
 export interface GridCellData {
   id: string; // e.g., "0-0", "row-col"
-  placedIcons: PlacedIcon[]; // Changed from icons: IconType[]
-  notes: string;
+  placedIcons: PlacedIcon[];
+  notes: string; // Notes for the overall cell
 }
 
 export type LocalGridState = GridCellData[][]; // For client-side manipulation
