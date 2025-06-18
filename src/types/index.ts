@@ -1,3 +1,4 @@
+
 export const ICON_TYPES = [
   'base',
   'poi',
@@ -6,6 +7,7 @@ export const ICON_TYPES = [
   'shipwreck',
   'stavidium',
   'spice',
+  'titanium',
 ] as const;
 
 export type IconType = typeof ICON_TYPES[number];

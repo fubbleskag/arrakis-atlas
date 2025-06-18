@@ -1,3 +1,4 @@
+
 import type { IconType, IconConfig } from '@/types';
 import BaseIcon from './BaseIcon';
 import PoiIcon from './PoiIcon';
@@ -6,6 +7,7 @@ import CaveIcon from './CaveIcon';
 import ShipwreckIcon from './ShipwreckIcon';
 import StavidiumIcon from './StavidiumIcon';
 import SpiceIcon from './SpiceIcon';
+import TitaniumIcon from './TitaniumIcon';
 
 export {
   BaseIcon,
@@ -15,6 +17,7 @@ export {
   ShipwreckIcon,
   StavidiumIcon,
   SpiceIcon,
+  TitaniumIcon,
 };
 
 export const ICON_CONFIG_MAP: Record<IconType, IconConfig> = {
@@ -25,4 +28,5 @@ export const ICON_CONFIG_MAP: Record<IconType, IconConfig> = {
   shipwreck: { label: 'Shipwreck', IconComponent: ShipwreckIcon },
   stavidium: { label: 'Stavidium', IconComponent: StavidiumIcon },
   spice: { label: 'Spice', IconComponent: SpiceIcon },
+  titanium: { label: 'Titanium', IconComponent: TitaniumIcon },
 };
