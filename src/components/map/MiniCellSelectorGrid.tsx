@@ -4,7 +4,8 @@
 import type React from 'react';
 import { cn } from '@/lib/utils';
 import { GRID_SIZE } from '@/lib/mapUtils';
-import type { FocusedCellCoordinates } from '@/types';
+import type { FocusedCellCoordinates, LocalGridState } from '@/types';
+import { useMap } from '@/contexts/MapContext'; // Import useMap
 
 interface MiniCellSelectorGridProps {
   currentFocusedCell: FocusedCellCoordinates | null;
@@ -17,6 +18,8 @@ export function MiniCellSelectorGrid({
   onCellSelect,
   className,
 }: MiniCellSelectorGridProps) {
+  const { currentLocalGrid } = useMap(); // Get grid data from context
+
   const getCellDisplayLabel = (dataRowIdx: number, dataColIdx: number): string => {
     const rowLetter = String.fromCharCode(65 + (GRID_SIZE - 1 - dataRowIdx));
     const colNumber = dataColIdx + 1;
@@ -30,12 +33,8 @@ export function MiniCellSelectorGrid({
         className
       )}
     >
-      {/* Iterate visually from top-left (A1) to bottom-right (I9) */}
       {Array.from({ length: GRID_SIZE }).map((_, visualRowIndex) => 
         Array.from({ length: GRID_SIZE }).map((_, visualColIndex) => {
-          // Convert visual row/col to data row/col for logic and selection
-          // Data rowIndex: 8 (A) to 0 (I)
-          // Data colIndex: 0 (1) to 8 (9)
           const dataRowIndex = GRID_SIZE - 1 - visualRowIndex;
           const dataColIndex = visualColIndex;
 
@@ -44,6 +43,14 @@ export function MiniCellSelectorGrid({
             currentFocusedCell?.colIndex === dataColIndex;
           
           const cellLabel = getCellDisplayLabel(dataRowIndex, dataColIndex);
+
+          let hasContent = false;
+          if (currentLocalGrid) {
+            const cellData = currentLocalGrid[dataRowIndex]?.[dataColIndex];
+            if (cellData) {
+              hasContent = cellData.placedIcons.length > 0 || (cellData.notes && cellData.notes.trim() !== '');
+            }
+          }
 
           return (
             <button
@@ -54,11 +61,15 @@ export function MiniCellSelectorGrid({
                 "border border-transparent",
                 isCurrentlySelected
                   ? "bg-primary text-primary-foreground font-semibold ring-1 ring-primary-foreground ring-offset-1 ring-offset-primary"
-                  : "bg-card hover:bg-accent hover:text-accent-foreground",
-                !isCurrentlySelected && currentFocusedCell && "opacity-80"
+                  : cn(
+                      hasContent ? 'bg-accent/15' : 'bg-card',
+                      'hover:bg-accent hover:text-accent-foreground'
+                    ),
+                !isCurrentlySelected && currentFocusedCell && !hasContent && "opacity-80", // Dim non-content cells if a cell is focused
+                !isCurrentlySelected && currentFocusedCell && hasContent && "opacity-90" // Slightly less dim for content cells
               )}
-              title={`Go to cell ${cellLabel}`}
-              aria-label={`Select cell ${cellLabel}`}
+              title={`Go to cell ${cellLabel}${hasContent ? ' (has content)' : ''}`}
+              aria-label={`Select cell ${cellLabel}${hasContent ? ', has content' : ''}`}
               aria-pressed={isCurrentlySelected}
             >
               {cellLabel}
