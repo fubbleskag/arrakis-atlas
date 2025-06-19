@@ -19,9 +19,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { GRID_SIZE } from '@/lib/mapUtils'; // Updated import
 
-
-const GRID_SIZE = 9;
 
 interface IconSourcePaletteProps {
   rowIndex: number;
@@ -291,3 +290,4 @@ export function IconSourcePalette({ rowIndex, colIndex, className }: IconSourceP
     </Card>
   );
 }
+

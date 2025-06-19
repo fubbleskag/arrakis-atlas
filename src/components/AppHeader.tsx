@@ -7,8 +7,7 @@ import { Button } from '@/components/ui/button';
 import { AuthButton } from '@/components/auth/AuthButton';
 import { ChevronRight } from 'lucide-react';
 import type { FocusedCellCoordinates } from '@/types';
-
-const GRID_SIZE = 9; 
+import { GRID_SIZE } from '@/lib/mapUtils'; // Updated import
 
 export function AppHeader() {
   const { currentMapData, selectMap, focusedCellCoordinates, setFocusedCellCoordinates } = useMap();

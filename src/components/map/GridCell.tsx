@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { Lock, ZoomIn } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { GRID_SIZE } from '@/lib/mapUtils'; // Updated import
 
 
 interface GridCellProps {
@@ -20,8 +21,6 @@ interface GridCellProps {
   cellData?: GridCellDataType; // Optional direct cell data for read-only mode
   mapData?: MapData; // Optional direct map data for read-only mode
 }
-
-const GRID_CELL_INTERNAL_SIZE = 9; 
 
 export function GridCell({ 
   rowIndex, 
@@ -58,7 +57,7 @@ export function GridCell({
   };
   
   const cellId = `cell-${rowIndex}-${colIndex}`;
-  const rowLetter = String.fromCharCode(65 + (GRID_CELL_INTERNAL_SIZE - 1 - rowIndex));
+  const rowLetter = String.fromCharCode(65 + (GRID_SIZE - 1 - rowIndex));
   const colNumber = colIndex + 1;
   const cellCoordinate = `${rowLetter}-${colNumber}`;
   const hasNotes = cellData.notes && cellData.notes.trim() !== '';

@@ -20,9 +20,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import type { LocalGridState, MapData } from '@/types';
 import { cn } from '@/lib/utils';
+import { GRID_SIZE } from '@/lib/mapUtils'; // Updated import
 
-
-const GRID_SIZE = 9;
 
 interface DeepDesertGridProps {
   initialGridState?: LocalGridState; // For public/read-only view

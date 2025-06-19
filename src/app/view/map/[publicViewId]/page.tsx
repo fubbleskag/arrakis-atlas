@@ -2,7 +2,7 @@
 import { db } from '@/firebase/firebaseConfig';
 import { collection, query, where, getDocs, type DocumentData } from 'firebase/firestore';
 import { DeepDesertGrid } from '@/components/map/DeepDesertGrid';
-import { convertFirestoreToLocalGrid } from '@/contexts/MapContext';
+import { convertFirestoreToLocalGrid } from '@/lib/mapUtils'; // Updated import
 import type { MapData, LocalGridState } from '@/types';
 import { AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
