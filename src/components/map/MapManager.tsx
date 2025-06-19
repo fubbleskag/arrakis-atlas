@@ -24,7 +24,7 @@ export function MapManager() {
     createMap,
     deleteMap,
     updateMapName,
-    currentMapData: selectedMapFromContext,
+    currentMapData: selectedMapFromContext, // This is the globally selected map from context
     togglePublicView,
     regeneratePublicViewId
   } = useMap();
@@ -33,6 +33,7 @@ export function MapManager() {
   const [newMapName, setNewMapName] = useState('');
   const [isCreatingMap, setIsCreatingMap] = useState(false);
 
+  // Local state for the map whose settings are currently being edited in the dialog
   const [selectedMapForSettings, setSelectedMapForSettings] = useState<MapData | null>(null);
   const [settingsMapName, setSettingsMapName] = useState('');
   const [isUpdatingSettings, setIsUpdatingSettings] = useState(false);
@@ -45,12 +46,35 @@ export function MapManager() {
   }, []);
 
   useEffect(() => {
-    if (selectedMapForSettings && selectedMapFromContext && selectedMapFromContext.id === selectedMapForSettings.id) {
-        const freshMapData = userMapList.find(m => m.id === selectedMapFromContext.id) || selectedMapFromContext;
-        setSelectedMapForSettings(freshMapData);
-        setSettingsMapName(freshMapData.name);
+    // This effect ensures that the data in the settings dialog (selectedMapForSettings)
+    // is kept up-to-date if the corresponding map in userMapList changes.
+    if (selectedMapForSettings?.id && userMapList.length > 0) {
+      const mapInDialogId = selectedMapForSettings.id;
+      const freshMapDataFromList = userMapList.find(m => m.id === mapInDialogId);
+
+      if (freshMapDataFromList) {
+        // Only update if the data actually differs to prevent re-renders or potential loops.
+        // A deep comparison might be more robust for complex objects, but JSON.stringify is often sufficient.
+        if (JSON.stringify(selectedMapForSettings) !== JSON.stringify(freshMapDataFromList)) {
+          setSelectedMapForSettings(freshMapDataFromList);
+          // If the name in the fresh data is different from what's currently in the input,
+          // update the input. This handles cases where the name might be changed externally
+          // or by another process while the dialog is open.
+          // Avoid overwriting if user is actively typing by checking document.activeElement.
+          if (settingsMapName !== freshMapDataFromList.name && document.activeElement?.id !== 'settingsMapName') {
+             setSettingsMapName(freshMapDataFromList.name);
+          }
+        }
+      } else {
+        // If the map is no longer in the list (e.g., deleted elsewhere),
+        // close the dialog by clearing the local selection.
+        setSelectedMapForSettings(null);
+      }
     }
-  }, [selectedMapFromContext, selectedMapForSettings, userMapList]);
+    // Dependencies:
+    // - userMapList: The primary source of truth for map data. Changes here should trigger a refresh.
+    // - selectedMapForSettings?.id: Ensures the effect runs if the user opens the dialog for a different map.
+  }, [userMapList, selectedMapForSettings?.id]);
 
 
   const handleCreateMap = async () => {
@@ -79,18 +103,23 @@ export function MapManager() {
     setIsUpdatingSettings(true);
     await updateMapName(selectedMapForSettings.id, settingsMapName.trim());
     setIsUpdatingSettings(false);
+    // The useEffect above should handle updating selectedMapForSettings from userMapList
   };
 
   const handleTogglePublicView = async (mapId: string, enable: boolean) => {
+    if (!selectedMapForSettings || selectedMapForSettings.id !== mapId) return; // Ensure action is for the map in dialog
     setIsUpdatingSettings(true);
     await togglePublicView(mapId, enable);
     setIsUpdatingSettings(false);
+    // The useEffect above should handle updating selectedMapForSettings from userMapList
   };
 
   const handleRegeneratePublicViewId = async (mapId: string) => {
+     if (!selectedMapForSettings || selectedMapForSettings.id !== mapId) return; // Ensure action is for the map in dialog
     setIsUpdatingSettings(true);
     await regeneratePublicViewId(mapId);
     setIsUpdatingSettings(false);
+    // The useEffect above should handle updating selectedMapForSettings from userMapList
   };
 
   const copyToClipboard = (text: string) => {
@@ -188,6 +217,7 @@ export function MapManager() {
                                   <Settings2 className="h-4 w-4" />
                               </Button>
                           </DialogTrigger>
+                          {/* Ensure dialog only renders if selectedMapForSettings matches the current map iteration */}
                           {selectedMapForSettings && selectedMapForSettings.id === map.id && (
                           <DialogContent className="sm:max-w-md">
                               <DialogHeader>
@@ -205,7 +235,7 @@ export function MapManager() {
                                     <div className="flex items-center space-x-2 mb-2">
                                       <Switch
                                         id={`public-view-switch-${map.id}`}
-                                        checked={selectedMapForSettings.isPublicViewable}
+                                        checked={selectedMapForSettings.isPublicViewable} // Controlled by selectedMapForSettings
                                         onCheckedChange={(checked) => handleTogglePublicView(map.id, checked)}
                                         disabled={isUpdatingSettings}
                                       />
@@ -242,7 +272,7 @@ export function MapManager() {
                                             onClick={() => handleRegeneratePublicViewId(map.id)}
                                             disabled={isUpdatingSettings}
                                           >
-                                            {isUpdatingSettings && map.publicViewId === selectedMapForSettings.publicViewId ? <Loader2 className="mr-2 h-3 w-3 animate-spin"/> : null}
+                                            {isUpdatingSettings && selectedMapForSettings.publicViewId ? <Loader2 className="mr-2 h-3 w-3 animate-spin"/> : null}
                                             Regenerate Link
                                           </Button>
                                         </div>
@@ -288,3 +318,6 @@ export function MapManager() {
     </div>
   );
 }
+
+
+    
