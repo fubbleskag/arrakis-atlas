@@ -474,23 +474,26 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const uploadCellBackgroundImage = useCallback(async (rowIndex: number, colIndex: number, file: File) => {
     if (!currentMapId || !user || !currentLocalGrid) {
       toast({ title: "Error", description: "Cannot upload image: No map selected or not authenticated.", variant: "destructive" });
+      console.error("uploadCellBackgroundImage: Pre-check failed", { currentMapId, user, currentLocalGrid });
       return;
     }
     const cellData = currentLocalGrid[rowIndex]?.[colIndex];
     if (!cellData) {
       toast({ title: "Error", description: "Cell data not found.", variant: "destructive" });
+      console.error("uploadCellBackgroundImage: Cell data not found for", { rowIndex, colIndex });
       return;
     }
 
     // Delete old image if it exists
     if (cellData.backgroundImageUrl) {
+      console.log("uploadCellBackgroundImage: Attempting to delete old image:", cellData.backgroundImageUrl);
       try {
         const oldImageRef = storageRef(storage, cellData.backgroundImageUrl);
         await deleteObject(oldImageRef);
+        console.log("uploadCellBackgroundImage: Old image deleted successfully.");
       } catch (error: any) {
-        // Log error but continue, as the main goal is to upload the new image
-        console.warn("Could not delete old background image:", error.code, error.message);
-        if (error.code !== 'storage/object-not-found') { // Don't toast if it's already gone
+        console.warn("uploadCellBackgroundImage: Could not delete old background image. This might be okay if it was already deleted or never existed.", error);
+        if (error.code !== 'storage/object-not-found') {
           toast({ title: "Warning", description: "Could not remove the old background image. It might be orphaned in storage.", variant: "default" });
         }
       }
@@ -498,10 +501,13 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const imagePath = `map_backgrounds/${currentMapId}/${cellData.id}/${file.name}`;
     const imageFileRef = storageRef(storage, imagePath);
+    console.log("uploadCellBackgroundImage: Attempting to upload new image to:", imagePath);
 
     try {
       const snapshot = await uploadBytes(imageFileRef, file);
+      console.log("uploadCellBackgroundImage: Upload successful. Snapshot:", snapshot);
       const downloadURL = await getDownloadURL(snapshot.ref);
+      console.log("uploadCellBackgroundImage: New image URL:", downloadURL);
 
       setCurrentLocalGrid(prevGrid => {
         if (!prevGrid) return null;
@@ -517,32 +523,34 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
       toast({ title: "Success", description: "Background image uploaded." });
     } catch (error: any) {
-      console.error("Error uploading background image:", error);
-      toast({ title: "Upload Failed", description: `Could not upload image: ${error.message}`, variant: "destructive" });
+      console.error("uploadCellBackgroundImage: Error during image upload process. Full error object:", error);
+      toast({ title: "Upload Failed", description: `Could not upload image: ${error.message || 'Unknown error'}. Check console for details.`, variant: "destructive" });
     }
   }, [currentMapId, user, currentLocalGrid, toast, updateCurrentMapGridInFirestore]);
 
   const removeCellBackgroundImage = useCallback(async (rowIndex: number, colIndex: number) => {
     if (!currentMapId || !user || !currentLocalGrid) {
       toast({ title: "Error", description: "Cannot remove image: No map selected or not authenticated.", variant: "destructive" });
+      console.error("removeCellBackgroundImage: Pre-check failed", { currentMapId, user, currentLocalGrid });
       return;
     }
     const cellData = currentLocalGrid[rowIndex]?.[colIndex];
     if (!cellData || !cellData.backgroundImageUrl) {
       toast({ title: "Info", description: "No background image to remove.", variant: "default" });
+      console.log("removeCellBackgroundImage: No background image URL found for cell", { rowIndex, colIndex });
       return;
     }
 
+    console.log("removeCellBackgroundImage: Attempting to delete image from storage:", cellData.backgroundImageUrl);
     const imageToDeleteRef = storageRef(storage, cellData.backgroundImageUrl);
     try {
       await deleteObject(imageToDeleteRef);
+      console.log("removeCellBackgroundImage: Image deleted from storage successfully.");
     } catch (error: any) {
-      console.error("Error deleting background image from storage:", error);
+      console.warn("removeCellBackgroundImage: Error deleting background image from storage. This might be okay if it was already deleted.", error);
        // If it's not found, that's fine, it might have been deleted manually or through other means
       if (error.code !== 'storage/object-not-found') {
-        toast({ title: "Storage Error", description: `Could not delete image from storage: ${error.message}`, variant: "destructive" });
-        // Optionally, do not proceed with clearing the URL from Firestore if storage deletion fails critically
-        // return; 
+        toast({ title: "Storage Error", description: `Could not delete image from storage: ${error.message || 'Unknown error'}. Check console.`, variant: "destructive" });
       }
     }
     
@@ -599,3 +607,4 @@ export const useMap = (): MapContextType => {
   }
   return context;
 };
+
