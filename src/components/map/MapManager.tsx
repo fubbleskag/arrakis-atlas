@@ -15,7 +15,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import type { MapData } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '../ui/separator';
-import type { Timestamp } from 'firebase/firestore';
+import { Timestamp } from 'firebase/firestore'; // Import Timestamp
 
 export function MapManager() {
   const {
@@ -40,10 +40,9 @@ export function MapManager() {
   const [publicLinkBase, setPublicLinkBase] = useState('');
 
   useEffect(() => {
-    // Prioritize NEXT_PUBLIC_APP_URL, then fall back to window.location.origin
     const appUrl = process.env.NEXT_PUBLIC_APP_URL;
     if (appUrl) {
-      setPublicLinkBase(appUrl.replace(/\/$/, '')); // Remove trailing slash if any
+      setPublicLinkBase(appUrl.replace(/\/$/, ''));
     } else if (typeof window !== "undefined") {
       setPublicLinkBase(window.location.origin);
     }
@@ -55,13 +54,17 @@ export function MapManager() {
       const freshMapDataFromList = userMapList.find(m => m.id === mapInDialogId);
 
       if (freshMapDataFromList) {
+        // Check if the data has actually changed to avoid unnecessary state updates
         if (JSON.stringify(selectedMapForSettings) !== JSON.stringify(freshMapDataFromList)) {
           setSelectedMapForSettings(freshMapDataFromList);
+          // Only update settingsMapName if it's different AND the input isn't focused,
+          // to prevent losing user input during typing.
           if (settingsMapName !== freshMapDataFromList.name && document.activeElement?.id !== 'settingsMapNameInput') {
              setSettingsMapName(freshMapDataFromList.name);
           }
         }
       } else {
+        // The map is no longer in the list (e.g., deleted elsewhere), so close the dialog.
         setSelectedMapForSettings(null);
       }
     }
@@ -318,5 +321,3 @@ export function MapManager() {
     </div>
   );
 }
-
-    
