@@ -133,7 +133,7 @@ export function MapManager() {
               </CardContent>
               <CardFooter className="flex-col sm:flex-row gap-2 pt-4 border-t">
                 <Button onClick={() => selectMap(map.id)} className="w-full sm:w-auto flex-grow">
-                  Open Map
+                  View Map
                 </Button>
                 {user && map.userId === user.uid && (
                   <div className="flex gap-2 w-full sm:w-auto">

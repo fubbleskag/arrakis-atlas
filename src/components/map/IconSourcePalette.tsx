@@ -12,13 +12,15 @@ import { Separator } from '@/components/ui/separator';
 import { Card, CardContent, CardFooter } from '@/components/ui/card'; // Added CardFooter
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { Trash2, X as XIcon, Upload, Loader2, Image as ImageIcon } from 'lucide-react'; // Added Upload, Loader2, ImageIcon
+import { Trash2, X as XIcon, Upload, Loader2, ImageIcon } from 'lucide-react'; // Added Upload, Loader2, ImageIcon
 import { useMap } from '@/contexts/MapContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import NextImage from 'next/image'; // For preview
+// import NextImage from 'next/image'; // Removed for thumbnail removal
+
+const GRID_SIZE = 9; // For cell coordinate label
 
 interface IconSourcePaletteProps {
   rowIndex: number;
@@ -50,6 +52,14 @@ export function IconSourcePalette({ rowIndex, colIndex, className }: IconSourceP
       setLocalNotes(cellData.notes);
     }
   }, [cellData?.notes, rowIndex, colIndex]);
+
+  const getCellCoordinateLabel = (rIdx: number, cIdx: number): string => {
+    const rowLabel = String.fromCharCode(65 + (GRID_SIZE - 1 - rIdx));
+    const colLabel = cIdx + 1;
+    return `${rowLabel}${colLabel}`;
+  };
+
+  const cellLabel = getCellCoordinateLabel(rowIndex, colIndex);
 
   if (isLoadingMapData || !currentMapData) {
     return (
@@ -147,7 +157,7 @@ export function IconSourcePalette({ rowIndex, colIndex, className }: IconSourceP
     <Card className={cn("w-full h-full shadow-lg flex flex-col overflow-hidden border-border bg-card", className)}>
       <CardContent className="flex-grow flex flex-col p-3 md:p-4 overflow-hidden">
         <div className="flex justify-between items-center mb-2">
-          <h4 className="text-base font-semibold leading-none text-foreground">Edit Cell Details</h4>
+          <h4 className="text-base font-semibold leading-none text-foreground">Details for {cellLabel}</h4>
           <Button 
             variant="ghost" 
             size="icon" 
@@ -159,16 +169,16 @@ export function IconSourcePalette({ rowIndex, colIndex, className }: IconSourceP
           </Button>
         </div>
         
-        {/* Resource Icons */}
+        {/* Resource Icons / Map Markers */}
         <div className="flex justify-between items-center mb-1 mt-2">
-            <h5 className="text-sm font-medium text-foreground">Available Resources</h5>
+            <h5 className="text-sm font-medium text-foreground">Map Markers</h5>
             {canEdit && (
               <Button 
                 variant="ghost" 
                 size="sm" 
                 onClick={() => {
                     clearAllPlacedIconsInCell(rowIndex, colIndex);
-                    toast({ title: "Canvas Cleared", description: "All icons removed from this cell's canvas."});
+                    setTimeout(() => toast({ title: "Canvas Cleared", description: "All icons removed from this cell's canvas."}), 0);
                 }}
                 className="text-xs text-muted-foreground hover:text-destructive"
                 disabled={!canEdit || cellData.placedIcons.length === 0}
@@ -179,7 +189,7 @@ export function IconSourcePalette({ rowIndex, colIndex, className }: IconSourceP
             )}
         </div>
         <ScrollArea className="flex-shrink pr-1 max-h-[200px] min-h-[100px]"> {/* Adjusted height */}
-          <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 p-1 border-t border-border">
+          <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 border-t border-border"> {/* Removed p-1 */}
             {ICON_TYPES.map((iconType) => {
               const config = ICON_CONFIG_MAP[iconType];
               const Icon = config.IconComponent;
@@ -206,7 +216,7 @@ export function IconSourcePalette({ rowIndex, colIndex, className }: IconSourceP
         <Separator className="my-3" />
 
         {/* Cell Background Image */}
-        <h5 className="text-sm font-medium text-foreground mb-1">Cell Background</h5>
+        <h5 className="text-sm font-medium text-foreground mb-1">Map Background</h5>
         {canEdit && (
           <div className="space-y-2 mb-2">
             <input
@@ -241,11 +251,7 @@ export function IconSourcePalette({ rowIndex, colIndex, className }: IconSourceP
             )}
           </div>
         )}
-        {cellData.backgroundImageUrl && (
-          <div className="relative w-full aspect-video rounded-md overflow-hidden border border-border mb-2">
-            <NextImage src={cellData.backgroundImageUrl} alt="Cell background preview" layout="fill" objectFit="contain" />
-          </div>
-        )}
+        {/* Removed background image thumbnail preview */}
         {!cellData.backgroundImageUrl && !canEdit && (
             <div className="flex items-center justify-center text-xs text-muted-foreground p-2 border border-dashed rounded-md">
                 <ImageIcon className="mr-2 h-4 w-4" /> No background image.
@@ -257,7 +263,7 @@ export function IconSourcePalette({ rowIndex, colIndex, className }: IconSourceP
         {/* Cell Notes */}
         <div className="flex-grow flex flex-col mt-1">
           <Label htmlFor="cell-notes" className="text-sm font-medium text-foreground mb-1 block">
-            Cell Notes
+            Map Notes
           </Label>
           <Textarea
             id="cell-notes"
@@ -266,7 +272,7 @@ export function IconSourcePalette({ rowIndex, colIndex, className }: IconSourceP
             onBlur={handleNotesBlur}
             placeholder={canEdit ? "Add general notes for this cell..." : "No notes or view only."}
             className="min-h-[80px] w-full text-sm bg-input placeholder:text-muted-foreground flex-grow"
-            aria-label="Cell notes"
+            aria-label="Map notes"
             disabled={!canEdit}
             readOnly={!canEdit}
           />

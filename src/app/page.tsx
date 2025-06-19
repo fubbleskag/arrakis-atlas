@@ -157,7 +157,7 @@ export default function Home() {
             <HomePageContent />
           </main>
           <footer className="py-4 text-center text-xs text-muted-foreground border-t border-border">
-            Arrakis Atlas - Guild Mapping Tool
+            Arrakis Atlas - Deep Desert Mapping Tool
           </footer>
         </div>
       </MapProvider>
