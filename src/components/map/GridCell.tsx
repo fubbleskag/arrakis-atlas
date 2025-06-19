@@ -9,8 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { Lock, ZoomIn } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { GRID_SIZE } from '@/lib/mapUtils'; // Updated import
-
+import { GRID_SIZE } from '@/lib/mapUtils';
 
 interface GridCellProps {
   rowIndex: number;
@@ -18,8 +17,9 @@ interface GridCellProps {
   onMouseEnterCell: () => void;
   onMouseLeaveCell: () => void;
   isReadOnly?: boolean;
-  cellData?: GridCellDataType; // Optional direct cell data for read-only mode
-  mapData?: MapData; // Optional direct map data for read-only mode
+  cellData?: GridCellDataType; 
+  mapData?: MapData; 
+  onCellClick?: (rowIndex: number, colIndex: number) => void; // New prop
 }
 
 export function GridCell({ 
@@ -29,7 +29,8 @@ export function GridCell({
   onMouseLeaveCell, 
   isReadOnly = false,
   cellData: directCellData,
-  mapData: directMapData 
+  mapData: directMapData,
+  onCellClick // Destructure new prop
 }: GridCellProps) {
   
   const context = !isReadOnly ? useMap() : null;
@@ -51,9 +52,12 @@ export function GridCell({
     canEditCell = currentMapData.ownerId === user.uid;
   }
   
-  const handleCellClick = () => {
-     if (isReadOnly || !currentMapData || !context?.setFocusedCellCoordinates) return;
-      context.setFocusedCellCoordinates({ rowIndex, colIndex });
+  const handleCellButtonClick = () => {
+     if (isReadOnly && onCellClick) {
+        onCellClick(rowIndex, colIndex);
+     } else if (!isReadOnly && currentMapData && context?.setFocusedCellCoordinates) {
+        context.setFocusedCellCoordinates({ rowIndex, colIndex });
+     }
   };
   
   const cellId = `cell-${rowIndex}-${colIndex}`;
@@ -99,28 +103,27 @@ export function GridCell({
     ariaLabelContent += 'Empty. ';
   }
   
-  if (isReadOnly) {
-    ariaLabelContent += 'View only.';
-  } else {
-    ariaLabelContent += canEditCell ? 'Click to view or edit.' : 'Click to view.';
-  }
+  ariaLabelContent += 'Click to view details.'; // Always clickable now for public view focus
 
 
   const cellButton = (
     <button
       id={cellId}
       aria-label={ariaLabelContent}
-      disabled={!currentMapData || isReadOnly} 
-      onClick={handleCellClick}
+      // Disable only if not read-only AND (no map data OR no context function to set focus)
+      disabled={!isReadOnly && (!currentMapData || !context?.setFocusedCellCoordinates)}
+      onClick={handleCellButtonClick}
       onMouseEnter={onMouseEnterCell}
       onMouseLeave={onMouseLeaveCell}
       className={cn(
         "aspect-square flex items-center justify-center p-0.5 relative group transition-all duration-150 ease-in-out focus:outline-none",
         "bg-card", 
-        currentMapData && !isReadOnly && "hover:bg-accent/20 cursor-pointer focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-        currentMapData && isReadOnly && "cursor-default",
-        !currentMapData && "cursor-not-allowed",
-        !canEditCell && currentMapData && !isReadOnly && "bg-muted/30"
+        // Hover and focus styles apply if either in authenticated mode with context OR in read-only mode (for public focus)
+        (currentMapData || isReadOnly) && "hover:bg-accent/20 cursor-pointer focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+        // Special styling for non-editable cells in authenticated mode
+        !isReadOnly && !canEditCell && currentMapData && "bg-muted/30",
+        // Disabled state styling (should only apply if not readOnly and no way to set focus)
+        !isReadOnly && (!currentMapData || !context?.setFocusedCellCoordinates) && "cursor-not-allowed opacity-50"
       )}
     >
       {!canEditCell && currentMapData && isEmptyCellVisuals && !isReadOnly && (
@@ -140,7 +143,8 @@ export function GridCell({
         </div>
       )}
 
-      {currentMapData && !isReadOnly && (
+      {/* ZoomIn icon only if interactive (either context-based or public-view click enabled) */}
+      {(currentMapData || (isReadOnly && onCellClick)) && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <ZoomIn className="h-2/5 w-2/5 text-foreground opacity-10 group-hover:opacity-30 transition-opacity duration-150" />
           </div>
@@ -149,7 +153,7 @@ export function GridCell({
     </button>
   );
 
-  if (hasNotes) { // Tooltip for notes should work in read-only mode too
+  if (hasNotes) {
     return (
       <TooltipProvider delayDuration={300}>
         <Tooltip>

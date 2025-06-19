@@ -5,7 +5,7 @@ import type React from 'react';
 import { useRef } from 'react';
 import { useMap } from '@/contexts/MapContext';
 import { ICON_CONFIG_MAP } from '@/components/icons';
-import { ICON_TYPES, type PlacedIcon, type IconType } from '@/types';
+import { ICON_TYPES, type PlacedIcon, type IconType, type MapData, type GridCellData } from '@/types';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertTriangle, ImageIcon } from 'lucide-react';
@@ -17,12 +17,18 @@ interface DetailedCellEditorCanvasProps {
   rowIndex: number;
   colIndex: number;
   className?: string;
+  // Override props for use outside MapContext (e.g., public view)
+  isEditorOverride?: boolean;
+  mapDataOverride?: MapData;
+  cellDataOverride?: GridCellData;
+  selectedIconIdOverride?: string | null;
+  onIconSelectOverride?: (iconId: string | null) => void;
 }
 
 interface PlacedIconVisualProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'onClick'> {
   iconData: PlacedIcon;
   isSelected: boolean;
-  canEdit: boolean;
+  canEdit: boolean; // True if this specific icon can be interacted with (dragged, selected for editing)
   onClick: () => void;
 }
 
@@ -43,8 +49,8 @@ const PlacedIconVisual: React.FC<PlacedIconVisualProps> = ({
       onClick={onClick}
       className={cn(
         "absolute w-8 h-8",
-        canEdit ? "cursor-pointer" : "cursor-default",
-        isSelected && "ring-2 ring-primary ring-offset-2 ring-offset-background rounded-md z-[2]",
+        canEdit ? "cursor-pointer" : "cursor-default", // Pointer if it can be selected/moved
+        isSelected && canEdit && "ring-2 ring-primary ring-offset-2 ring-offset-background rounded-md z-[2]", // Ring only if selected AND editable
         !isSelected && "z-[1]"
       )}
       style={{
@@ -58,6 +64,7 @@ const PlacedIconVisual: React.FC<PlacedIconVisualProps> = ({
     </div>
   );
 
+  // Tooltip for notes should always be active if note exists
   if (iconData.note && iconData.note.trim() !== '') {
     return (
       <TooltipProvider delayDuration={300}>
@@ -76,27 +83,48 @@ const PlacedIconVisual: React.FC<PlacedIconVisualProps> = ({
 };
 
 
-export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: DetailedCellEditorCanvasProps) {
-  const {
-    currentLocalGrid,
-    isLoadingMapData,
-    currentMapData,
-    addPlacedIconToCell,
-    updatePlacedIconPositionInCell,
-    selectedPlacedIconId,
-    setSelectedPlacedIconId,
-  } = useMap();
-  const { user } = useAuth();
+export function DetailedCellEditorCanvas({ 
+  rowIndex, 
+  colIndex, 
+  className,
+  isEditorOverride,
+  mapDataOverride,
+  cellDataOverride,
+  selectedIconIdOverride,
+  onIconSelectOverride,
+}: DetailedCellEditorCanvasProps) {
+  const context = useMap(); // Still use context for fallbacks or if overrides not provided
+  const { user } = useAuth(); // Still use auth context for ownership checks
 
   const canvasRef = useRef<HTMLDivElement>(null);
-  const cellData = currentLocalGrid?.[rowIndex]?.[colIndex];
 
-  let canEdit = false;
-  if (user && currentMapData) {
-    canEdit = currentMapData.ownerId === user.uid;
+  // Determine data source: overrides or context
+  const isEditorMode = isEditorOverride !== undefined ? isEditorOverride : true; // Default to editor mode if not specified
+  
+  const mapData = isEditorMode ? context.currentMapData : mapDataOverride;
+  const grid = isEditorMode ? context.currentLocalGrid : null; // gridCellDataOverride is used directly for public
+  const cellData = isEditorMode ? grid?.[rowIndex]?.[colIndex] : cellDataOverride;
+  
+  const isLoading = isEditorMode ? context.isLoadingMapData : false; // No loading state for override mode
+
+  const selectedPlacedIconId = isEditorMode ? context.selectedPlacedIconId : selectedIconIdOverride;
+  const setSelectedPlacedIconId = isEditorMode ? context.setSelectedPlacedIconId : onIconSelectOverride;
+  
+  const addPlacedIconToCell = context.addPlacedIconToCell; // Context functions assumed for editor mode
+  const updatePlacedIconPositionInCell = context.updatePlacedIconPositionInCell;
+
+  // Determine if the current user can edit (applies to context mode, override mode is explicit via isEditorOverride)
+  let canEditCanvas = false;
+  if (isEditorMode) { // Context mode
+    if (user && mapData) {
+      canEditCanvas = mapData.ownerId === user.uid;
+    }
+  } else { // Override mode (public view)
+    canEditCanvas = isEditorOverride ?? false;
   }
 
-  if (isLoadingMapData || !currentMapData) {
+
+  if (isLoading || !mapData) {
     return (
       <div className={cn("relative w-full aspect-square bg-card rounded-lg shadow-xl flex items-center justify-center border border-border", className)}>
         <Skeleton className="w-full h-full" />
@@ -115,7 +143,7 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    if (canEdit) {
+    if (canEditCanvas) { // Only allow drop if canvas is editable
       e.dataTransfer.dropEffect = e.dataTransfer.getData("action") === "move" ? "move" : "copy";
     } else {
       e.dataTransfer.dropEffect = "none";
@@ -124,7 +152,7 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    if (!canEdit || !canvasRef.current) return;
+    if (!canEditCanvas || !canvasRef.current || !isEditorMode) return; // Drop only works in editor mode
 
     const action = e.dataTransfer.getData("action");
     const canvasRect = canvasRef.current.getBoundingClientRect();
@@ -136,7 +164,7 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
 
     if (action === "move") {
       const placedIconIdToMove = e.dataTransfer.getData("placedIconId");
-      if (placedIconIdToMove) {
+      if (placedIconIdToMove && updatePlacedIconPositionInCell && setSelectedPlacedIconId) {
         updatePlacedIconPositionInCell(rowIndex, colIndex, placedIconIdToMove, x, y);
         setSelectedPlacedIconId(placedIconIdToMove);
       }
@@ -144,13 +172,16 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
       const iconTypeString = e.dataTransfer.getData("iconType");
       if (ICON_TYPES.includes(iconTypeString as IconType)) {
         const iconType = iconTypeString as IconType;
-        addPlacedIconToCell(rowIndex, colIndex, iconType, x, y);
+        if (addPlacedIconToCell) {
+          addPlacedIconToCell(rowIndex, colIndex, iconType, x, y);
+        }
       }
     }
   };
 
   const handlePlacedIconDragStart = (e: React.DragEvent<HTMLDivElement>, placedIcon: PlacedIcon) => {
-    if (!canEdit || selectedPlacedIconId === placedIcon.id) {
+    // Dragging existing icons is only allowed if canvas is editable AND it's editor mode
+    if (!canEditCanvas || !isEditorMode || selectedPlacedIconId === placedIcon.id) {
       e.preventDefault();
       return;
     }
@@ -160,7 +191,7 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
   };
 
   const handleCanvasClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.target === canvasRef.current) {
+    if (e.target === canvasRef.current && setSelectedPlacedIconId) {
       setSelectedPlacedIconId(null);
     }
   };
@@ -178,7 +209,7 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
           src={cellData.backgroundImageUrl}
           alt="Cell background"
           layout="fill"
-          objectFit="contain"
+          objectFit="contain" // Use contain to ensure entire image is visible
           className="pointer-events-none"
           priority
           data-ai-hint="map texture"
@@ -189,21 +220,23 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
           key={icon.id}
           iconData={icon}
           isSelected={selectedPlacedIconId === icon.id}
-          canEdit={canEdit}
+          canEdit={canEditCanvas} // Icon interaction depends on overall canvas editability
           onClick={() => {
-            setSelectedPlacedIconId(icon.id);
+            if (setSelectedPlacedIconId) setSelectedPlacedIconId(icon.id);
           }}
-          draggable={canEdit && selectedPlacedIconId !== icon.id}
-          onDragStart={canEdit ? (e: React.DragEvent<HTMLDivElement>) => handlePlacedIconDragStart(e, icon) : undefined}
+          draggable={canEditCanvas && isEditorMode && selectedPlacedIconId !== icon.id} // Draggable only if editable & in editor mode
+          onDragStart={canEditCanvas && isEditorMode ? (e: React.DragEvent<HTMLDivElement>) => handlePlacedIconDragStart(e, icon) : undefined}
         />
       ))}
       {cellData.placedIcons.length === 0 && !cellData.backgroundImageUrl && (
          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
           <p className="text-muted-foreground text-lg p-4 text-center bg-background/50 rounded-md">
-            {canEdit ? "Drag markers or upload background" : <><ImageIcon className="inline-block h-5 w-5 mr-1" /> No markers or background</>}
+            {canEditCanvas && isEditorMode ? "Drag markers or upload background" : <><ImageIcon className="inline-block h-5 w-5 mr-1" /> No markers or background</>}
           </p>
         </div>
       )}
     </div>
   );
 }
+
+    

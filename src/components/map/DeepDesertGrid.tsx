@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useMap } from '@/contexts/MapContext';
 import { GridCell } from './GridCell';
 import { Button } from '@/components/ui/button';
@@ -18,35 +18,38 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import type { LocalGridState, MapData } from '@/types';
+import type { LocalGridState, MapData, FocusedCellCoordinates as FocusedCellCoordinatesType } from '@/types';
 import { cn } from '@/lib/utils';
-import { GRID_SIZE } from '@/lib/mapUtils'; // Updated import
-
+import { GRID_SIZE } from '@/lib/mapUtils'; 
 
 interface DeepDesertGridProps {
-  initialGridState?: LocalGridState; // For public/read-only view
-  initialMapData?: MapData;       // For public/read-only view
-  isReadOnly?: boolean;             // For public/read-only view
+  initialGridState?: LocalGridState;
+  initialMapData?: MapData;
+  isReadOnly?: boolean;
+  onCellClick?: (rowIndex: number, colIndex: number) => void; // New prop for public view
 }
 
-export function DeepDesertGrid({ initialGridState, initialMapData, isReadOnly = false }: DeepDesertGridProps) {
-  const context = !isReadOnly ? useMap() : null; // Only use context if not read-only
+export function DeepDesertGrid({ 
+  initialGridState, 
+  initialMapData, 
+  isReadOnly = false,
+  onCellClick 
+}: DeepDesertGridProps) {
+  const context = !isReadOnly ? useMap() : null;
   const { user, isAuthenticated } = !isReadOnly ? useAuth() : { user: null, isAuthenticated: false };
 
-  // State derived from props if read-only, otherwise from context
   const currentLocalGrid = isReadOnly ? initialGridState : context?.currentLocalGrid;
   const currentMapData = isReadOnly ? initialMapData : context?.currentMapData;
   const isLoadingMapData = !isReadOnly && (context?.isLoadingMapData ?? true);
   
   const resetCurrentMapGrid = context?.resetCurrentMapGrid;
-  const focusedCellCoordinates = context?.focusedCellCoordinates;
+  // Use focusedCellCoordinates from context if available (authenticated view), otherwise null (public view manages its own)
+  const focusedCellCoordinatesFromContext = context?.focusedCellCoordinates;
 
 
   const [hoveredCell, setHoveredCell] = useState<{row: number | null, col: number | null}>({ row: null, col: null });
 
-
   if ((!isReadOnly && isLoadingMapData) || !currentLocalGrid || !currentMapData) {
-    // Basic loading state, can be improved with skeletons similar to page.tsx
     return <div>Loading map grid...</div>;
   }
 
@@ -56,10 +59,15 @@ export function DeepDesertGrid({ initialGridState, initialMapData, isReadOnly = 
   if (!isReadOnly && isAuthenticated && user && currentMapData && context) {
     canResetMap = currentMapData.ownerId === user.uid;
   }
+  
+  // Determine effective focused cell coordinates based on context or if it's read-only (public view)
+  // For public view, the parent (`PublicMapView`) handles focus, so this component doesn't need to track it for layout.
+  // For authenticated view, `focusedCellCoordinatesFromContext` is used.
+  const sidebarVisible = !isReadOnly && !!focusedCellCoordinatesFromContext;
 
   const sidebarWidth = 300;
-  const gapWidth = 24;
-  const gridWidthStyle = focusedCellCoordinates && !isReadOnly // focusedCellCoordinates implies sidebar is open
+  const gapWidth = 24; // 1.5rem
+  const gridWidthStyle = sidebarVisible
     ? `min(calc(100vh - 250px - ${sidebarWidth}px - ${gapWidth}px), calc(100vw - 32px - ${sidebarWidth}px - ${gapWidth}px))`
     : `min(calc(100vh - 250px), calc(100vw - 32px))`;
 
@@ -83,7 +91,7 @@ export function DeepDesertGrid({ initialGridState, initialMapData, isReadOnly = 
               key={`col-label-${colIndex}`}
               className={cn(
                 "flex items-center justify-center text-center h-8 text-sm font-medium text-muted-foreground aspect-square bg-card rounded-sm transition-colors",
-                hoveredCell.col === colIndex && !isReadOnly && "bg-accent text-accent-foreground"
+                hoveredCell.col === colIndex && "bg-accent text-accent-foreground" // Hover always active
               )}
             >
               {colIndex + 1}
@@ -96,7 +104,7 @@ export function DeepDesertGrid({ initialGridState, initialMapData, isReadOnly = 
               key={`row-label-${rowIndex}`}
               className={cn(
                 "flex items-center justify-center text-center w-8 text-sm font-medium text-muted-foreground aspect-square bg-card rounded-sm transition-colors",
-                hoveredCell.row === rowIndex && !isReadOnly && "bg-accent text-accent-foreground"
+                 hoveredCell.row === rowIndex && "bg-accent text-accent-foreground" // Hover always active
               )}
             >
               {String.fromCharCode(65 + (GRID_SIZE - 1 - rowIndex))}
@@ -117,9 +125,9 @@ export function DeepDesertGrid({ initialGridState, initialMapData, isReadOnly = 
                 onMouseEnterCell={() => setHoveredCell({ row: rIndex, col: cIndex })}
                 onMouseLeaveCell={() => setHoveredCell({ row: null, col: null })}
                 isReadOnly={isReadOnly}
-                // Pass cell data directly if in read-only mode and not using context
                 cellData={isReadOnly ? cellData : undefined} 
                 mapData={isReadOnly ? currentMapData : undefined}
+                onCellClick={isReadOnly ? onCellClick : undefined} // Pass onCellClick for read-only mode
               />
             ))
           )}

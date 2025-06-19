@@ -6,11 +6,12 @@ import { useState, useEffect, useCallback } from 'react';
 import { useMap } from '@/contexts/MapContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { ICON_CONFIG_MAP } from '@/components/icons';
+import type { PlacedIcon, MapData, GridCellData } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Trash2, X as XIcon, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -21,24 +22,40 @@ interface MarkerEditorPanelProps {
   rowIndex: number;
   colIndex: number;
   className?: string;
+  // Override props for public/read-only mode
+  isReadOnlyOverride?: boolean;
+  mapDataOverride?: MapData;
+  cellDataOverride?: GridCellData; // To find the icon if selectedIconIdOverride is used
+  selectedIconIdOverride?: string | null;
+  onCloseOverride?: () => void;
 }
 
-export function MarkerEditorPanel({ rowIndex, colIndex, className }: MarkerEditorPanelProps) {
-  const {
-    selectedPlacedIconId,
-    setSelectedPlacedIconId,
-    currentLocalGrid,
-    currentMapData,
-    updatePlacedIconNote,
-    updatePlacedIconPositionInCell,
-    removePlacedIconFromCell,
-    isLoadingMapData,
-  } = useMap();
+export function MarkerEditorPanel({ 
+  rowIndex, 
+  colIndex, 
+  className,
+  isReadOnlyOverride,
+  mapDataOverride,
+  cellDataOverride,
+  selectedIconIdOverride,
+  onCloseOverride
+}: MarkerEditorPanelProps) {
+  const context = useMap();
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const cellData = currentLocalGrid?.[rowIndex]?.[colIndex];
-  const selectedIcon = cellData?.placedIcons.find(icon => icon.id === selectedPlacedIconId);
+  const isContextMode = isReadOnlyOverride === undefined;
+
+  const currentMapData = isContextMode ? context.currentMapData : mapDataOverride;
+  const selectedPlacedIconId = isContextMode ? context.selectedPlacedIconId : selectedIconIdOverride;
+  
+  let selectedIcon: PlacedIcon | undefined | null = null;
+  if (isContextMode) {
+    selectedIcon = context.currentLocalGrid?.[rowIndex]?.[colIndex]?.placedIcons.find(icon => icon.id === selectedPlacedIconId);
+  } else if (cellDataOverride && selectedPlacedIconId) {
+    selectedIcon = cellDataOverride.placedIcons.find(icon => icon.id === selectedPlacedIconId);
+  }
+
 
   const [localNote, setLocalNote] = useState('');
   const [localX, setLocalX] = useState<number | string>('');
@@ -55,49 +72,45 @@ export function MarkerEditorPanel({ rowIndex, colIndex, className }: MarkerEdito
   useEffect(() => {
     if (selectedIcon) {
       resetLocalState();
-    } else if (selectedPlacedIconId) {
-      // If an ID is selected but the icon isn't found (e.g., stale selection), clear it.
-      setSelectedPlacedIconId(null);
+    } else if (selectedPlacedIconId && isContextMode && context.setSelectedPlacedIconId) {
+      context.setSelectedPlacedIconId(null);
+    } else if (selectedPlacedIconId && !isContextMode && onCloseOverride) {
+       // If in override mode and selected icon disappears, effectively close.
+       // This might happen if parent (PublicMapView) changes its selectedIconId.
+       // No direct action usually needed here, parent manages the visibility.
     }
-  }, [selectedIcon, selectedPlacedIconId, setSelectedPlacedIconId, resetLocalState]);
+  }, [selectedIcon, selectedPlacedIconId, context.setSelectedPlacedIconId, isContextMode, onCloseOverride, resetLocalState]);
 
   let canEdit = false;
-  if (user && currentMapData) {
-    canEdit = currentMapData.ownerId === user.uid;
+  if (isContextMode) {
+    if (user && currentMapData) {
+      canEdit = currentMapData.ownerId === user.uid;
+    }
+  } else {
+    canEdit = !isReadOnlyOverride;
   }
+  
+  const isLoading = isContextMode ? context.isLoadingMapData : false;
 
-  if (isLoadingMapData && selectedPlacedIconId) {
+  if (isLoading && selectedPlacedIconId) {
      return (
       <Card className={cn("w-full shadow-lg border-border bg-card", className)}>
         <CardHeader className="p-3 md:p-4 flex flex-row justify-between items-center">
-          <div className="flex items-center gap-2">
-            <Skeleton className="h-6 w-6 rounded-sm" />
-            <Skeleton className="h-5 w-20" />
-          </div>
-          <div className="flex items-center gap-1">
-            <Skeleton className="h-7 w-7 rounded-sm" />
-            <Skeleton className="h-7 w-7 rounded-sm" />
-          </div>
+          <div className="flex items-center gap-2"> <Skeleton className="h-6 w-6 rounded-sm" /> <Skeleton className="h-5 w-20" /> </div>
+          <div className="flex items-center gap-1"> <Skeleton className="h-7 w-7 rounded-sm" /> <Skeleton className="h-7 w-7 rounded-sm" /> </div>
         </CardHeader>
         <CardContent className="p-3 md:p-4 space-y-3">
-          <Skeleton className="h-5 w-1/4 mb-1" />
-          <Skeleton className="h-16 w-full" />
+          <Skeleton className="h-5 w-1/4 mb-1" /> <Skeleton className="h-16 w-full" />
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Skeleton className="h-5 w-1/3 mb-1" />
-              <Skeleton className="h-9 w-full" />
-            </div>
-            <div>
-              <Skeleton className="h-5 w-1/3 mb-1" />
-              <Skeleton className="h-9 w-full" />
-            </div>
+            <div> <Skeleton className="h-5 w-1/3 mb-1" /> <Skeleton className="h-9 w-full" /> </div>
+            <div> <Skeleton className="h-5 w-1/3 mb-1" /> <Skeleton className="h-9 w-full" /> </div>
           </div>
         </CardContent>
       </Card>
     );
   }
 
-  if (!selectedIcon || !currentMapData) {
+  if (!selectedIcon || (!isContextMode && !mapDataOverride)) { // Ensure mapDataOverride for non-context mode
     return null;
   }
 
@@ -109,8 +122,8 @@ export function MarkerEditorPanel({ rowIndex, colIndex, className }: MarkerEdito
   };
 
   const handleNoteSave = () => {
-    if (canEdit && selectedIcon.note !== localNote) {
-      updatePlacedIconNote(rowIndex, colIndex, selectedIcon.id, localNote);
+    if (canEdit && selectedIcon && selectedIcon.note !== localNote && isContextMode && context.updatePlacedIconNote) {
+      context.updatePlacedIconNote(rowIndex, colIndex, selectedIcon.id, localNote);
       toast({ title: "Note Updated", description: `Note for ${IconConfig?.label || 'marker'} saved.` });
     }
   };
@@ -121,15 +134,13 @@ export function MarkerEditorPanel({ rowIndex, colIndex, className }: MarkerEdito
         setter(value);
       } else {
         const num = parseFloat(value);
-        if (!isNaN(num)) {
-          setter(num);
-        }
+        if (!isNaN(num)) { setter(num); }
       }
     }
   };
 
   const handleCoordinateSave = (coordType: 'x' | 'y') => {
-    if (!canEdit) return;
+    if (!canEdit || !selectedIcon || !isContextMode || !context.updatePlacedIconPositionInCell) return;
 
     let valueToSave: number;
     let currentValueInIcon: number;
@@ -147,29 +158,31 @@ export function MarkerEditorPanel({ rowIndex, colIndex, className }: MarkerEdito
         resetLocalState();
         return;
     }
-
     const clampedValue = Math.max(0, Math.min(100, valueToSave));
-
     if (clampedValue !== currentValueInIcon) {
         const newX = coordType === 'x' ? clampedValue : selectedIcon.x;
         const newY = coordType === 'y' ? clampedValue : selectedIcon.y;
-        updatePlacedIconPositionInCell(rowIndex, colIndex, selectedIcon.id, newX, newY);
+        context.updatePlacedIconPositionInCell(rowIndex, colIndex, selectedIcon.id, newX, newY);
         toast({ title: "Position Updated", description: `${coordType.toUpperCase()} coordinate for ${IconConfig?.label || 'marker'} saved.` });
     }
     if (coordType === 'x') setLocalX(clampedValue.toFixed(2));
     if (coordType === 'y') setLocalY(clampedValue.toFixed(2));
   };
 
-
   const handleDelete = () => {
-    if (canEdit) {
-      removePlacedIconFromCell(rowIndex, colIndex, selectedIcon.id);
+    if (canEdit && selectedIcon && isContextMode && context.removePlacedIconFromCell) {
+      context.removePlacedIconFromCell(rowIndex, colIndex, selectedIcon.id);
       toast({ title: "Marker Deleted", description: `${IconConfig?.label || 'Marker'} removed.` });
-      // setSelectedPlacedIconId(null); // Already handled by removePlacedIconFromCell if ID matches
     }
   };
 
-  const handleClose = () => setSelectedPlacedIconId(null);
+  const handleClose = () => {
+    if (isContextMode && context.setSelectedPlacedIconId) {
+      context.setSelectedPlacedIconId(null);
+    } else if (onCloseOverride) {
+      onCloseOverride();
+    }
+  };
 
   return (
     <Card className={cn("w-full shadow-lg border-border bg-card", className)}>
@@ -179,7 +192,7 @@ export function MarkerEditorPanel({ rowIndex, colIndex, className }: MarkerEdito
           <span className="text-sm font-semibold text-foreground">{IconConfig?.label || 'Marker'}</span>
         </div>
         <div className="flex items-center gap-1">
-          {canEdit && (
+          {canEdit && isContextMode && ( // Delete only if editable AND in context mode
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -187,9 +200,7 @@ export function MarkerEditorPanel({ rowIndex, colIndex, className }: MarkerEdito
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  <p>Delete Marker</p>
-                </TooltipContent>
+                <TooltipContent side="bottom"><p>Delete Marker</p></TooltipContent>
               </Tooltip>
             </TooltipProvider>
           )}
@@ -224,11 +235,8 @@ export function MarkerEditorPanel({ rowIndex, colIndex, className }: MarkerEdito
               onBlur={() => handleCoordinateSave('x')}
               placeholder="0-100"
               className="text-sm bg-input"
-              min="0"
-              max="100"
-              step="0.01"
-              disabled={!canEdit}
-              readOnly={!canEdit}
+              min="0" max="100" step="0.01"
+              disabled={!canEdit} readOnly={!canEdit}
             />
           </div>
           <div>
@@ -241,20 +249,19 @@ export function MarkerEditorPanel({ rowIndex, colIndex, className }: MarkerEdito
               onBlur={() => handleCoordinateSave('y')}
               placeholder="0-100"
               className="text-sm bg-input"
-              min="0"
-              max="100"
-              step="0.01"
-              disabled={!canEdit}
-              readOnly={!canEdit}
+              min="0" max="100" step="0.01"
+              disabled={!canEdit} readOnly={!canEdit}
             />
           </div>
         </div>
         {!canEdit && (
-             <CardDescription className="text-xs flex items-center gap-1 text-muted-foreground pt-1">
-                <Info className="h-3 w-3" /> You do not have permission to edit this marker.
-            </CardDescription>
+             <div className="text-xs flex items-center gap-1 text-muted-foreground pt-1">
+                <Info className="h-3 w-3" /> This marker is view-only.
+            </div>
         )}
       </CardContent>
     </Card>
   );
 }
+
+    
