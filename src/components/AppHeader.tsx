@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useMap } from '@/contexts/MapContext';
 import { Button } from '@/components/ui/button';
 import { AuthButton } from '@/components/auth/AuthButton';
-import { ChevronRight, ChevronsUpDown } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import type { FocusedCellCoordinates } from '@/types';
 import { GRID_SIZE } from '@/lib/mapUtils';
 import {
@@ -40,15 +40,13 @@ export function AppHeader() {
     isCurrent: boolean;
   }> = [];
 
-  // "Maps" (formerly Home)
   breadcrumbItems.push({
     key: 'maps',
     label: 'Maps',
-    onClick: () => selectMap(null),
+    onClick: () => selectMap(null), 
     isCurrent: !currentMapData,
   });
 
-  // Map Name
   if (currentMapData) {
     breadcrumbItems.push({
       key: 'map',
@@ -58,7 +56,6 @@ export function AppHeader() {
     });
   }
 
-  // Cell Coordinate
   if (currentMapData && focusedCellCoordinates) {
     breadcrumbItems.push({
       key: 'cell',
@@ -78,7 +75,37 @@ export function AppHeader() {
                   {index > 0 && (
                     <ChevronRight className="h-5 w-5 text-muted-foreground" />
                   )}
-                  {item.onClick && !item.isCurrent ? (
+                  
+                  {/* Special handling for the Map Name as a Select component */}
+                  {item.key === 'map' && item.isCurrent && userMapList && userMapList.length > 1 ? (
+                    <Select
+                      value={currentMapId || ""}
+                      onValueChange={(value) => {
+                        if (value && value !== currentMapId) {
+                          selectMap(value);
+                        }
+                      }}
+                    >
+                      <SelectTrigger
+                        className={cn(
+                          "p-0 h-auto text-xl md:text-2xl font-semibold focus:ring-0 border-none shadow-none bg-transparent",
+                          "text-foreground hover:text-foreground/90", // Current item styling
+                          "data-[placeholder]:text-foreground" // Ensure placeholder (current map name) uses foreground color
+                        )}
+                        aria-label="Switch map"
+                      >
+                        {/* SelectValue will display the name of the map matching currentMapId */}
+                        <SelectValue /> 
+                      </SelectTrigger>
+                      <SelectContent>
+                        {userMapList.map((map) => (
+                          <SelectItem key={map.id} value={map.id}>
+                            {map.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : item.onClick && !item.isCurrent ? ( // Standard clickable breadcrumb (not current)
                     <Button
                       variant="link"
                       onClick={item.onClick}
@@ -86,7 +113,7 @@ export function AppHeader() {
                     >
                       {item.label}
                     </Button>
-                  ) : (
+                  ) : ( // Standard non-clickable breadcrumb (current or no onClick, or map name with <=1 map)
                     <span className={cn("truncate max-w-[150px] sm:max-w-[200px] md:max-w-xs", item.isCurrent ? "text-foreground" : "text-primary")}>
                       {item.label}
                     </span>
@@ -95,34 +122,6 @@ export function AppHeader() {
               ))}
             </ol>
           </nav>
-
-          {userMapList && userMapList.length > 0 && currentMapData && (
-            <Select
-              value={currentMapId || ""}
-              onValueChange={(value) => {
-                if (value && value !== currentMapId) {
-                  selectMap(value);
-                }
-              }}
-            >
-              <SelectTrigger 
-                className={cn(
-                  "w-auto md:w-[180px] h-9 text-sm focus:ring-ring",
-                  breadcrumbItems.length > 1 ? "ml-1" : "" // Add margin if breadcrumbs are present
-                )}
-                aria-label="Switch map"
-              >
-                <SelectValue placeholder="Switch map..." />
-              </SelectTrigger>
-              <SelectContent>
-                {userMapList.map((map) => (
-                  <SelectItem key={map.id} value={map.id}>
-                    {map.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
         </div>
         <AuthButton />
       </div>
