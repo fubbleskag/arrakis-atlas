@@ -2,7 +2,7 @@
 "use client";
 
 import type React from 'react';
-import { useState, useEffect, useRef } from 'react'; // Added useRef
+import { useState, useEffect, useRef } from 'react';
 import { useMap } from '@/contexts/MapContext';
 import { ICON_CONFIG_MAP } from '@/components/icons';
 import { ICON_TYPES, type PlacedIcon, type IconType } from '@/types';
@@ -24,14 +24,14 @@ interface DetailedCellEditorCanvasProps {
 }
 
 export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: DetailedCellEditorCanvasProps) {
-  const { 
-    currentLocalGrid, 
-    isLoadingMapData, 
-    currentMapData, 
-    addPlacedIconToCell, 
-    updatePlacedIconPositionInCell, 
+  const {
+    currentLocalGrid,
+    isLoadingMapData,
+    currentMapData,
+    addPlacedIconToCell,
+    updatePlacedIconPositionInCell,
     removePlacedIconFromCell,
-    updatePlacedIconNote 
+    updatePlacedIconNote
   } = useMap();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -39,7 +39,7 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
   const [editingIcon, setEditingIcon] = useState<PlacedIcon | null>(null);
   const [editedNote, setEditedNote] = useState<string>('');
   const [popoverAnchor, setPopoverAnchor] = useState<HTMLElement | null>(null);
-  const canvasRef = useRef<HTMLDivElement>(null); // Ref for the canvas div
+  const canvasRef = useRef<HTMLDivElement>(null);
 
   const cellData = currentLocalGrid?.[rowIndex]?.[colIndex];
 
@@ -61,7 +61,7 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
       </div>
     );
   }
-  
+
   if (!cellData) {
     return (
       <div className={cn("relative w-full aspect-square bg-destructive/10 rounded-lg shadow-xl flex flex-col items-center justify-center p-4 text-center", className)}>
@@ -72,7 +72,7 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
   }
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault(); 
+    e.preventDefault();
     if (canEdit) {
       e.dataTransfer.dropEffect = e.dataTransfer.getData("action") === "move" ? "move" : "copy";
     } else {
@@ -89,7 +89,6 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
     let x = ((e.clientX - canvasRect.left) / canvasRect.width) * 100;
     let y = ((e.clientY - canvasRect.top) / canvasRect.height) * 100;
 
-    // Clamp values between 0 and 100 to keep icons within bounds
     x = Math.max(0, Math.min(100, x));
     y = Math.max(0, Math.min(100, y));
 
@@ -98,7 +97,7 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
       if (placedIconId) {
         updatePlacedIconPositionInCell(rowIndex, colIndex, placedIconId, x, y);
       }
-    } else if (action === "add") { // Check for "add" action from palette
+    } else if (action === "add") {
       const iconTypeString = e.dataTransfer.getData("iconType");
       if (ICON_TYPES.includes(iconTypeString as IconType)) {
         const iconType = iconTypeString as IconType;
@@ -142,9 +141,9 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
   };
 
   return (
-    <div 
+    <div
       ref={canvasRef}
-      className={cn("relative overflow-hidden", className)} // Ensure this div has a defined size
+      className={cn("relative overflow-hidden", className)}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
@@ -153,9 +152,9 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
           src={cellData.backgroundImageUrl}
           alt="Cell background"
           layout="fill"
-          objectFit="contain" // Ensures entire image is visible, letterboxed if not square
-          className="pointer-events-none -z-10" // Keep behind icons
-          priority // Consider if this is critical content
+          objectFit="contain"
+          className="pointer-events-none" // Removed -z-10
+          priority
           data-ai-hint="map texture"
         />
       )}
@@ -173,9 +172,9 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
                 onDragStart={(e) => handlePlacedIconDragStart(e, icon)}
                 onContextMenu={(e) => handleContextMenu(e, icon)}
                 className={cn(
-                  "absolute w-8 h-8", 
+                  "absolute w-8 h-8 z-[1]", // Added default z-index for icons
                   canEdit ? "cursor-pointer" : "cursor-default",
-                  editingIcon?.id === icon.id && "ring-2 ring-primary ring-offset-2 ring-offset-background rounded-md z-10" // Ensure icons are above background
+                  editingIcon?.id === icon.id && "ring-2 ring-primary ring-offset-2 ring-offset-background rounded-md z-[2]" // Higher z-index for editing icon
                 )}
                 style={{
                   left: `${icon.x}%`,
@@ -188,9 +187,9 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
               </div>
             </PopoverAnchor>
             {editingIcon?.id === icon.id && (
-              <PopoverContent 
-                className="w-64 p-3 z-20" // Ensure popover is above other elements
-                side="bottom" 
+              <PopoverContent
+                className="w-64 p-3 z-20"
+                side="bottom"
                 align="center"
                 onEscapeKeyDown={() => setEditingIcon(null)}
                 onInteractOutside={() => setEditingIcon(null)}
@@ -220,7 +219,7 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
         );
       })}
       {cellData.placedIcons.length === 0 && !cellData.backgroundImageUrl && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
           <p className="text-muted-foreground text-lg">
             {canEdit ? "Drag resources or upload background" : "No resources placed"}
           </p>
