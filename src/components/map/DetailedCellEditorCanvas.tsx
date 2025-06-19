@@ -12,10 +12,11 @@ import { AlertTriangle, Trash2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverAnchor } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import Image from 'next/image'; // For optimized image display
+import Image from 'next/image';
 
 interface DetailedCellEditorCanvasProps {
   rowIndex: number;
@@ -38,15 +39,12 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
 
   const [editingIcon, setEditingIcon] = useState<PlacedIcon | null>(null);
   const [editedNote, setEditedNote] = useState<string>('');
-  const [popoverAnchor, setPopoverAnchor] = useState<HTMLElement | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
 
   const cellData = currentLocalGrid?.[rowIndex]?.[colIndex];
 
   useEffect(() => {
-    if (!editingIcon) {
-      setPopoverAnchor(null);
-    }
+    // No specific anchor needed for popover as PopoverAnchor is used
   }, [editingIcon]);
 
   let canEdit = false;
@@ -121,7 +119,7 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
     if (!canEdit) return;
     setEditingIcon(icon);
     setEditedNote(icon.note || '');
-    setPopoverAnchor(e.currentTarget);
+    // PopoverAnchor will handle the positioning relative to this element
   };
 
   const handleSaveNote = () => {
@@ -153,7 +151,7 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
           alt="Cell background"
           layout="fill"
           objectFit="contain"
-          className="pointer-events-none" // Removed -z-10
+          className="pointer-events-none"
           priority
           data-ai-hint="map texture"
         />
@@ -162,33 +160,47 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
         const Config = ICON_CONFIG_MAP[icon.type];
         if (!Config) return null;
         const IconComponent = Config.IconComponent;
-        const tooltipText = icon.note ? `${Config.label}: ${icon.note}` : Config.label;
+        
+        const iconRenderElement = (
+            <div
+              draggable={canEdit && editingIcon?.id !== icon.id}
+              onDragStart={(e) => handlePlacedIconDragStart(e, icon)}
+              onContextMenu={(e) => handleContextMenu(e, icon)}
+              className={cn(
+                "absolute w-8 h-8 z-[1]",
+                canEdit ? "cursor-pointer" : "cursor-default",
+                editingIcon?.id === icon.id && "ring-2 ring-primary ring-offset-2 ring-offset-background rounded-md z-[2]"
+              )}
+              style={{
+                left: `${icon.x}%`,
+                top: `${icon.y}%`,
+                transform: 'translate(-50%, -50%)',
+              }}
+            >
+              <IconComponent className="w-full h-full text-primary" />
+            </div>
+        );
 
         return (
           <Popover key={icon.id} open={editingIcon?.id === icon.id} onOpenChange={(isOpen) => { if(!isOpen) setEditingIcon(null);}}>
             <PopoverAnchor asChild>
-              <div
-                draggable={canEdit && editingIcon?.id !== icon.id}
-                onDragStart={(e) => handlePlacedIconDragStart(e, icon)}
-                onContextMenu={(e) => handleContextMenu(e, icon)}
-                className={cn(
-                  "absolute w-8 h-8 z-[1]", // Added default z-index for icons
-                  canEdit ? "cursor-pointer" : "cursor-default",
-                  editingIcon?.id === icon.id && "ring-2 ring-primary ring-offset-2 ring-offset-background rounded-md z-[2]" // Higher z-index for editing icon
-                )}
-                style={{
-                  left: `${icon.x}%`,
-                  top: `${icon.y}%`,
-                  transform: 'translate(-50%, -50%)',
-                }}
-                title={tooltipText}
-              >
-                <IconComponent className="w-full h-full text-primary" />
-              </div>
+              {icon.note && icon.note.trim() !== '' ? (
+                <TooltipProvider delayDuration={100}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>{iconRenderElement}</TooltipTrigger>
+                    <TooltipContent side="top" align="center" className="max-w-xs p-2 whitespace-pre-wrap">
+                      <p className="text-sm font-semibold">{Config.label}</p>
+                      <p className="text-sm">{icon.note}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              ) : (
+                iconRenderElement
+              )}
             </PopoverAnchor>
-            {editingIcon?.id === icon.id && (
+            {editingIcon?.id === icon.id && canEdit && (
               <PopoverContent
-                className="w-64 p-3 z-20"
+                className="w-64 p-3 z-20" 
                 side="bottom"
                 align="center"
                 onEscapeKeyDown={() => setEditingIcon(null)}
@@ -221,10 +233,12 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
       {cellData.placedIcons.length === 0 && !cellData.backgroundImageUrl && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
           <p className="text-muted-foreground text-lg">
-            {canEdit ? "Drag resources or upload background" : "No resources placed"}
+            {canEdit ? "Drag markers or upload background" : "No markers placed"}
           </p>
         </div>
       )}
     </div>
   );
 }
+
+    
