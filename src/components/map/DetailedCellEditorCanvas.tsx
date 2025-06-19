@@ -19,7 +19,7 @@ interface DetailedCellEditorCanvasProps {
   className?: string;
 }
 
-interface PlacedIconVisualProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'onClick'> {
+interface PlacedIconVisualProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'onClick' | 'onContextMenu'> {
   iconData: PlacedIcon;
   isSelected: boolean;
   canEdit: boolean;
@@ -40,12 +40,12 @@ const PlacedIconVisual: React.FC<PlacedIconVisualProps> = ({
   const iconElement = (
     <div
       {...divProps}
-      onClick={onClick} // Always handle click to allow selection
+      onClick={onClick}
       className={cn(
         "absolute w-8 h-8",
-        canEdit ? "cursor-pointer" : "cursor-default", // Cursor reflects editability, but click always selects
-        isSelected && "ring-2 ring-primary ring-offset-2 ring-offset-background rounded-md z-[2]", 
-        !isSelected && "z-[1]" // Ensure non-selected icons don't visually overlap the ring of a selected one
+        canEdit ? "cursor-pointer" : "cursor-default",
+        isSelected && "ring-2 ring-primary ring-offset-2 ring-offset-background rounded-md z-[2]",
+        !isSelected && "z-[1]"
       )}
       style={{
         left: `${iconData.x}%`,
@@ -53,26 +53,13 @@ const PlacedIconVisual: React.FC<PlacedIconVisualProps> = ({
         transform: 'translate(-50%, -50%)',
         ...divProps.style,
       }}
+      title={iconData.note && iconData.note.trim() !== '' ? `${Config.label}: ${iconData.note}` : Config.label} // Native tooltip for hover
     >
       <IconComponent className="w-full h-full text-primary" />
     </div>
   );
 
-  if (iconData.note && iconData.note.trim() !== '') {
-    return (
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>{iconElement}</TooltipTrigger>
-          <TooltipContent>
-            <p className="font-semibold">{Config.label}</p>
-            <p>{iconData.note}</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-    );
-  }
-
-  return iconElement;
+  return iconElement; 
 };
 
 
@@ -92,8 +79,8 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
   const cellData = currentLocalGrid?.[rowIndex]?.[colIndex];
 
   let canEdit = false;
-  if (user && currentMapData && currentMapData.ownerId === user.uid) {
-    canEdit = true;
+  if (user && currentMapData) {
+    canEdit = currentMapData.ownerId === user.uid || (!currentMapData.ownerId && currentMapData.userId === user.uid);
   }
 
   if (isLoadingMapData || !currentMapData) {
@@ -191,7 +178,6 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
           isSelected={selectedPlacedIconId === icon.id}
           canEdit={canEdit}
           onClick={() => {
-            // Allow selection even if not editable, but editing panel will be disabled
             setSelectedPlacedIconId(icon.id);
           }}
           draggable={canEdit && selectedPlacedIconId !== icon.id} 

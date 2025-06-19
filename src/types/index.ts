@@ -7,7 +7,7 @@ export const ICON_TYPES = [
   'testing_station',
   'cave',
   'shipwreck',
-  'stravidium',
+  'stravidium', // Corrected spelling
   'spice',
   'titanium',
 ] as const;
@@ -15,22 +15,22 @@ export const ICON_TYPES = [
 export type IconType = typeof ICON_TYPES[number];
 
 export interface PlacedIcon {
-  id: string; // Unique ID for this placed icon instance (e.g., crypto.randomUUID())
+  id: string; 
   type: IconType;
-  x: number; // Percentage from left (0-100)
-  y: number; // Percentage from top (0-100)
-  note?: string; // Optional note for the placed icon
+  x: number; 
+  y: number; 
+  note?: string; 
 }
 
 export interface GridCellData {
-  id: string; // e.g., "0-0", "row-col"
+  id: string; 
   placedIcons: PlacedIcon[];
-  notes: string; // Notes for the overall cell
-  backgroundImageUrl?: string; // URL for the cell's background image
+  notes: string; 
+  backgroundImageUrl?: string; 
 }
 
-export type LocalGridState = GridCellData[][]; // For client-side manipulation
-export type FirestoreGridState = Record<string, GridCellData[]>; // For Firestore storage
+export type LocalGridState = GridCellData[][]; 
+export type FirestoreGridState = Record<string, GridCellData[]>; 
 
 export interface IconConfig {
   label: string;
@@ -38,16 +38,17 @@ export interface IconConfig {
 }
 
 export interface MapData {
-  id: string; // Firestore document ID
-  ownerId: string; // UID of the user who created this map
+  id: string; 
+  ownerId: string; // UID of the user who created this map (primary identifier)
+  userId?: string; // Optional: For backward compatibility with maps created before ownerId was introduced
   name: string;
   gridState: FirestoreGridState;
   createdAt: Timestamp;
   updatedAt: Timestamp;
   isPublicViewable: boolean;
   publicViewId: string | null;
-  collaboratorShareId: string | null; // For future editor sharing
-  editors: string[]; // Array of UIDs who can edit (via collaboratorShareId)
+  collaboratorShareId: string | null; 
+  editors: string[]; 
 }
 
 export interface UserProfile {

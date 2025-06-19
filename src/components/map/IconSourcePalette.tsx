@@ -98,8 +98,8 @@ export function IconSourcePalette({ rowIndex, colIndex, className }: IconSourceP
   }
   
   let canEdit = false;
-  if (isAuthenticated && user && currentMapData && currentMapData.ownerId === user.uid) {
-    canEdit = true;
+  if (isAuthenticated && user && currentMapData) {
+    canEdit = currentMapData.ownerId === user.uid || (!currentMapData.ownerId && currentMapData.userId === user.uid);
   }
 
   const handleNotesInputChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {

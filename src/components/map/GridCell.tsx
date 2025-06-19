@@ -18,7 +18,7 @@ interface GridCellProps {
   onMouseLeaveCell: () => void;
 }
 
-const GRID_CELL_INTERNAL_SIZE = 9; // For label calculation
+const GRID_CELL_INTERNAL_SIZE = 9; 
 
 export function GridCell({ rowIndex, colIndex, onMouseEnterCell, onMouseLeaveCell }: GridCellProps) {
   const { 
@@ -34,9 +34,9 @@ export function GridCell({ rowIndex, colIndex, onMouseEnterCell, onMouseLeaveCel
       return <div className="aspect-square bg-destructive/20 flex items-center justify-center text-xs text-destructive">Err</div>;
   }
 
-  let canEdit = false;
+  let canEditCell = false; // Renamed for clarity from canEdit
   if (isAuthenticated && user && currentMapData) {
-    canEdit = currentMapData.userId === user.uid;
+    canEditCell = currentMapData.ownerId === user.uid || (!currentMapData.ownerId && currentMapData.userId === user.uid);
   }
   
   const handleCellClick = () => {
@@ -62,9 +62,8 @@ export function GridCell({ rowIndex, colIndex, onMouseEnterCell, onMouseLeaveCel
     });
   }
 
-  // Display up to 9 resource icons
   const finalDisplayItems: { key: string; IconComponent: React.FC<any>; label: string }[] = uniqueIconTypesInCell
-    .slice(0, 9)
+    .slice(0, 9) 
     .map(iconType => {
       const config = ICON_CONFIG_MAP[iconType];
       return config ? { key: iconType, IconComponent: config.IconComponent, label: config.label } : null;
@@ -88,7 +87,7 @@ export function GridCell({ rowIndex, colIndex, onMouseEnterCell, onMouseLeaveCel
   if (isEmptyCellVisuals && !hasNotes) {
     ariaLabelContent += 'Empty. ';
   }
-  ariaLabelContent += canEdit ? 'Click to view or edit.' : 'Click to view.';
+  ariaLabelContent += canEditCell ? 'Click to view or edit.' : 'Click to view.';
 
   const cellButton = (
     <button
@@ -102,10 +101,10 @@ export function GridCell({ rowIndex, colIndex, onMouseEnterCell, onMouseLeaveCel
         "aspect-square flex items-center justify-center p-0.5 relative group transition-all duration-150 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         "bg-card", 
         currentMapData ? "hover:bg-accent/20 cursor-pointer" : "cursor-not-allowed",
-        !canEdit && currentMapData && "bg-muted/30"
+        !canEditCell && currentMapData && "bg-muted/30"
       )}
     >
-      {!canEdit && currentMapData && isEmptyCellVisuals && (
+      {!canEditCell && currentMapData && isEmptyCellVisuals && (
          <Lock className="h-1/2 w-1/2 text-muted-foreground/50 absolute inset-0 m-auto" />
       )}
       

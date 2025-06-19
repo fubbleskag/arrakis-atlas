@@ -46,7 +46,6 @@ export function MapManager() {
   
   useEffect(() => {
     if (selectedMapForSettings && selectedMapFromContext && selectedMapFromContext.id === selectedMapForSettings.id) {
-        // If the context updates the map data (e.g. after togglePublicView), refresh settings dialog
         const freshMapData = userMapList.find(m => m.id === selectedMapFromContext.id) || selectedMapFromContext;
         setSelectedMapForSettings(freshMapData);
         setSettingsMapName(freshMapData.name);
@@ -72,14 +71,14 @@ export function MapManager() {
 
   const handleUpdateNameSetting = async () => {
     if (!selectedMapForSettings || !settingsMapName.trim() || !user) return;
-    if (selectedMapForSettings.ownerId !== user.uid) {
+    const isOwner = selectedMapForSettings.ownerId === user.uid || (!selectedMapForSettings.ownerId && selectedMapForSettings.userId === user.uid);
+    if (!isOwner) {
       toast({title: "Permission Denied", description: "You don't have permission to change settings for this map.", variant: "destructive"});
       return;
     }
     setIsUpdatingSettings(true);
     await updateMapName(selectedMapForSettings.id, settingsMapName.trim());
     setIsUpdatingSettings(false);
-    // Dialog will close on its own if successful or stay open to show error
   };
 
   const handleTogglePublicView = async (mapId: string, enable: boolean) => {
@@ -162,126 +161,128 @@ export function MapManager() {
         </Card>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {userMapList.map((map) => (
-            <Card key={map.id} className="flex flex-col">
-              <CardHeader>
-                <div className="flex justify-between items-start">
-                  <CardTitle className="text-xl group-hover:text-primary transition-colors mb-1">{map.name}</CardTitle>
-                </div>
-                <CardDescription>
-                  Last updated {map.updatedAt ? formatDistanceToNow(map.updatedAt.toDate(), { addSuffix: true }) : 'N/A'}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex-grow">
-                {/* Content placeholder */}
-              </CardContent>
-              <CardFooter className="flex-col sm:flex-row gap-2 pt-4 border-t">
-                <Button onClick={() => selectMap(map.id)} className="w-full sm:w-auto flex-grow">
-                  View Map
-                </Button>
-                {user && map.ownerId === user.uid && (
-                  <div className="flex gap-2 w-full sm:w-auto">
-                    <Dialog onOpenChange={(isOpen) => { if (!isOpen) setSelectedMapForSettings(null); }}>
-                        <DialogTrigger asChild>
-                            <Button variant="outline" size="icon" title="Settings" onClick={() => openSettingsDialog(map)}>
-                                <Settings2 className="h-4 w-4" />
-                            </Button>
-                        </DialogTrigger>
-                        {selectedMapForSettings && selectedMapForSettings.id === map.id && (
-                        <DialogContent className="sm:max-w-md">
-                            <DialogHeader>
-                                <DialogTitle>Map Settings: {selectedMapForSettings.name}</DialogTitle>
-                                <DialogDescription>Manage your map&apos;s details and sharing options.</DialogDescription>
-                            </DialogHeader>
-                            <div className="space-y-4 py-2">
-                                <div>
-                                    <Label htmlFor="settingsMapName" className="text-sm font-medium">Map Name</Label>
-                                    <Input id="settingsMapName" value={settingsMapName} onChange={e => setSettingsMapName(e.target.value)} className="mt-1" disabled={isUpdatingSettings} />
-                                </div>
-                                <Separator />
-                                <div>
-                                  <h4 className="text-sm font-medium mb-2">Public View-Only Link</h4>
-                                  <div className="flex items-center space-x-2 mb-2">
-                                    <Switch
-                                      id={`public-view-switch-${map.id}`}
-                                      checked={selectedMapForSettings.isPublicViewable}
-                                      onCheckedChange={(checked) => handleTogglePublicView(map.id, checked)}
-                                      disabled={isUpdatingSettings}
-                                    />
-                                    <Label htmlFor={`public-view-switch-${map.id}`}>
-                                      {selectedMapForSettings.isPublicViewable ? "Public Link Enabled" : "Public Link Disabled"}
-                                    </Label>
-                                  </div>
-                                  {selectedMapForSettings.isPublicViewable && selectedMapForSettings.publicViewId && (
-                                    <div className="space-y-2">
-                                      <p className="text-xs text-muted-foreground break-all">
-                                        Share this link for view-only access: <br />
-                                        <a 
-                                          href={`${publicLinkBase}/view/map/${selectedMapForSettings.publicViewId}`} 
-                                          target="_blank" 
-                                          rel="noopener noreferrer"
-                                          className="text-primary hover:underline"
-                                        >
-                                          {`${publicLinkBase}/view/map/${selectedMapForSettings.publicViewId}`}
-                                          <ExternalLink className="inline-block h-3 w-3 ml-1"/>
-                                        </a>
-                                      </p>
-                                      <div className="flex gap-2">
-                                        <Button 
-                                          variant="outline" 
-                                          size="sm" 
-                                          onClick={() => copyToClipboard(`${publicLinkBase}/view/map/${selectedMapForSettings.publicViewId}`)}
-                                          disabled={isUpdatingSettings}
-                                        >
-                                          <Copy className="mr-2 h-3 w-3" /> Copy Link
-                                        </Button>
-                                        <Button 
-                                          variant="outline" 
-                                          size="sm" 
-                                          onClick={() => handleRegeneratePublicViewId(map.id)}
-                                          disabled={isUpdatingSettings}
-                                        >
-                                          {isUpdatingSettings && map.publicViewId === selectedMapForSettings.publicViewId ? <Loader2 className="mr-2 h-3 w-3 animate-spin"/> : null}
-                                          Regenerate Link
-                                        </Button>
-                                      </div>
-                                    </div>
-                                  )}
-                                   {!selectedMapForSettings.isPublicViewable && (
-                                    <p className="text-xs text-muted-foreground">Enable the switch to generate and share a public view-only link.</p>
-                                  )}
-                                </div>
-                                {/* Future: Collaborator Link Section */}
-                            </div>
-                            <DialogFooter className="mt-4">
-                                <DialogClose asChild><Button variant="ghost" onClick={() => setSelectedMapForSettings(null)} disabled={isUpdatingSettings}>Cancel</Button></DialogClose>
-                                <Button onClick={handleUpdateNameSetting} disabled={isUpdatingSettings || !settingsMapName.trim()}>
-                                {isUpdatingSettings && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>} Save Changes
-                                </Button>
-                            </DialogFooter>
-                        </DialogContent>
-                        )}
-                    </Dialog>
-                    <Dialog>
-                        <DialogTrigger asChild>
-                            <Button variant="destructive" size="icon" title="Delete Map">
-                                <Trash2 className="h-4 w-4" />
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                            <DialogHeader><DialogTitle>Delete Map: {map.name}</DialogTitle></DialogHeader>
-                            <DialogDescription>Are you sure you want to delete this map? This action cannot be undone.</DialogDescription>
-                            <DialogFooter>
-                                <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
-                                <Button variant="destructive" onClick={() => deleteMap(map.id)}>Delete</Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
+          {userMapList.map((map) => {
+            const isMapOwner = user && (map.ownerId === user.uid || (!map.ownerId && map.userId === user.uid));
+            return (
+              <Card key={map.id} className="flex flex-col">
+                <CardHeader>
+                  <div className="flex justify-between items-start">
+                    <CardTitle className="text-xl group-hover:text-primary transition-colors mb-1">{map.name}</CardTitle>
                   </div>
-                )}
-              </CardFooter>
-            </Card>
-          ))}
+                  <CardDescription>
+                    Last updated {map.updatedAt ? formatDistanceToNow(map.updatedAt.toDate(), { addSuffix: true }) : 'N/A'}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex-grow">
+                  {/* Content placeholder */}
+                </CardContent>
+                <CardFooter className="flex-col sm:flex-row gap-2 pt-4 border-t">
+                  <Button onClick={() => selectMap(map.id)} className="w-full sm:w-auto flex-grow">
+                    View Map
+                  </Button>
+                  {isMapOwner && (
+                    <div className="flex gap-2 w-full sm:w-auto">
+                      <Dialog onOpenChange={(isOpen) => { if (!isOpen) setSelectedMapForSettings(null); }}>
+                          <DialogTrigger asChild>
+                              <Button variant="outline" size="icon" title="Settings" onClick={() => openSettingsDialog(map)}>
+                                  <Settings2 className="h-4 w-4" />
+                              </Button>
+                          </DialogTrigger>
+                          {selectedMapForSettings && selectedMapForSettings.id === map.id && (
+                          <DialogContent className="sm:max-w-md">
+                              <DialogHeader>
+                                  <DialogTitle>Map Settings: {selectedMapForSettings.name}</DialogTitle>
+                                  <DialogDescription>Manage your map&apos;s details and sharing options.</DialogDescription>
+                              </DialogHeader>
+                              <div className="space-y-4 py-2">
+                                  <div>
+                                      <Label htmlFor="settingsMapName" className="text-sm font-medium">Map Name</Label>
+                                      <Input id="settingsMapName" value={settingsMapName} onChange={e => setSettingsMapName(e.target.value)} className="mt-1" disabled={isUpdatingSettings} />
+                                  </div>
+                                  <Separator />
+                                  <div>
+                                    <h4 className="text-sm font-medium mb-2">Public View-Only Link</h4>
+                                    <div className="flex items-center space-x-2 mb-2">
+                                      <Switch
+                                        id={`public-view-switch-${map.id}`}
+                                        checked={selectedMapForSettings.isPublicViewable}
+                                        onCheckedChange={(checked) => handleTogglePublicView(map.id, checked)}
+                                        disabled={isUpdatingSettings}
+                                      />
+                                      <Label htmlFor={`public-view-switch-${map.id}`}>
+                                        {selectedMapForSettings.isPublicViewable ? "Public Link Enabled" : "Public Link Disabled"}
+                                      </Label>
+                                    </div>
+                                    {selectedMapForSettings.isPublicViewable && selectedMapForSettings.publicViewId && (
+                                      <div className="space-y-2">
+                                        <p className="text-xs text-muted-foreground break-all">
+                                          Share this link for view-only access: <br />
+                                          <a 
+                                            href={`${publicLinkBase}/view/map/${selectedMapForSettings.publicViewId}`} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            className="text-primary hover:underline"
+                                          >
+                                            {`${publicLinkBase}/view/map/${selectedMapForSettings.publicViewId}`}
+                                            <ExternalLink className="inline-block h-3 w-3 ml-1"/>
+                                          </a>
+                                        </p>
+                                        <div className="flex gap-2">
+                                          <Button 
+                                            variant="outline" 
+                                            size="sm" 
+                                            onClick={() => copyToClipboard(`${publicLinkBase}/view/map/${selectedMapForSettings.publicViewId}`)}
+                                            disabled={isUpdatingSettings}
+                                          >
+                                            <Copy className="mr-2 h-3 w-3" /> Copy Link
+                                          </Button>
+                                          <Button 
+                                            variant="outline" 
+                                            size="sm" 
+                                            onClick={() => handleRegeneratePublicViewId(map.id)}
+                                            disabled={isUpdatingSettings}
+                                          >
+                                            {isUpdatingSettings && map.publicViewId === selectedMapForSettings.publicViewId ? <Loader2 className="mr-2 h-3 w-3 animate-spin"/> : null}
+                                            Regenerate Link
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    )}
+                                     {!selectedMapForSettings.isPublicViewable && (
+                                      <p className="text-xs text-muted-foreground">Enable the switch to generate and share a public view-only link.</p>
+                                    )}
+                                  </div>
+                              </div>
+                              <DialogFooter className="mt-4">
+                                  <DialogClose asChild><Button variant="ghost" onClick={() => setSelectedMapForSettings(null)} disabled={isUpdatingSettings}>Cancel</Button></DialogClose>
+                                  <Button onClick={handleUpdateNameSetting} disabled={isUpdatingSettings || !settingsMapName.trim()}>
+                                  {isUpdatingSettings && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>} Save Changes
+                                  </Button>
+                              </DialogFooter>
+                          </DialogContent>
+                          )}
+                      </Dialog>
+                      <Dialog>
+                          <DialogTrigger asChild>
+                              <Button variant="destructive" size="icon" title="Delete Map">
+                                  <Trash2 className="h-4 w-4" />
+                              </Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                              <DialogHeader><DialogTitle>Delete Map: {map.name}</DialogTitle></DialogHeader>
+                              <DialogDescription>Are you sure you want to delete this map? This action cannot be undone.</DialogDescription>
+                              <DialogFooter>
+                                  <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
+                                  <Button variant="destructive" onClick={() => deleteMap(map.id)}>Delete</Button>
+                              </DialogFooter>
+                          </DialogContent>
+                      </Dialog>
+                    </div>
+                  )}
+                </CardFooter>
+              </Card>
+            )
+          })}
         </div>
       )}
     </div>

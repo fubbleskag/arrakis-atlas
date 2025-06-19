@@ -43,8 +43,8 @@ export function DeepDesertGrid() {
   const gridToRender: LocalGridState = currentLocalGrid;
 
   let canResetMap = false;
-  if (isAuthenticated && user && currentMapData && currentMapData.ownerId === user.uid) {
-    canResetMap = true;
+  if (isAuthenticated && user && currentMapData) {
+    canResetMap = currentMapData.ownerId === user.uid || (!currentMapData.ownerId && currentMapData.userId === user.uid);
   }
 
   const sidebarWidth = 300; 
