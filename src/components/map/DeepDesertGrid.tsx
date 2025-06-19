@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useMap } from '@/contexts/MapContext';
 import { GridCell } from './GridCell';
 import { Button } from '@/components/ui/button';
@@ -18,38 +18,49 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import type { LocalGridState } from '@/types';
+import type { LocalGridState, MapData } from '@/types';
 import { cn } from '@/lib/utils';
 
 
 const GRID_SIZE = 9;
 
-export function DeepDesertGrid() {
-  const {
-    currentLocalGrid,
-    isLoadingMapData,
-    resetCurrentMapGrid,
-    currentMapData,
-    focusedCellCoordinates
-  } = useMap();
-  const { user, isAuthenticated } = useAuth();
+interface DeepDesertGridProps {
+  initialGridState?: LocalGridState; // For public/read-only view
+  initialMapData?: MapData;       // For public/read-only view
+  isReadOnly?: boolean;             // For public/read-only view
+}
+
+export function DeepDesertGrid({ initialGridState, initialMapData, isReadOnly = false }: DeepDesertGridProps) {
+  const context = !isReadOnly ? useMap() : null; // Only use context if not read-only
+  const { user, isAuthenticated } = !isReadOnly ? useAuth() : { user: null, isAuthenticated: false };
+
+  // State derived from props if read-only, otherwise from context
+  const currentLocalGrid = isReadOnly ? initialGridState : context?.currentLocalGrid;
+  const currentMapData = isReadOnly ? initialMapData : context?.currentMapData;
+  const isLoadingMapData = !isReadOnly && (context?.isLoadingMapData ?? true);
+  
+  const resetCurrentMapGrid = context?.resetCurrentMapGrid;
+  const focusedCellCoordinates = context?.focusedCellCoordinates;
+
+
   const [hoveredCell, setHoveredCell] = useState<{row: number | null, col: number | null}>({ row: null, col: null });
 
 
-  if (isLoadingMapData || !currentLocalGrid) {
+  if ((!isReadOnly && isLoadingMapData) || !currentLocalGrid || !currentMapData) {
+    // Basic loading state, can be improved with skeletons similar to page.tsx
     return <div>Loading map grid...</div>;
   }
 
   const gridToRender: LocalGridState = currentLocalGrid;
 
   let canResetMap = false;
-  if (isAuthenticated && user && currentMapData) {
+  if (!isReadOnly && isAuthenticated && user && currentMapData && context) {
     canResetMap = currentMapData.ownerId === user.uid;
   }
 
   const sidebarWidth = 300;
   const gapWidth = 24;
-  const gridWidthStyle = focusedCellCoordinates
+  const gridWidthStyle = focusedCellCoordinates && !isReadOnly // focusedCellCoordinates implies sidebar is open
     ? `min(calc(100vh - 250px - ${sidebarWidth}px - ${gapWidth}px), calc(100vw - 32px - ${sidebarWidth}px - ${gapWidth}px))`
     : `min(calc(100vh - 250px), calc(100vw - 32px))`;
 
@@ -73,7 +84,7 @@ export function DeepDesertGrid() {
               key={`col-label-${colIndex}`}
               className={cn(
                 "flex items-center justify-center text-center h-8 text-sm font-medium text-muted-foreground aspect-square bg-card rounded-sm transition-colors",
-                hoveredCell.col === colIndex && "bg-accent text-accent-foreground"
+                hoveredCell.col === colIndex && !isReadOnly && "bg-accent text-accent-foreground"
               )}
             >
               {colIndex + 1}
@@ -86,7 +97,7 @@ export function DeepDesertGrid() {
               key={`row-label-${rowIndex}`}
               className={cn(
                 "flex items-center justify-center text-center w-8 text-sm font-medium text-muted-foreground aspect-square bg-card rounded-sm transition-colors",
-                hoveredCell.row === rowIndex && "bg-accent text-accent-foreground"
+                hoveredCell.row === rowIndex && !isReadOnly && "bg-accent text-accent-foreground"
               )}
             >
               {String.fromCharCode(65 + (GRID_SIZE - 1 - rowIndex))}
@@ -106,13 +117,17 @@ export function DeepDesertGrid() {
                 colIndex={cIndex}
                 onMouseEnterCell={() => setHoveredCell({ row: rIndex, col: cIndex })}
                 onMouseLeaveCell={() => setHoveredCell({ row: null, col: null })}
+                isReadOnly={isReadOnly}
+                // Pass cell data directly if in read-only mode and not using context
+                cellData={isReadOnly ? cellData : undefined} 
+                mapData={isReadOnly ? currentMapData : undefined}
               />
             ))
           )}
         </div>
       </div>
 
-      {canResetMap && (
+      {!isReadOnly && canResetMap && resetCurrentMapGrid && (
          <AlertDialog>
           <AlertDialogTrigger asChild>
             <Button variant="destructive" size="sm" disabled={isLoadingMapData}>
@@ -137,3 +152,5 @@ export function DeepDesertGrid() {
     </div>
   );
 }
+
+    

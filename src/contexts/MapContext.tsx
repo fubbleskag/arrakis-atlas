@@ -71,7 +71,7 @@ const convertLocalToFirestoreGrid = (localGrid: LocalGridState): FirestoreGridSt
 };
 
 
-const convertFirestoreToLocalGrid = (firestoreGrid: FirestoreGridState | undefined): LocalGridState => {
+export const convertFirestoreToLocalGrid = (firestoreGrid: FirestoreGridState | undefined): LocalGridState => {
   const newLocalGrid: LocalGridState = initializeLocalGrid();
   if (firestoreGrid && typeof firestoreGrid === 'object') {
     for (let r = 0; r < GRID_SIZE; r++) {
@@ -194,6 +194,8 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setCurrentMapData(null);
       setCurrentLocalGrid(null);
       setIsLoadingMapData(false);
+      setFocusedCellCoordinates(null);
+      setSelectedPlacedIconId(null);
       return;
     }
 
@@ -234,10 +236,17 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [currentMapId, user, toast, setFocusedCellCoordinates, setSelectedPlacedIconId]);
 
   const selectMap = useCallback((mapId: string | null) => {
-    if (mapId === currentMapId && mapId !== null) return;
+    if (mapId === currentMapId && mapId !== null) {
+       // If the same map is "re-selected", ensure focused cell is cleared if any.
+       // This handles the breadcrumb "map name" click when already viewing that map's detailed cell.
+       if (focusedCellCoordinates) {
+        setFocusedCellCoordinates(null);
+       }
+       return;
+    }
     setCurrentMapId(mapId);
     setFocusedCellCoordinates(null);
-  }, [currentMapId, setFocusedCellCoordinates]);
+  }, [currentMapId, focusedCellCoordinates, setFocusedCellCoordinates]);
 
   const createMap = useCallback(async (name: string): Promise<string | null> => {
     if (!user) {
@@ -333,7 +342,10 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           ? row.map((cell, cIdx) => {
               if (cIdx === colIndex) {
                 const newPlacedIcon: PlacedIcon = { id: crypto.randomUUID(), type: iconType, x, y, note: '' };
-                return { ...cell, placedIcons: [...cell.placedIcons, newPlacedIcon] };
+                const updatedIcons = [...cell.placedIcons, newPlacedIcon];
+                 // After adding, set this new icon as selected
+                _setSelectedPlacedIconId(newPlacedIcon.id);
+                return { ...cell, placedIcons: updatedIcons };
               }
               return cell;
             })
@@ -476,6 +488,24 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return;
     }
     try {
+        // Also delete associated background images from storage
+        if (mapToDelete.gridState) {
+            const localGrid = convertFirestoreToLocalGrid(mapToDelete.gridState);
+            for (const row of localGrid) {
+                for (const cell of row) {
+                    if (cell.backgroundImageUrl) {
+                        try {
+                            const imageRef = storageRef(storage, cell.backgroundImageUrl);
+                            await deleteObject(imageRef);
+                        } catch (storageError: any) {
+                            if (storageError.code !== 'storage/object-not-found') {
+                                console.warn(`Could not delete background image ${cell.backgroundImageUrl} for map ${mapId}: ${storageError.message}`);
+                            }
+                        }
+                    }
+                }
+            }
+        }
         await deleteDoc(doc(db, "maps", mapId));
         toast({ title: "Success", description: "Map deleted successfully." });
         if (currentMapId === mapId) {
@@ -598,7 +628,7 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       toast({ title: "Error", description: "Authentication required.", variant: "destructive" });
       return;
     }
-    const mapToUpdate = userMapList.find(m => m.id === mapId) || currentMapData;
+    const mapToUpdate = userMapList.find(m => m.id === mapId) || (currentMapData?.id === mapId ? currentMapData : null);
     if (!mapToUpdate) {
          toast({ title: "Error", description: "Map not found to update public view settings.", variant: "destructive" });
          return;
@@ -627,7 +657,7 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       toast({ title: "Error", description: "Authentication required.", variant: "destructive" });
       return;
     }
-    const mapToUpdate = userMapList.find(m => m.id === mapId) || currentMapData;
+    const mapToUpdate = userMapList.find(m => m.id === mapId) || (currentMapData?.id === mapId ? currentMapData : null);
      if (!mapToUpdate) {
          toast({ title: "Error", description: "Map not found to regenerate public link.", variant: "destructive" });
          return;
@@ -640,7 +670,7 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const newPublicViewId = crypto.randomUUID();
     try {
-      await updateMapInFirestore(mapId, { publicViewId: newPublicViewId, isPublicViewable: true });
+      await updateMapInFirestore(mapId, { publicViewId: newPublicViewId, isPublicViewable: true }); // Ensure it's viewable if regenerating
       toast({ title: "Success", description: "Public view link regenerated." });
     } catch (error) {
       // Error handled by updateMapInFirestore
@@ -688,3 +718,5 @@ export const useMap = (): MapContextType => {
   }
   return context;
 };
+
+    
