@@ -7,7 +7,7 @@ import { ICON_CONFIG_MAP } from '@/components/icons';
 import { useMap } from '@/contexts/MapContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
-import { Lock, StickyNote, ZoomIn } from 'lucide-react';
+import { Lock, ZoomIn } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 
@@ -62,24 +62,16 @@ export function GridCell({ rowIndex, colIndex, onMouseEnterCell, onMouseLeaveCel
     });
   }
 
-  const displayableElements: { key: string; IconComponent: React.FC<any>; label: string }[] = [];
+  // Display up to 9 resource icons
+  const finalDisplayItems: { key: string; IconComponent: React.FC<any>; label: string }[] = uniqueIconTypesInCell
+    .slice(0, 9)
+    .map(iconType => {
+      const config = ICON_CONFIG_MAP[iconType];
+      return config ? { key: iconType, IconComponent: config.IconComponent, label: config.label } : null;
+    })
+    .filter(item => item !== null) as { key: string; IconComponent: React.FC<any>; label: string }[];
   
-  // Add resource icons (up to 8 if notes exist, up to 9 otherwise)
-  const maxResourceIcons = hasNotes ? 8 : 9;
-  uniqueIconTypesInCell.slice(0, maxResourceIcons).forEach(iconType => {
-    const config = ICON_CONFIG_MAP[iconType];
-    if (config) {
-      displayableElements.push({ key: iconType, IconComponent: config.IconComponent, label: config.label });
-    }
-  });
-
-  // Add notes icon if notes exist and there's space (total elements <= 9)
-  if (hasNotes && displayableElements.length < 9) {
-    displayableElements.push({ key: 'notes', IconComponent: StickyNote, label: 'Notes' });
-  }
-  
-  const finalDisplayItems = displayableElements.slice(0, 9);
-  const hasPlacedContent = finalDisplayItems.length > 0; // Includes notes icon now
+  const hasPlacedContent = finalDisplayItems.length > 0;
   const isEmptyCellVisuals = !hasPlacedContent;
 
 
@@ -93,7 +85,7 @@ export function GridCell({ rowIndex, colIndex, onMouseEnterCell, onMouseLeaveCel
   if (hasNotes) {
     ariaLabelContent += `Notes: ${cellData.notes.substring(0, 100)}${cellData.notes.length > 100 ? '...' : ''}. `;
   }
-  if (isEmptyCellVisuals && !hasNotes) { // Adjusted for clarity
+  if (isEmptyCellVisuals && !hasNotes) {
     ariaLabelContent += 'Empty. ';
   }
   ariaLabelContent += canEdit ? 'Click to view or edit.' : 'Click to view.';
@@ -123,7 +115,7 @@ export function GridCell({ rowIndex, colIndex, onMouseEnterCell, onMouseLeaveCel
             const IconComponent = item.IconComponent;
             return (
               <div key={item.key} className="flex items-center justify-center overflow-hidden" title={item.label}>
-                <IconComponent className={cn("w-[60%] h-[60%]", item.key === 'notes' ? 'text-yellow-400' : 'text-primary')} />
+                <IconComponent className={cn("w-[60%] h-[60%]", 'text-primary')} />
               </div>
             );
           })}

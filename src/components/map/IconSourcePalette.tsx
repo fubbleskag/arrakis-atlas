@@ -254,7 +254,7 @@ export function IconSourcePalette({ rowIndex, colIndex, className }: IconSourceP
                 className="flex-1"
                 disabled={isUploadingBackground}
               >
-                {isUploadingBackground && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isUploadingBackground && cellData.backgroundImageUrl && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 <Trash2 className="mr-2 h-4 w-4" />
                 Remove
               </Button>
