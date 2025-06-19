@@ -50,7 +50,7 @@ const PlacedIconVisual: React.FC<PlacedIconVisualProps> = ({
       className={cn(
         "absolute w-8 h-8",
         canEdit ? "cursor-pointer" : "cursor-default",
-        isSelected && canEdit && "ring-2 ring-primary ring-offset-2 ring-offset-background rounded-md z-[2]",
+        isSelected && canEdit && "ring-2 ring-primary ring-offset-2 ring-offset-background rounded-md z-[2]", // Keep rounded-md for selection ring visual clarity
         !isSelected && "z-[1]"
       )}
       style={{
@@ -84,7 +84,7 @@ const PlacedIconVisual: React.FC<PlacedIconVisualProps> = ({
 export function DetailedCellEditorCanvas({ 
   rowIndex, 
   colIndex, 
-  className, // For additional parent-provided classes (e.g., margins)
+  className, 
   isEditorOverride,
   mapDataOverride,
   cellDataOverride,
@@ -113,13 +113,12 @@ export function DetailedCellEditorCanvas({
   const updatePlacedIconPositionInCell = context?.updatePlacedIconPositionInCell;
 
   let canEditCanvas = false;
-  if (isContextMode) {
-    if (user && mapData && context) {
+  if (isContextMode && context && user && mapData) {
       canEditCanvas = mapData.ownerId === user.uid;
-    }
-  } else { 
-    canEditCanvas = isEditorOverride ?? false;
+  } else if (!isContextMode) {
+      canEditCanvas = !(isEditorOverride === false); // if isEditorOverride is explicitly false, can't edit
   }
+
 
   const isRowA = rowIndex === GRID_SIZE - 1;
   const isA3 = isRowA && colIndex === 2;
@@ -127,7 +126,7 @@ export function DetailedCellEditorCanvas({
   const isA6 = isRowA && colIndex === 5;
   const isA7 = isRowA && colIndex === 6;
 
-  const dynamicBorderClasses: string[] = ['border']; 
+  const dynamicBorderClasses: string[] = ['border-[3px]']; // CHANGED from 'border'
 
   if (isRowA) {
     dynamicBorderClasses.push('border-emerald-600/75'); 
@@ -143,7 +142,7 @@ export function DetailedCellEditorCanvas({
   if (isLoading || !mapData) {
     return (
       <div className={cn(
-        "relative w-full aspect-square bg-card rounded-lg shadow-xl flex items-center justify-center border border-border", // Standard loading state appearance
+        "relative w-full aspect-square bg-card shadow-xl flex items-center justify-center border border-border", 
         className
       )}>
         <Skeleton className="w-full h-full" />
@@ -154,7 +153,7 @@ export function DetailedCellEditorCanvas({
   if (!cellData) {
     return (
       <div className={cn(
-        "relative w-full aspect-square bg-destructive/10 rounded-lg shadow-xl flex flex-col items-center justify-center p-4 text-center border border-destructive", // Standard error state appearance
+        "relative w-full aspect-square bg-destructive/10 shadow-xl flex flex-col items-center justify-center p-4 text-center border border-destructive", 
         className
       )}>
         <AlertTriangle className="h-10 w-10 text-destructive mb-2" />
@@ -184,13 +183,13 @@ export function DetailedCellEditorCanvas({
     x = Math.max(0, Math.min(100, x));
     y = Math.max(0, Math.min(100, y));
 
-    if (action === "move") {
+    if (action === "move" && isContextMode) { // move only in context mode
       const placedIconIdToMove = e.dataTransfer.getData("placedIconId");
       if (placedIconIdToMove && updatePlacedIconPositionInCell && effectiveSetSelectedPlacedIconId) {
         updatePlacedIconPositionInCell(rowIndex, colIndex, placedIconIdToMove, x, y);
         effectiveSetSelectedPlacedIconId(placedIconIdToMove);
       }
-    } else if (action === "add") {
+    } else if (action === "add" && isContextMode) { // add only in context mode
       const iconTypeString = e.dataTransfer.getData("iconType");
       if (ICON_TYPES.includes(iconTypeString as IconType)) {
         const iconType = iconTypeString as IconType;
@@ -221,7 +220,7 @@ export function DetailedCellEditorCanvas({
     <div
       ref={canvasRef}
       className={cn(
-        "relative overflow-hidden w-full aspect-square bg-background rounded-lg shadow-xl", 
+        "relative overflow-hidden w-full aspect-square bg-background shadow-xl", 
         dynamicBorderClasses, 
         className 
       )}
@@ -249,19 +248,17 @@ export function DetailedCellEditorCanvas({
           onClick={() => {
             if (effectiveSetSelectedPlacedIconId) effectiveSetSelectedPlacedIconId(icon.id);
           }}
-          draggable={canEditCanvas && isContextMode && selectedPlacedIconId !== icon.id}
-          onDragStart={canEditCanvas && isContextMode ? (e: React.DragEvent<HTMLDivElement>) => handlePlacedIconDragStart(e, icon) : undefined}
+          draggable={canEditCanvas && isContextMode && selectedPlacedIconId !== icon.id} // Draggable only in context mode and if editable
+          onDragStart={ (canEditCanvas && isContextMode) ? (e: React.DragEvent<HTMLDivElement>) => handlePlacedIconDragStart(e, icon) : undefined}
         />
       ))}
       {cellData.placedIcons.length === 0 && !cellData.backgroundImageUrl && (
          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
-          <p className="text-muted-foreground text-lg p-4 text-center bg-background/50 rounded-md">
-            {canEditCanvas && isContextMode ? "Drag markers or upload background" : <><ImageIcon className="inline-block h-5 w-5 mr-1" /> No markers or background</>}
+          <p className="text-muted-foreground text-lg p-4 text-center bg-background/50">
+            {(canEditCanvas && isContextMode) ? "Drag markers or upload background" : <><ImageIcon className="inline-block h-5 w-5 mr-1" /> No markers or background</>}
           </p>
         </div>
       )}
     </div>
   );
 }
-
-    
