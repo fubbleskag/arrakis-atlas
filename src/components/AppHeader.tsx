@@ -1,12 +1,12 @@
 
 "use client";
 
-import React from 'react'; // Added missing React import
+import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMap } from '@/contexts/MapContext';
 import { Button } from '@/components/ui/button';
 import { AuthButton } from '@/components/auth/AuthButton';
-import { ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight } from 'lucide-react'; // Added ChevronDown
 import type { FocusedCellCoordinates } from '@/types';
 import { GRID_SIZE } from '@/lib/mapUtils';
 import {
@@ -16,6 +16,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"; // Added Popover
+import { MiniCellSelectorGrid } from './map/MiniCellSelectorGrid'; // Added MiniCellSelectorGrid
 import { cn } from '@/lib/utils';
 
 export function AppHeader() {
@@ -28,29 +34,13 @@ export function AppHeader() {
     currentMapId 
   } = useMap();
 
+  const [cellSelectorOpen, setCellSelectorOpen] = React.useState(false);
+
   const getCellCoordinateLabel = (rowIndex: number, colIndex: number): string => {
     const rowLetter = String.fromCharCode(65 + (GRID_SIZE - 1 - rowIndex)); 
     const colNumber = colIndex + 1; 
     return `${rowLetter}-${colNumber}`;
   };
-
-  const allCellOptions = React.useMemo(() => {
-    if (!currentMapData) return [];
-    const options = [];
-    // Sort to display A-1, A-2, ... I-9
-    for (let visualRow = 0; visualRow < GRID_SIZE; visualRow++) { // A (0) to I (8)
-        const rowIndex = GRID_SIZE - 1 - visualRow; // Maps visual A..I to data 8..0
-        for (let visualCol = 0; visualCol < GRID_SIZE; visualCol++) { // 1 (0) to 9 (8)
-            const colIndex = visualCol;
-            options.push({
-                value: `${rowIndex}_${colIndex}`, // Store actual data indices
-                label: getCellCoordinateLabel(rowIndex, colIndex)
-            });
-        }
-    }
-    return options;
-  }, [currentMapData]);
-
 
   const breadcrumbItems: Array<{
     key: string;
@@ -125,33 +115,32 @@ export function AppHeader() {
                       </SelectContent>
                     </Select>
                   ) : item.isSelector === 'cell' && focusedCellCoordinates && currentMapData ? (
-                    <Select
-                      value={`${focusedCellCoordinates.rowIndex}_${focusedCellCoordinates.colIndex}`}
-                      onValueChange={(value) => {
-                        const [r, c] = value.split('_').map(Number);
-                        if (r !== focusedCellCoordinates.rowIndex || c !== focusedCellCoordinates.colIndex) {
-                          setFocusedCellCoordinates({ rowIndex: r, colIndex: c });
-                        }
-                      }}
-                    >
-                      <SelectTrigger
-                        className={cn(
-                          "p-0 h-auto text-xl md:text-2xl font-semibold focus:ring-0 border-none shadow-none bg-transparent",
-                          "text-foreground hover:text-foreground/90",
-                           "data-[placeholder]:text-foreground"
-                        )}
-                        aria-label="Switch cell"
-                      >
-                         <SelectValue placeholder={item.label} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {allCellOptions.map((cellOpt) => (
-                          <SelectItem key={cellOpt.value} value={cellOpt.value}>
-                            {cellOpt.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Popover open={cellSelectorOpen} onOpenChange={setCellSelectorOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="link"
+                          className={cn(
+                            "p-0 h-auto text-xl md:text-2xl font-semibold focus:ring-0 border-none shadow-none bg-transparent",
+                            "text-foreground hover:text-foreground/90",
+                            "data-[placeholder]:text-foreground flex items-center"
+                          )}
+                          aria-label="Switch cell"
+                        >
+                          {item.label} <ChevronDown className="ml-1 h-4 w-4 opacity-70 shrink-0" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0 border-none shadow-xl mt-1" align="start" sideOffset={5}>
+                        <MiniCellSelectorGrid
+                          currentFocusedCell={focusedCellCoordinates}
+                          onCellSelect={(coords) => {
+                            if (coords.rowIndex !== focusedCellCoordinates.rowIndex || coords.colIndex !== focusedCellCoordinates.colIndex) {
+                              setFocusedCellCoordinates(coords);
+                            }
+                            setCellSelectorOpen(false); // Close popover on selection
+                          }}
+                        />
+                      </PopoverContent>
+                    </Popover>
                   ) : item.onClick && !item.isCurrent ? ( 
                     <Button
                       variant="link"
