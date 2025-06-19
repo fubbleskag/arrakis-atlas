@@ -18,6 +18,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 
 const GRID_SIZE = 9; // For cell coordinate label
@@ -170,26 +171,36 @@ export function IconSourcePalette({ rowIndex, colIndex, className }: IconSourceP
         </div>
         
         
-        <div className="flex justify-between items-center mb-1 mt-2">
+        <div className="flex justify-between items-center mb-0 mt-2">
             <h5 className="text-sm font-medium text-foreground">Markers</h5>
             {canEdit && (
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => {
-                    clearAllPlacedIconsInCell(rowIndex, colIndex);
-                    setTimeout(() => toast({ title: "Cell Cleared", description: "All icons removed from this cell."}), 0);
-                }}
-                className="text-xs text-muted-foreground hover:text-destructive"
-                disabled={!canEdit || cellData.placedIcons.length === 0}
-              >
-                <Trash2 className="mr-1 h-3 w-3" />
-                Clear Cell
-              </Button>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={() => {
+                          clearAllPlacedIconsInCell(rowIndex, colIndex);
+                          setTimeout(() => toast({ title: "Cell Cleared", description: "All icons removed from this cell."}), 0);
+                      }}
+                      className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                      disabled={!canEdit || cellData.placedIcons.length === 0}
+                      aria-label="Clear all markers from cell"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <p>Clear all markers</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             )}
         </div>
+        {canEdit && <p className="text-xs text-muted-foreground mt-1 mb-1.5">Drag markers onto the cell canvas.</p>}
         <ScrollArea className="flex-shrink pr-1 max-h-[200px] min-h-[100px]"> 
-          <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 border-t border-border"> 
+          <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 border-t border-border pt-1.5"> 
             {ICON_TYPES.map((iconType) => {
               const config = ICON_CONFIG_MAP[iconType];
               const Icon = config.IconComponent;
@@ -216,7 +227,8 @@ export function IconSourcePalette({ rowIndex, colIndex, className }: IconSourceP
         <Separator className="my-3" />
 
         
-        <h5 className="text-sm font-medium text-foreground mb-1">Cell Background</h5>
+        <h5 className="text-sm font-medium text-foreground mb-0">Cell Background</h5>
+        {canEdit && <p className="text-xs text-muted-foreground mt-1 mb-1.5">Upload an image to set as the cell background.</p>}
         {canEdit && (
           <div className="flex gap-2 mb-2">
             <input
