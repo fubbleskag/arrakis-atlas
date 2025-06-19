@@ -8,15 +8,15 @@ import { AuthButton } from '@/components/auth/AuthButton';
 import { ChevronRight } from 'lucide-react';
 import type { FocusedCellCoordinates } from '@/types';
 
-const GRID_SIZE = 9; // Define GRID_SIZE for getCellCoordinateLabel
+const GRID_SIZE = 9; 
 
 export function AppHeader() {
   const { currentMapData, selectMap, focusedCellCoordinates, setFocusedCellCoordinates } = useMap();
 
   const getCellCoordinateLabel = (rowIndex: number, colIndex: number): string => {
-    const rowLetter = String.fromCharCode(65 + (GRID_SIZE - 1 - rowIndex));
-    const colNumber = colIndex + 1;
-    return `${colNumber}-${rowLetter}`;
+    const rowLetter = String.fromCharCode(65 + (GRID_SIZE - 1 - rowIndex)); // A..I (bottom to top)
+    const colNumber = colIndex + 1; // 1..9 (left to right)
+    return `${rowLetter}-${colNumber}`; // Format: Letter-Number
   };
 
   const breadcrumbItems: Array<{

@@ -2,23 +2,23 @@
 "use client";
 
 import type React from 'react';
-import { useState, useEffect, useRef } from 'react'; // Added useRef
+import { useState, useEffect, useRef } from 'react';
 import { ICON_TYPES, type IconType } from '@/types';
 import { ICON_CONFIG_MAP } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { Card, CardContent, CardFooter } from '@/components/ui/card'; // Added CardFooter
+import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { Trash2, X as XIcon, Upload, Loader2, ImageIcon } from 'lucide-react'; // Added Upload, Loader2, ImageIcon
+import { Trash2, X as XIcon, Upload, Loader2, ImageIcon } from 'lucide-react';
 import { useMap } from '@/contexts/MapContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-// import NextImage from 'next/image'; // Removed for thumbnail removal
+
 
 const GRID_SIZE = 9; // For cell coordinate label
 
@@ -54,9 +54,9 @@ export function IconSourcePalette({ rowIndex, colIndex, className }: IconSourceP
   }, [cellData?.notes, rowIndex, colIndex]);
 
   const getCellCoordinateLabel = (rIdx: number, cIdx: number): string => {
-    const rowLetter = String.fromCharCode(65 + (GRID_SIZE - 1 - rIdx));
-    const colNumber = cIdx + 1;
-    return `${colNumber}-${rowLetter}`;
+    const rowLetter = String.fromCharCode(65 + (GRID_SIZE - 1 - rIdx)); // A..I (bottom to top)
+    const colNumber = cIdx + 1; // 1..9 (left to right)
+    return `${rowLetter}-${colNumber}`; // Format: Letter-Number
   };
 
   const cellLabel = getCellCoordinateLabel(rowIndex, colIndex);
@@ -135,7 +135,7 @@ export function IconSourcePalette({ rowIndex, colIndex, className }: IconSourceP
       } finally {
         setIsUploadingBackground(false);
         if (fileInputRef.current) {
-          fileInputRef.current.value = ""; // Reset file input
+          fileInputRef.current.value = ""; 
         }
       }
     }
@@ -143,7 +143,7 @@ export function IconSourcePalette({ rowIndex, colIndex, className }: IconSourceP
 
   const handleRemoveBackground = async () => {
     if (!canEdit) return;
-    setIsUploadingBackground(true); // Use same state for loading indication
+    setIsUploadingBackground(true); 
     try {
       await removeCellBackgroundImage(rowIndex, colIndex);
     } catch (error) {
@@ -169,7 +169,7 @@ export function IconSourcePalette({ rowIndex, colIndex, className }: IconSourceP
           </Button>
         </div>
         
-        {/* Resource Icons / Map Markers */}
+        
         <div className="flex justify-between items-center mb-1 mt-2">
             <h5 className="text-sm font-medium text-foreground">Markers</h5>
             {canEdit && (
@@ -188,8 +188,8 @@ export function IconSourcePalette({ rowIndex, colIndex, className }: IconSourceP
               </Button>
             )}
         </div>
-        <ScrollArea className="flex-shrink pr-1 max-h-[200px] min-h-[100px]"> {/* Adjusted height */}
-          <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 border-t border-border"> {/* Removed p-1 */}
+        <ScrollArea className="flex-shrink pr-1 max-h-[200px] min-h-[100px]"> 
+          <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 border-t border-border"> 
             {ICON_TYPES.map((iconType) => {
               const config = ICON_CONFIG_MAP[iconType];
               const Icon = config.IconComponent;
@@ -215,7 +215,7 @@ export function IconSourcePalette({ rowIndex, colIndex, className }: IconSourceP
         
         <Separator className="my-3" />
 
-        {/* Cell Background Image */}
+        
         <h5 className="text-sm font-medium text-foreground mb-1">Cell Background</h5>
         {canEdit && (
           <div className="space-y-2 mb-2">
@@ -251,7 +251,7 @@ export function IconSourcePalette({ rowIndex, colIndex, className }: IconSourceP
             )}
           </div>
         )}
-        {/* Removed background image thumbnail preview */}
+        
         {!cellData.backgroundImageUrl && !canEdit && (
             <div className="flex items-center justify-center text-xs text-muted-foreground p-2 border border-dashed rounded-md">
                 <ImageIcon className="mr-2 h-4 w-4" /> No background image.
@@ -260,7 +260,7 @@ export function IconSourcePalette({ rowIndex, colIndex, className }: IconSourceP
         
         <Separator className="my-3" />
 
-        {/* Cell Notes */}
+        
         <div className="flex-grow flex flex-col mt-1">
           <Label htmlFor="cell-notes" className="text-sm font-medium text-foreground mb-1 block">
             Cell Notes

@@ -44,9 +44,9 @@ export function GridCell({ rowIndex, colIndex, onMouseEnterCell, onMouseLeaveCel
   };
   
   const cellId = `cell-${rowIndex}-${colIndex}`;
-  const rowLetter = String.fromCharCode(65 + (GRID_CELL_INTERNAL_SIZE - 1 - rowIndex));
-  const colNumber = colIndex + 1;
-  const cellCoordinate = `${colNumber}-${rowLetter}`;
+  const rowLetter = String.fromCharCode(65 + (GRID_CELL_INTERNAL_SIZE - 1 - rowIndex)); // A..I (bottom to top)
+  const colNumber = colIndex + 1; // 1..9 (left to right)
+  const cellCoordinate = `${rowLetter}-${colNumber}`; // Format: Letter-Number
   const hasNotes = cellData.notes && cellData.notes.trim() !== '';
   
   const uniqueIconTypesInCell: IconType[] = [];
