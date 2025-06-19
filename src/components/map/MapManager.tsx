@@ -5,34 +5,58 @@ import { useState, useEffect } from 'react';
 import { useMap } from '@/contexts/MapContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
-import { PlusCircle, Loader2, MapPin, Settings2, Trash2 } from 'lucide-react';
+import { PlusCircle, Loader2, MapPin, Settings2, Trash2, Copy, ExternalLink } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
 import type { MapData } from '@/types';
+import { useToast } from '@/hooks/use-toast';
+import { Separator } from '../ui/separator';
 
 export function MapManager() {
-  const { userMapList, isLoadingMapList, selectMap, createMap, deleteMap, updateMapName, currentMapData: selectedMapFromContext } = useMap();
+  const { 
+    userMapList, 
+    isLoadingMapList, 
+    selectMap, 
+    createMap, 
+    deleteMap, 
+    updateMapName, 
+    currentMapData: selectedMapFromContext,
+    togglePublicView,
+    regeneratePublicViewId
+  } = useMap();
   const { user } = useAuth();
+  const { toast } = useToast();
   const [newMapName, setNewMapName] = useState('');
   const [isCreatingMap, setIsCreatingMap] = useState(false);
 
   const [selectedMapForSettings, setSelectedMapForSettings] = useState<MapData | null>(null);
   const [settingsMapName, setSettingsMapName] = useState('');
   const [isUpdatingSettings, setIsUpdatingSettings] = useState(false);
+  const [publicLinkBase, setPublicLinkBase] = useState('');
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setPublicLinkBase(window.location.origin);
+    }
+  }, []);
   
   useEffect(() => {
     if (selectedMapForSettings && selectedMapFromContext && selectedMapFromContext.id === selectedMapForSettings.id) {
-        setSelectedMapForSettings(selectedMapFromContext);
-        setSettingsMapName(selectedMapFromContext.name);
+        // If the context updates the map data (e.g. after togglePublicView), refresh settings dialog
+        const freshMapData = userMapList.find(m => m.id === selectedMapFromContext.id) || selectedMapFromContext;
+        setSelectedMapForSettings(freshMapData);
+        setSettingsMapName(freshMapData.name);
     }
-  }, [selectedMapFromContext, selectedMapForSettings]);
+  }, [selectedMapFromContext, selectedMapForSettings, userMapList]);
 
 
   const handleCreateMap = async () => {
     if (!newMapName.trim()) {
-      alert("Please enter a map name."); 
+      toast({title: "Validation Error", description: "Please enter a map name.", variant: "destructive"});
       return;
     }
     setIsCreatingMap(true);
@@ -48,14 +72,34 @@ export function MapManager() {
 
   const handleUpdateNameSetting = async () => {
     if (!selectedMapForSettings || !settingsMapName.trim() || !user) return;
-    if (selectedMapForSettings.userId !== user.uid) {
-      alert("You don't have permission to change settings for this map.");
+    if (selectedMapForSettings.ownerId !== user.uid) {
+      toast({title: "Permission Denied", description: "You don't have permission to change settings for this map.", variant: "destructive"});
       return;
     }
     setIsUpdatingSettings(true);
     await updateMapName(selectedMapForSettings.id, settingsMapName.trim());
     setIsUpdatingSettings(false);
-    setSelectedMapForSettings(null); 
+    // Dialog will close on its own if successful or stay open to show error
+  };
+
+  const handleTogglePublicView = async (mapId: string, enable: boolean) => {
+    setIsUpdatingSettings(true);
+    await togglePublicView(mapId, enable);
+    setIsUpdatingSettings(false);
+  };
+
+  const handleRegeneratePublicViewId = async (mapId: string) => {
+    setIsUpdatingSettings(true);
+    await regeneratePublicViewId(mapId);
+    setIsUpdatingSettings(false);
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      toast({ title: "Copied!", description: "Link copied to clipboard." });
+    }).catch(err => {
+      toast({ title: "Error", description: "Could not copy link.", variant: "destructive" });
+    });
   };
   
   if (isLoadingMapList) {
@@ -129,28 +173,90 @@ export function MapManager() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex-grow">
-                {/* Content placeholder, can add map preview or stats later */}
+                {/* Content placeholder */}
               </CardContent>
               <CardFooter className="flex-col sm:flex-row gap-2 pt-4 border-t">
                 <Button onClick={() => selectMap(map.id)} className="w-full sm:w-auto flex-grow">
                   View Map
                 </Button>
-                {user && map.userId === user.uid && (
+                {user && map.ownerId === user.uid && (
                   <div className="flex gap-2 w-full sm:w-auto">
-                    <Dialog>
+                    <Dialog onOpenChange={(isOpen) => { if (!isOpen) setSelectedMapForSettings(null); }}>
                         <DialogTrigger asChild>
                             <Button variant="outline" size="icon" title="Settings" onClick={() => openSettingsDialog(map)}>
                                 <Settings2 className="h-4 w-4" />
                             </Button>
                         </DialogTrigger>
                         {selectedMapForSettings && selectedMapForSettings.id === map.id && (
-                        <DialogContent>
-                            <DialogHeader><DialogTitle>Map Settings: {selectedMapForSettings.name}</DialogTitle></DialogHeader>
-                            <Input label="Map Name" value={settingsMapName} onChange={e => setSettingsMapName(e.target.value)} className="my-2" />
-                            <DialogFooter>
-                                <DialogClose asChild><Button variant="ghost" onClick={() => setSelectedMapForSettings(null)}>Cancel</Button></DialogClose>
+                        <DialogContent className="sm:max-w-md">
+                            <DialogHeader>
+                                <DialogTitle>Map Settings: {selectedMapForSettings.name}</DialogTitle>
+                                <DialogDescription>Manage your map&apos;s details and sharing options.</DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-4 py-2">
+                                <div>
+                                    <Label htmlFor="settingsMapName" className="text-sm font-medium">Map Name</Label>
+                                    <Input id="settingsMapName" value={settingsMapName} onChange={e => setSettingsMapName(e.target.value)} className="mt-1" disabled={isUpdatingSettings} />
+                                </div>
+                                <Separator />
+                                <div>
+                                  <h4 className="text-sm font-medium mb-2">Public View-Only Link</h4>
+                                  <div className="flex items-center space-x-2 mb-2">
+                                    <Switch
+                                      id={`public-view-switch-${map.id}`}
+                                      checked={selectedMapForSettings.isPublicViewable}
+                                      onCheckedChange={(checked) => handleTogglePublicView(map.id, checked)}
+                                      disabled={isUpdatingSettings}
+                                    />
+                                    <Label htmlFor={`public-view-switch-${map.id}`}>
+                                      {selectedMapForSettings.isPublicViewable ? "Public Link Enabled" : "Public Link Disabled"}
+                                    </Label>
+                                  </div>
+                                  {selectedMapForSettings.isPublicViewable && selectedMapForSettings.publicViewId && (
+                                    <div className="space-y-2">
+                                      <p className="text-xs text-muted-foreground break-all">
+                                        Share this link for view-only access: <br />
+                                        <a 
+                                          href={`${publicLinkBase}/view/map/${selectedMapForSettings.publicViewId}`} 
+                                          target="_blank" 
+                                          rel="noopener noreferrer"
+                                          className="text-primary hover:underline"
+                                        >
+                                          {`${publicLinkBase}/view/map/${selectedMapForSettings.publicViewId}`}
+                                          <ExternalLink className="inline-block h-3 w-3 ml-1"/>
+                                        </a>
+                                      </p>
+                                      <div className="flex gap-2">
+                                        <Button 
+                                          variant="outline" 
+                                          size="sm" 
+                                          onClick={() => copyToClipboard(`${publicLinkBase}/view/map/${selectedMapForSettings.publicViewId}`)}
+                                          disabled={isUpdatingSettings}
+                                        >
+                                          <Copy className="mr-2 h-3 w-3" /> Copy Link
+                                        </Button>
+                                        <Button 
+                                          variant="outline" 
+                                          size="sm" 
+                                          onClick={() => handleRegeneratePublicViewId(map.id)}
+                                          disabled={isUpdatingSettings}
+                                        >
+                                          {isUpdatingSettings && map.publicViewId === selectedMapForSettings.publicViewId ? <Loader2 className="mr-2 h-3 w-3 animate-spin"/> : null}
+                                          Regenerate Link
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  )}
+                                   {!selectedMapForSettings.isPublicViewable && (
+                                    <p className="text-xs text-muted-foreground">Enable the switch to generate and share a public view-only link.</p>
+                                  )}
+                                </div>
+                                {/* Future: Collaborator Link Section */}
+                            </div>
+                            <DialogFooter className="mt-4">
+                                <DialogClose asChild><Button variant="ghost" onClick={() => setSelectedMapForSettings(null)} disabled={isUpdatingSettings}>Cancel</Button></DialogClose>
                                 <Button onClick={handleUpdateNameSetting} disabled={isUpdatingSettings || !settingsMapName.trim()}>
-                                {isUpdatingSettings && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>} Save Settings
+                                {isUpdatingSettings && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>} Save Changes
                                 </Button>
                             </DialogFooter>
                         </DialogContent>

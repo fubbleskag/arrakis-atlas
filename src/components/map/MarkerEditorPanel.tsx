@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card'; // Removed CardFooter
+import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card'; 
 import { Trash2, X as XIcon, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -56,12 +56,14 @@ export function MarkerEditorPanel({ rowIndex, colIndex, className }: MarkerEdito
     if (selectedIcon) {
       resetLocalState();
     } else if (selectedPlacedIconId) {
+      // If an ID is selected but the icon isn't found (e.g., race condition, or deleted from another client)
+      // deselect it to avoid a broken state.
       setSelectedPlacedIconId(null);
     }
   }, [selectedIcon, selectedPlacedIconId, setSelectedPlacedIconId, resetLocalState]);
 
   let canEdit = false;
-  if (user && currentMapData && currentMapData.userId === user.uid) {
+  if (user && currentMapData && currentMapData.ownerId === user.uid) {
     canEdit = true;
   }
 
@@ -155,6 +157,7 @@ export function MarkerEditorPanel({ rowIndex, colIndex, className }: MarkerEdito
         updatePlacedIconPositionInCell(rowIndex, colIndex, selectedIcon.id, newX, newY);
         toast({ title: "Position Updated", description: `${coordType.toUpperCase()} coordinate for ${IconConfig?.label || 'marker'} saved.` });
     }
+    // Ensure local state reflects the clamped and saved value, formatted
     if (coordType === 'x') setLocalX(clampedValue.toFixed(2));
     if (coordType === 'y') setLocalY(clampedValue.toFixed(2));
   };
@@ -164,6 +167,7 @@ export function MarkerEditorPanel({ rowIndex, colIndex, className }: MarkerEdito
     if (canEdit) {
       removePlacedIconFromCell(rowIndex, colIndex, selectedIcon.id);
       toast({ title: "Marker Deleted", description: `${IconConfig?.label || 'Marker'} removed.` });
+      // setSelectedPlacedIconId(null) will be called by removePlacedIconFromCell if the selected one is deleted
     }
   };
 
@@ -256,4 +260,3 @@ export function MarkerEditorPanel({ rowIndex, colIndex, className }: MarkerEdito
     </Card>
   );
 }
-

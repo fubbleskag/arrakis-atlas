@@ -39,11 +39,15 @@ export interface IconConfig {
 
 export interface MapData {
   id: string; // Firestore document ID
-  userId: string; // UID of the user who created this map
+  ownerId: string; // UID of the user who created this map
   name: string;
   gridState: FirestoreGridState;
   createdAt: Timestamp;
   updatedAt: Timestamp;
+  isPublicViewable: boolean;
+  publicViewId: string | null;
+  collaboratorShareId: string | null; // For future editor sharing
+  editors: string[]; // Array of UIDs who can edit (via collaboratorShareId)
 }
 
 export interface UserProfile {

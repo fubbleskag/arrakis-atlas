@@ -40,12 +40,12 @@ const PlacedIconVisual: React.FC<PlacedIconVisualProps> = ({
   const iconElement = (
     <div
       {...divProps}
-      onClick={canEdit ? onClick : undefined} // Only allow click if canEdit
+      onClick={onClick} // Always handle click to allow selection
       className={cn(
         "absolute w-8 h-8",
-        canEdit ? "cursor-pointer" : "cursor-default",
-        isSelected && canEdit ? "ring-2 ring-primary ring-offset-2 ring-offset-background rounded-md z-[2]" : "z-[1]",
-        divProps.className
+        canEdit ? "cursor-pointer" : "cursor-default", // Cursor reflects editability, but click always selects
+        isSelected && "ring-2 ring-primary ring-offset-2 ring-offset-background rounded-md z-[2]", 
+        !isSelected && "z-[1]" // Ensure non-selected icons don't visually overlap the ring of a selected one
       )}
       style={{
         left: `${iconData.x}%`,
@@ -83,8 +83,8 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
     currentMapData,
     addPlacedIconToCell,
     updatePlacedIconPositionInCell,
-    selectedPlacedIconId, // Get selected icon ID
-    setSelectedPlacedIconId, // Setter for selected icon
+    selectedPlacedIconId,
+    setSelectedPlacedIconId,
   } = useMap();
   const { user } = useAuth();
 
@@ -92,7 +92,7 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
   const cellData = currentLocalGrid?.[rowIndex]?.[colIndex];
 
   let canEdit = false;
-  if (user && currentMapData && currentMapData.userId === user.uid) {
+  if (user && currentMapData && currentMapData.ownerId === user.uid) {
     canEdit = true;
   }
 
@@ -138,14 +138,12 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
       const placedIconIdToMove = e.dataTransfer.getData("placedIconId");
       if (placedIconIdToMove) {
         updatePlacedIconPositionInCell(rowIndex, colIndex, placedIconIdToMove, x, y);
-        setSelectedPlacedIconId(placedIconIdToMove); // Keep it selected after move
+        setSelectedPlacedIconId(placedIconIdToMove); 
       }
     } else if (action === "add") {
       const iconTypeString = e.dataTransfer.getData("iconType");
       if (ICON_TYPES.includes(iconTypeString as IconType)) {
         const iconType = iconTypeString as IconType;
-        // addPlacedIconToCell will create an ID, we might want to select it after creation
-        // For now, adding doesn't auto-select. Can be added later if needed.
         addPlacedIconToCell(rowIndex, colIndex, iconType, x, y);
       }
     }
@@ -162,7 +160,6 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
   };
 
   const handleCanvasClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    // If click is directly on canvas and not on an icon, deselect icon
     if (e.target === canvasRef.current) {
       setSelectedPlacedIconId(null);
     }
@@ -174,7 +171,7 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
       className={cn("relative overflow-hidden", className)}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
-      onClick={handleCanvasClick} // Deselect icon if canvas is clicked
+      onClick={handleCanvasClick} 
     >
       {cellData.backgroundImageUrl && (
         <Image
@@ -194,9 +191,8 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
           isSelected={selectedPlacedIconId === icon.id}
           canEdit={canEdit}
           onClick={() => {
-            if (canEdit) {
-              setSelectedPlacedIconId(icon.id);
-            }
+            // Allow selection even if not editable, but editing panel will be disabled
+            setSelectedPlacedIconId(icon.id);
           }}
           draggable={canEdit && selectedPlacedIconId !== icon.id} 
           onDragStart={canEdit ? (e: React.DragEvent<HTMLDivElement>) => handlePlacedIconDragStart(e, icon) : undefined}

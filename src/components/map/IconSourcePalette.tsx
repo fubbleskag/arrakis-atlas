@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { Card, CardContent, CardFooter } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { Trash2, X as XIcon, Upload, Loader2, ImageIcon } from 'lucide-react';
@@ -21,7 +21,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 
-const GRID_SIZE = 9; // For cell coordinate label
+const GRID_SIZE = 9; 
 
 interface IconSourcePaletteProps {
   rowIndex: number;
@@ -55,9 +55,9 @@ export function IconSourcePalette({ rowIndex, colIndex, className }: IconSourceP
   }, [cellData?.notes, rowIndex, colIndex]);
 
   const getCellCoordinateLabel = (rIdx: number, cIdx: number): string => {
-    const rowLetter = String.fromCharCode(65 + (GRID_SIZE - 1 - rIdx)); // A..I (bottom to top)
-    const colNumber = cIdx + 1; // 1..9 (left to right)
-    return `${rowLetter}-${colNumber}`; // Format: Letter-Number
+    const rowLetter = String.fromCharCode(65 + (GRID_SIZE - 1 - rIdx)); 
+    const colNumber = cIdx + 1; 
+    return `${rowLetter}-${colNumber}`; 
   };
 
   const cellLabel = getCellCoordinateLabel(rowIndex, colIndex);
@@ -98,7 +98,7 @@ export function IconSourcePalette({ rowIndex, colIndex, className }: IconSourceP
   }
   
   let canEdit = false;
-  if (isAuthenticated && user && currentMapData && currentMapData.userId === user.uid) {
+  if (isAuthenticated && user && currentMapData && currentMapData.ownerId === user.uid) {
     canEdit = true;
   }
 
@@ -192,7 +192,7 @@ export function IconSourcePalette({ rowIndex, colIndex, className }: IconSourceP
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent side="bottom">
-                    <p>Clear all markers</p>
+                    <p>Clear Cell Markers</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -226,7 +226,7 @@ export function IconSourcePalette({ rowIndex, colIndex, className }: IconSourceP
         <Separator className="my-3" />
 
         
-        <h5 className="text-sm font-medium text-foreground mb-0">Cell Background</h5>
+        <h5 className="text-sm font-medium text-foreground mb-1">Cell Background</h5>
         {canEdit && (
           <div className="flex gap-2 mb-2">
             <input
@@ -240,22 +240,22 @@ export function IconSourcePalette({ rowIndex, colIndex, className }: IconSourceP
             <Button
               onClick={() => fileInputRef.current?.click()}
               variant="outline"
-              className="flex-1"
+              className="flex-1 text-xs px-2 h-8"
               disabled={isUploadingBackground}
             >
-              {isUploadingBackground && !cellData.backgroundImageUrl && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              <Upload className="mr-2 h-4 w-4" />
+              {isUploadingBackground && !cellData.backgroundImageUrl && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+              <Upload className="mr-1 h-3 w-3" />
               {cellData.backgroundImageUrl ? 'Replace' : 'Upload'}
             </Button>
             {cellData.backgroundImageUrl && (
               <Button
                 onClick={handleRemoveBackground}
                 variant="destructive"
-                className="flex-1"
+                className="flex-1 text-xs px-2 h-8"
                 disabled={isUploadingBackground}
               >
-                {isUploadingBackground && cellData.backgroundImageUrl && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                <Trash2 className="mr-2 h-4 w-4" />
+                {isUploadingBackground && cellData.backgroundImageUrl && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                <Trash2 className="mr-1 h-3 w-3" />
                 Remove
               </Button>
             )}

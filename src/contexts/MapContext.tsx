@@ -103,9 +103,9 @@ interface MapContextType {
   isLoadingMapList: boolean;
   isLoadingMapData: boolean;
   focusedCellCoordinates: FocusedCellCoordinates | null;
-  selectedPlacedIconId: string | null; // New state for selected icon
+  selectedPlacedIconId: string | null; 
   setFocusedCellCoordinates: (coordinates: FocusedCellCoordinates | null) => void;
-  setSelectedPlacedIconId: (iconId: string | null) => void; // New setter
+  setSelectedPlacedIconId: (iconId: string | null) => void; 
   selectMap: (mapId: string | null) => void;
   createMap: (name: string) => Promise<string | null>;
   deleteMap: (mapId: string) => Promise<void>;
@@ -122,6 +122,9 @@ interface MapContextType {
 
   uploadCellBackgroundImage: (rowIndex: number, colIndex: number, file: File) => Promise<void>;
   removeCellBackgroundImage: (rowIndex: number, colIndex: number) => Promise<void>;
+
+  togglePublicView: (mapId: string, enable: boolean) => Promise<void>;
+  regeneratePublicViewId: (mapId: string) => Promise<void>;
 }
 
 const MapContext = createContext<MapContextType | undefined>(undefined);
@@ -135,16 +138,15 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [currentMapData, setCurrentMapData] = useState<MapData | null>(null);
   const [currentLocalGrid, setCurrentLocalGrid] = useState<LocalGridState | null>(null);
   const [focusedCellCoordinates, _setFocusedCellCoordinates] = useState<FocusedCellCoordinates | null>(null);
-  const [selectedPlacedIconId, _setSelectedPlacedIconId] = useState<string | null>(null); // New state
+  const [selectedPlacedIconId, _setSelectedPlacedIconId] = useState<string | null>(null); 
 
   const [isLoadingMapList, setIsLoadingMapList] = useState<boolean>(true);
   const [isLoadingMapData, setIsLoadingMapData] = useState<boolean>(false);
 
-  // Wrapped setters to clear selected icon when focus changes
   const setFocusedCellCoordinates = useCallback((coordinates: FocusedCellCoordinates | null) => {
     _setFocusedCellCoordinates(coordinates);
     if (coordinates === null || (coordinates?.rowIndex !== focusedCellCoordinates?.rowIndex || coordinates?.colIndex !== focusedCellCoordinates?.colIndex)) {
-      _setSelectedPlacedIconId(null); // Clear selected icon if cell focus changes
+      _setSelectedPlacedIconId(null); 
     }
   }, [focusedCellCoordinates]);
 
@@ -167,7 +169,8 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setIsLoadingMapList(true);
     const mapsCollectionRef = collection(db, "maps");
-    const q = query(mapsCollectionRef, where("userId", "==", user.uid));
+    // For now, only fetch maps owned by the user. Later, this query will expand for collaborative maps.
+    const q = query(mapsCollectionRef, where("ownerId", "==", user.uid));
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const maps: MapData[] = [];
@@ -198,7 +201,9 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const unsubscribe = onSnapshot(mapDocRef, (docSnap) => {
       if (docSnap.exists()) {
         const mapData = { id: docSnap.id, ...docSnap.data() } as MapData;
-        if (user && mapData.userId === user.uid) {
+        // TODO: For public view, this check will need to be adjusted.
+        // For now, only owner can view.
+        if (user && mapData.ownerId === user.uid) {
           setCurrentMapData(mapData);
           setCurrentLocalGrid(convertFirestoreToLocalGrid(mapData.gridState));
         } else {
@@ -231,7 +236,6 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (mapId === currentMapId && mapId !== null) return; 
     setCurrentMapId(mapId);
     setFocusedCellCoordinates(null); 
-    // setSelectedPlacedIconId(null) is handled by setFocusedCellCoordinates
   }, [currentMapId, setFocusedCellCoordinates]);
 
   const createMap = useCallback(async (name: string): Promise<string | null> => {
@@ -243,10 +247,14 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const now = serverTimestamp();
     const newMapData: Omit<MapData, 'id'> = {
       name,
-      userId: user.uid,
+      ownerId: user.uid,
       gridState: convertLocalToFirestoreGrid(initializeLocalGrid()),
       createdAt: now as Timestamp,
       updatedAt: now as Timestamp,
+      isPublicViewable: false,
+      publicViewId: null,
+      collaboratorShareId: null,
+      editors: [],
     };
 
     try {
@@ -274,7 +282,7 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setTimeout(() => toast({ title: "Error", description: "Map data not found for update.", variant: "destructive" }), 0);
         throw new Error("Map data not found");
     }
-    if (mapToUpdate.userId !== user.uid) {
+    if (mapToUpdate.ownerId !== user.uid) {
         setTimeout(() => toast({ title: "Permission Denied", description: "You do not have permission to update this map.", variant: "destructive" }), 0);
         throw new Error("Permission denied");
     }
@@ -299,7 +307,7 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setTimeout(() => toast({ title: "Error", description: "Map data not loaded. Cannot save changes.", variant: "destructive" }), 0);
         return;
     }
-    if (mapData.userId !== user.uid) {
+    if (mapData.ownerId !== user.uid) {
         setTimeout(() => toast({ title: "Permission Denied", description: "You cannot modify this map's grid.", variant: "destructive" }), 0);
         return;
     }
@@ -392,7 +400,6 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           : row
       );
       updateCurrentMapGridInFirestore(newGrid);
-      // If the deleted icon was the selected one, clear the selection
       if (selectedPlacedIconId === placedIconId) {
         setSelectedPlacedIconId(null);
       }
@@ -409,7 +416,7 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           : row
       );
       updateCurrentMapGridInFirestore(newGrid);
-      setSelectedPlacedIconId(null); // Clear selected icon if all icons in its cell are cleared
+      setSelectedPlacedIconId(null); 
       return newGrid;
     });
   }, [updateCurrentMapGridInFirestore, setSelectedPlacedIconId]);
@@ -432,14 +439,14 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setTimeout(() => toast({ title: "Error", description: "No map selected or not authenticated.", variant: "destructive" }), 0);
       return;
     }
-    if (currentMapData.userId !== user.uid) {
+    if (currentMapData.ownerId !== user.uid) {
         setTimeout(() => toast({ title: "Permission Denied", description: "You do not have permission to reset this map.", variant: "destructive" }), 0);
         return;
     }
 
     const newLocalGrid = initializeLocalGrid(); 
     setCurrentLocalGrid(newLocalGrid); 
-    setSelectedPlacedIconId(null); // Clear selected icon
+    setSelectedPlacedIconId(null); 
     try {
       await updateCurrentMapGridInFirestore(newLocalGrid);
       setTimeout(() => toast({ title: "Map Reset", description: "Current map grid has been reset." }), 0);
@@ -454,7 +461,7 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return;
     }
     const mapToDelete = userMapList.find(m => m.id === mapId);
-    if (!mapToDelete || mapToDelete.userId !== user.uid) {
+    if (!mapToDelete || mapToDelete.ownerId !== user.uid) {
         setTimeout(() => toast({ title: "Permission Denied", description: "You do not have permission to delete this map.", variant: "destructive" }), 0);
         return;
     }
@@ -476,7 +483,7 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           return;
       }
       const mapDataToUpdate = userMapList.find(m => m.id === mapId) || (currentMapData?.id === mapId ? currentMapData : null);
-       if (!mapDataToUpdate || mapDataToUpdate.userId !== user.uid) {
+       if (!mapDataToUpdate || mapDataToUpdate.ownerId !== user.uid) {
            setTimeout(() => toast({ title: "Permission Denied", description: "You do not have permission to change the map name.", variant: "destructive" }), 0);
            return;
        }
@@ -571,6 +578,51 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   }, [currentMapId, user, currentLocalGrid, toast, updateCurrentMapGridInFirestore]);
 
+  const togglePublicView = useCallback(async (mapId: string, enable: boolean) => {
+    if (!user) {
+      setTimeout(() => toast({ title: "Error", description: "Authentication required.", variant: "destructive" }), 0);
+      return;
+    }
+    const mapToUpdate = userMapList.find(m => m.id === mapId) || currentMapData;
+    if (!mapToUpdate || mapToUpdate.ownerId !== user.uid) {
+      setTimeout(() => toast({ title: "Permission Denied", description: "Only the map owner can change public view settings.", variant: "destructive" }), 0);
+      return;
+    }
+
+    let newPublicViewId = mapToUpdate.publicViewId;
+    if (enable && !newPublicViewId) {
+      newPublicViewId = crypto.randomUUID();
+    }
+
+    try {
+      await updateMapInFirestore(mapId, { isPublicViewable: enable, publicViewId: newPublicViewId });
+      setTimeout(() => toast({ title: "Success", description: `Public view ${enable ? 'enabled' : 'disabled'}.` }), 0);
+    } catch (error) {
+      // Error handled by updateMapInFirestore
+    }
+  }, [user, userMapList, currentMapData, toast, updateMapInFirestore]);
+
+  const regeneratePublicViewId = useCallback(async (mapId: string) => {
+    if (!user) {
+      setTimeout(() => toast({ title: "Error", description: "Authentication required.", variant: "destructive" }), 0);
+      return;
+    }
+    const mapToUpdate = userMapList.find(m => m.id === mapId) || currentMapData;
+    if (!mapToUpdate || mapToUpdate.ownerId !== user.uid) {
+      setTimeout(() => toast({ title: "Permission Denied", description: "Only the map owner can regenerate the public link.", variant: "destructive" }), 0);
+      return;
+    }
+
+    const newPublicViewId = crypto.randomUUID();
+    try {
+      // Ensure it's also enabled if regenerating, or prompt user? For now, assume it stays enabled.
+      await updateMapInFirestore(mapId, { publicViewId: newPublicViewId, isPublicViewable: true });
+      setTimeout(() => toast({ title: "Success", description: "Public view link regenerated." }), 0);
+    } catch (error) {
+      // Error handled by updateMapInFirestore
+    }
+  }, [user, userMapList, currentMapData, toast, updateMapInFirestore]);
+
 
   return (
     <MapContext.Provider value={{
@@ -581,9 +633,9 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       isLoadingMapList,
       isLoadingMapData: isLoadingMapData || (currentMapId ? !currentMapData : false),
       focusedCellCoordinates,
-      selectedPlacedIconId, // Provide new state
+      selectedPlacedIconId, 
       setFocusedCellCoordinates,
-      setSelectedPlacedIconId, // Provide new setter
+      setSelectedPlacedIconId, 
       selectMap,
       createMap,
       deleteMap,
@@ -597,6 +649,8 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       resetCurrentMapGrid,
       uploadCellBackgroundImage,
       removeCellBackgroundImage,
+      togglePublicView,
+      regeneratePublicViewId,
     }}>
       {children}
     </MapContext.Provider>
