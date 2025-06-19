@@ -8,11 +8,10 @@ import { ICON_CONFIG_MAP } from '@/components/icons';
 import { ICON_TYPES, type PlacedIcon, type IconType } from '@/types';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AlertTriangle, Trash2, Edit3, ImageIcon } from 'lucide-react'; // Added Edit3
+import { AlertTriangle, Trash2, ImageIcon } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverAnchor } from "@/components/ui/popover";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -24,19 +23,18 @@ interface DetailedCellEditorCanvasProps {
   className?: string;
 }
 
-// Component for rendering the visual part of the icon
-interface PlacedIconVisualProps extends React.HTMLAttributes<HTMLDivElement> {
+interface PlacedIconVisualProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'onContextMenu'> {
   iconData: PlacedIcon;
-  isEditingThisIcon: boolean; // Used for styling the editing ring
+  isEditingThisIcon: boolean;
   canEdit: boolean;
-  onContextMenuHandler?: (e: React.MouseEvent<HTMLDivElement>) => void; // Optional for icons without notes
+  onContextMenu?: (e: React.MouseEvent<HTMLDivElement>) => void;
 }
 
 const PlacedIconVisual: React.FC<PlacedIconVisualProps> = ({
   iconData,
   isEditingThisIcon,
   canEdit,
-  onContextMenuHandler,
+  onContextMenu,
   ...divProps
 }) => {
   const Config = ICON_CONFIG_MAP[iconData.type];
@@ -45,12 +43,12 @@ const PlacedIconVisual: React.FC<PlacedIconVisualProps> = ({
 
   return (
     <div
-      {...divProps} // Includes draggable, onDragStart from commonDivProps
-      onContextMenu={onContextMenuHandler} // Conditionally applied for icons w/o notes
+      {...divProps}
+      onContextMenu={onContextMenu}
       className={cn(
-        "absolute w-8 h-8 z-[1]", // Base z-index for icons
+        "absolute w-8 h-8",
         canEdit ? "cursor-pointer" : "cursor-default",
-        isEditingThisIcon && "ring-2 ring-primary ring-offset-2 ring-offset-background rounded-md z-[2]", // Higher z-index when editing
+        isEditingThisIcon ? "ring-2 ring-primary ring-offset-2 ring-offset-background rounded-md z-[2]" : "z-[1]",
         divProps.className
       )}
       style={{
@@ -84,10 +82,6 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
   const canvasRef = useRef<HTMLDivElement>(null);
 
   const cellData = currentLocalGrid?.[rowIndex]?.[colIndex];
-
-  useEffect(() => {
-    // No specific anchor needed for popover as PopoverAnchor is used
-  }, [editingIcon]);
 
   let canEdit = false;
   if (user && currentMapData && currentMapData.userId === user.uid) {
@@ -156,31 +150,12 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
     e.dataTransfer.effectAllowed = "move";
   };
 
-  // For icons WITHOUT notes, right-click opens popover
   const handleContextMenu = (e: React.MouseEvent<HTMLDivElement>, icon: PlacedIcon) => {
     e.preventDefault();
     if (!canEdit) return;
     setEditingIcon(icon);
     setEditedNote(icon.note || '');
   };
-
-  // For icons WITH notes, click "Edit Note" in tooltip to open popover
-  const handleEditIconFromTooltip = (icon: PlacedIcon) => {
-    if (!canEdit) return;
-    setEditingIcon(icon);
-    setEditedNote(icon.note || '');
-  };
-
-  // For icons WITH notes, click "Delete Icon" in tooltip
-  const handleDeleteIconFromTooltip = (icon: PlacedIcon) => {
-    if (!canEdit) return;
-    removePlacedIconFromCell(rowIndex, colIndex, icon.id);
-    toast({ title: "Icon Removed", description: "The icon has been removed from this cell." });
-    if (editingIcon?.id === icon.id) {
-      setEditingIcon(null); // Close popover if it was open for this icon
-    }
-  };
-
 
   const handleSaveNote = () => {
     if (editingIcon) {
@@ -201,7 +176,7 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
   return (
     <div
       ref={canvasRef}
-      className={cn("relative overflow-hidden", className)} // Ensure parent has bg if image is transparent
+      className={cn("relative overflow-hidden", className)}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
@@ -210,9 +185,9 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
           src={cellData.backgroundImageUrl}
           alt="Cell background"
           layout="fill"
-          objectFit="contain" // Or "cover" depending on desired behavior
-          className="pointer-events-none" // No z-index needed, will be behind positive z-indexed icons
-          priority // If this image is LCP
+          objectFit="contain"
+          className="pointer-events-none"
+          priority
           data-ai-hint="map texture"
         />
       )}
@@ -220,65 +195,25 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
         const Config = ICON_CONFIG_MAP[icon.type];
         if (!Config) return null;
 
-        const commonVisualProps = { // Props for PlacedIconVisual
-          draggable: canEdit && editingIcon?.id !== icon.id,
-          onDragStart: (e: React.DragEvent<HTMLDivElement>) => handlePlacedIconDragStart(e, icon),
-        };
-
-        const hasNote = icon.note && icon.note.trim() !== '';
-
         return (
           <Popover key={icon.id} open={editingIcon?.id === icon.id} onOpenChange={(isOpen) => { if (!isOpen) setEditingIcon(null); }}>
             <PopoverAnchor asChild>
-              {hasNote ? (
-                <TooltipProvider delayDuration={100}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      {/* For icons WITH notes, no direct onContextMenuHandler to trigger popover */}
-                      <PlacedIconVisual
-                        iconData={icon}
-                        isEditingThisIcon={editingIcon?.id === icon.id}
-                        canEdit={canEdit}
-                        {...commonVisualProps}
-                      />
-                    </TooltipTrigger>
-                    <TooltipContent side="top" align="center" className="max-w-xs p-2">
-                      <div className="space-y-1">
-                        <p className="text-sm font-semibold">{Config.label}</p>
-                        <p className="text-sm whitespace-pre-wrap">{icon.note}</p>
-                        {canEdit && (
-                          <div className="flex justify-end space-x-1 pt-1 border-t border-border mt-1">
-                            <Button variant="ghost" size="icon" className="h-6 w-6" title="Edit Note" onClick={() => handleEditIconFromTooltip(icon)}>
-                              <Edit3 className="h-3 w-3" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-6 w-6" title="Delete Icon" onClick={() => handleDeleteIconFromTooltip(icon)}>
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              ) : (
-                // For icons WITHOUT notes, onContextMenuHandler opens the Popover
-                <PlacedIconVisual
-                  iconData={icon}
-                  isEditingThisIcon={editingIcon?.id === icon.id}
-                  canEdit={canEdit}
-                  onContextMenuHandler={(e) => handleContextMenu(e, icon)}
-                  {...commonVisualProps}
-                />
-              )}
+              <PlacedIconVisual
+                iconData={icon}
+                isEditingThisIcon={editingIcon?.id === icon.id}
+                canEdit={canEdit}
+                onContextMenu={canEdit ? (e) => handleContextMenu(e, icon) : undefined}
+                draggable={canEdit && editingIcon?.id !== icon.id}
+                onDragStart={(e: React.DragEvent<HTMLDivElement>) => handlePlacedIconDragStart(e, icon)}
+              />
             </PopoverAnchor>
-            {/* PopoverContent for editing note (and delete) remains mostly the same */}
             {editingIcon?.id === icon.id && canEdit && (
               <PopoverContent
-                className="w-64 p-3 z-20" // Ensure popover is above other elements
+                className="w-64 p-3 z-20" 
                 side="bottom"
                 align="center"
                 onEscapeKeyDown={() => setEditingIcon(null)}
-                onInteractOutside={() => setEditingIcon(null)}
+                onInteractOutside={() => setEditingIcon(null)} // Close on clicking outside the popover
               >
                 <div className="space-y-2">
                   <Label htmlFor={`note-${icon.id}`} className="text-sm font-medium leading-none">Edit Note for {Config.label}</Label>
@@ -314,4 +249,6 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
     </div>
   );
 }
+    
+
     
