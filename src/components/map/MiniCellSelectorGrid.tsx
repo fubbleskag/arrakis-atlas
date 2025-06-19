@@ -5,7 +5,7 @@ import type React from 'react';
 import { cn } from '@/lib/utils';
 import { GRID_SIZE } from '@/lib/mapUtils';
 import type { FocusedCellCoordinates, LocalGridState } from '@/types';
-import { useMap } from '@/contexts/MapContext'; // Import useMap
+import { useMap } from '@/contexts/MapContext'; 
 
 interface MiniCellSelectorGridProps {
   currentFocusedCell: FocusedCellCoordinates | null;
@@ -18,10 +18,9 @@ export function MiniCellSelectorGrid({
   onCellSelect,
   className,
 }: MiniCellSelectorGridProps) {
-  const { currentLocalGrid } = useMap(); // Get grid data from context
+  const { currentLocalGrid } = useMap(); 
 
   const getCellDisplayLabel = (dataRowIdx: number, dataColIdx: number): string => {
-    // This logic correctly maps dataRowIdx (0 for 'I', 8 for 'A') to labels
     const rowLetter = String.fromCharCode(65 + (GRID_SIZE - 1 - dataRowIdx));
     const colNumber = dataColIdx + 1;
     return `${rowLetter}${colNumber}`;
@@ -36,9 +35,6 @@ export function MiniCellSelectorGrid({
     >
       {Array.from({ length: GRID_SIZE }).map((_, visualRowIndex) => 
         Array.from({ length: GRID_SIZE }).map((_, visualColIndex) => {
-          // To match main grid (I at top, A at bottom):
-          // Visual row 0 should map to data row 0 ('I')
-          // Visual row 8 should map to data row 8 ('A')
           const dataRowIndex = visualRowIndex; 
           const dataColIndex = visualColIndex;
 
@@ -56,24 +52,27 @@ export function MiniCellSelectorGrid({
             }
           }
 
+          const isRowA = dataRowIndex === GRID_SIZE - 1;
+
           return (
             <button
               key={`${dataRowIndex}-${dataColIndex}`}
               onClick={() => onCellSelect({ rowIndex: dataRowIndex, colIndex: dataColIndex })}
               className={cn(
                 "w-7 h-7 flex items-center justify-center text-xs font-mono rounded-sm transition-colors",
-                "border border-transparent",
+                "border", // Default border
                 isCurrentlySelected
-                  ? "bg-primary text-primary-foreground font-semibold ring-1 ring-primary-foreground ring-offset-1 ring-offset-primary"
+                  ? "bg-primary text-primary-foreground font-semibold ring-1 ring-primary-foreground ring-offset-1 ring-offset-primary border-primary" // Ensure selected border matches ring
                   : cn(
                       hasContent ? 'bg-accent/15' : 'bg-card',
-                      'hover:bg-accent hover:text-accent-foreground'
+                      'hover:bg-accent hover:text-accent-foreground',
+                      isRowA ? 'border-emerald-600/75' : 'border-transparent' // Green border for Row A, transparent for others
                     ),
                 !isCurrentlySelected && currentFocusedCell && !hasContent && "opacity-80", 
                 !isCurrentlySelected && currentFocusedCell && hasContent && "opacity-90" 
               )}
-              title={`Go to cell ${cellLabel}${hasContent ? ' (has content)' : ''}`}
-              aria-label={`Select cell ${cellLabel}${hasContent ? ', has content' : ''}`}
+              title={`Go to cell ${cellLabel}${hasContent ? ' (has content)' : ''}${isRowA ? ' (PVE Zone)' : ''}`}
+              aria-label={`Select cell ${cellLabel}${hasContent ? ', has content' : ''}${isRowA ? ', PVE Zone' : ''}`}
               aria-pressed={isCurrentlySelected}
             >
               {cellLabel}

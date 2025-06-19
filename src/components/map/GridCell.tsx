@@ -90,7 +90,6 @@ export function GridCell({
   
   const isEmptyCellVisuals = finalDisplayItems.length === 0;
 
-
   let ariaLabelContent = `Grid cell ${cellCoordinate}. `;
   if (hasIcons) {
     const iconLabels = finalDisplayItems
@@ -107,6 +106,7 @@ export function GridCell({
   
   ariaLabelContent += 'Click to view details.';
 
+  const isRowA = rowIndex === GRID_SIZE - 1;
 
   const cellButton = (
     <button
@@ -121,9 +121,10 @@ export function GridCell({
         hasContent ? 'bg-accent/15' : 'bg-card',
         (currentMapData || isReadOnly) && "cursor-pointer focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         (currentMapData || isReadOnly) && (hasContent ? 'hover:bg-accent/25' : 'hover:bg-accent/20'),
-        !isReadOnly && !canEditCell && currentMapData && !hasContent && "bg-muted/30", // Non-editable, no content
-        !isReadOnly && !canEditCell && currentMapData && hasContent && "opacity-80", // Non-editable, has content (orange hue is base, just dim it slightly)
-        !isReadOnly && (!currentMapData || !context?.setFocusedCellCoordinates) && "cursor-not-allowed opacity-50"
+        !isReadOnly && !canEditCell && currentMapData && !hasContent && "bg-muted/30", 
+        !isReadOnly && !canEditCell && currentMapData && hasContent && "opacity-80", 
+        !isReadOnly && (!currentMapData || !context?.setFocusedCellCoordinates) && "cursor-not-allowed opacity-50",
+        isRowA && "border-2 border-emerald-600/75" // Added green border for Row A
       )}
     >
       {!canEditCell && currentMapData && isEmptyCellVisuals && !hasNotes && !isReadOnly && (
