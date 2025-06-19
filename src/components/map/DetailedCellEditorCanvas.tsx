@@ -45,10 +45,11 @@ const PlacedIconVisual: React.FC<PlacedIconVisualProps> = ({
     <div
       {...divProps}
       onContextMenu={onContextMenu}
+      title={iconData.note || Config.label} // Use native title for hover note display
       className={cn(
         "absolute w-8 h-8",
         canEdit ? "cursor-pointer" : "cursor-default",
-        isEditingThisIcon ? "ring-2 ring-primary ring-offset-2 ring-offset-background rounded-md z-[2]" : "z-[1]",
+        isEditingThisIcon ? "ring-2 ring-primary ring-offset-2 ring-offset-background rounded-md z-[2]" : "z-[1]", // Ensure editing icon is on top
         divProps.className
       )}
       style={{
@@ -87,6 +88,11 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
   if (user && currentMapData && currentMapData.userId === user.uid) {
     canEdit = true;
   }
+
+  useEffect(() => {
+    // Close popover if focused cell changes
+    setEditingIcon(null);
+  }, [rowIndex, colIndex]);
 
   if (isLoadingMapData || !currentMapData) {
     return (
@@ -141,7 +147,7 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
   };
 
   const handlePlacedIconDragStart = (e: React.DragEvent<HTMLDivElement>, placedIcon: PlacedIcon) => {
-    if (!canEdit || editingIcon?.id === placedIcon.id) {
+    if (!canEdit || editingIcon?.id === placedIcon.id) { // Prevent dragging icon if its popover is open
       e.preventDefault();
       return;
     }
@@ -161,7 +167,7 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
     if (editingIcon) {
       updatePlacedIconNote(rowIndex, colIndex, editingIcon.id, editedNote);
       toast({ title: "Note Saved", description: "The icon's note has been updated." });
-      setEditingIcon(null);
+      setEditingIcon(null); 
     }
   };
 
@@ -185,9 +191,9 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
           src={cellData.backgroundImageUrl}
           alt="Cell background"
           layout="fill"
-          objectFit="contain"
-          className="pointer-events-none"
-          priority
+          objectFit="contain" // Ensures entire image is visible, letterboxing if aspect ratios differ
+          className="pointer-events-none" // Image is purely visual, not interactive
+          priority // Prioritize loading if visible
           data-ai-hint="map texture"
         />
       )}
@@ -198,13 +204,13 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
         return (
           <Popover key={icon.id} open={editingIcon?.id === icon.id} onOpenChange={(isOpen) => { if (!isOpen) setEditingIcon(null); }}>
             <PopoverAnchor asChild>
-              <PlacedIconVisual
+               <PlacedIconVisual
                 iconData={icon}
                 isEditingThisIcon={editingIcon?.id === icon.id}
                 canEdit={canEdit}
                 onContextMenu={canEdit ? (e) => handleContextMenu(e, icon) : undefined}
-                draggable={canEdit && editingIcon?.id !== icon.id}
-                onDragStart={(e: React.DragEvent<HTMLDivElement>) => handlePlacedIconDragStart(e, icon)}
+                draggable={canEdit && editingIcon?.id !== icon.id} // Only draggable if popover not open for this icon
+                onDragStart={canEdit ? (e: React.DragEvent<HTMLDivElement>) => handlePlacedIconDragStart(e, icon) : undefined}
               />
             </PopoverAnchor>
             {editingIcon?.id === icon.id && canEdit && (
@@ -212,8 +218,15 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
                 className="w-64 p-3 z-20" 
                 side="bottom"
                 align="center"
-                onEscapeKeyDown={() => setEditingIcon(null)}
-                onInteractOutside={() => setEditingIcon(null)} // Close on clicking outside the popover
+                onEscapeKeyDown={() => setEditingIcon(null)} // Also close on escape
+                onInteractOutside={(event) => {
+                    // Prevent closing if interaction is with the icon itself (e.g., trying to drag after popover appears)
+                    const popoverAnchor = (event.target as HTMLElement)?.closest(`[data-radix-popover-anchor]`);
+                    if (popoverAnchor && popoverAnchor.contains(event.target as Node)) {
+                        return;
+                    }
+                    setEditingIcon(null);
+                 }}
               >
                 <div className="space-y-2">
                   <Label htmlFor={`note-${icon.id}`} className="text-sm font-medium leading-none">Edit Note for {Config.label}</Label>
