@@ -40,7 +40,7 @@ const initializeLocalGrid = (): LocalGridState => {
           id: `${rowIndex}-${colIndex}`,
           placedIcons: [],
           notes: '',
-          backgroundImageUrl: undefined, // Initialize with undefined
+          backgroundImageUrl: undefined,
         }))
     );
 };
@@ -60,13 +60,9 @@ const convertLocalToFirestoreGrid = (localGrid: LocalGridState): FirestoreGridSt
           note: pi.note || '', 
         })),
       };
-
-      // Only add backgroundImageUrl if it's a non-empty string
       if (cell.backgroundImageUrl && cell.backgroundImageUrl.trim() !== '') {
         firestoreCellOutput.backgroundImageUrl = cell.backgroundImageUrl;
       }
-      // If cell.backgroundImageUrl is undefined or empty, the backgroundImageUrl field
-      // will not be present on firestoreCellOutput, which is correct for Firestore.
       return firestoreCellOutput;
     });
   });
@@ -107,7 +103,9 @@ interface MapContextType {
   isLoadingMapList: boolean;
   isLoadingMapData: boolean;
   focusedCellCoordinates: FocusedCellCoordinates | null;
+  selectedPlacedIconId: string | null; // New state for selected icon
   setFocusedCellCoordinates: (coordinates: FocusedCellCoordinates | null) => void;
+  setSelectedPlacedIconId: (iconId: string | null) => void; // New setter
   selectMap: (mapId: string | null) => void;
   createMap: (name: string) => Promise<string | null>;
   deleteMap: (mapId: string) => Promise<void>;
@@ -136,10 +134,24 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [currentMapId, setCurrentMapId] = useState<string | null>(null);
   const [currentMapData, setCurrentMapData] = useState<MapData | null>(null);
   const [currentLocalGrid, setCurrentLocalGrid] = useState<LocalGridState | null>(null);
-  const [focusedCellCoordinates, setFocusedCellCoordinates] = useState<FocusedCellCoordinates | null>(null);
+  const [focusedCellCoordinates, _setFocusedCellCoordinates] = useState<FocusedCellCoordinates | null>(null);
+  const [selectedPlacedIconId, _setSelectedPlacedIconId] = useState<string | null>(null); // New state
 
   const [isLoadingMapList, setIsLoadingMapList] = useState<boolean>(true);
   const [isLoadingMapData, setIsLoadingMapData] = useState<boolean>(false);
+
+  // Wrapped setters to clear selected icon when focus changes
+  const setFocusedCellCoordinates = useCallback((coordinates: FocusedCellCoordinates | null) => {
+    _setFocusedCellCoordinates(coordinates);
+    if (coordinates === null || (coordinates?.rowIndex !== focusedCellCoordinates?.rowIndex || coordinates?.colIndex !== focusedCellCoordinates?.colIndex)) {
+      _setSelectedPlacedIconId(null); // Clear selected icon if cell focus changes
+    }
+  }, [focusedCellCoordinates]);
+
+  const setSelectedPlacedIconId = useCallback((iconId: string | null) => {
+    _setSelectedPlacedIconId(iconId);
+  }, []);
+
 
   useEffect(() => {
     if (isAuthLoading || !user) {
@@ -148,6 +160,7 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setCurrentMapData(null);
       setCurrentLocalGrid(null);
       setFocusedCellCoordinates(null);
+      setSelectedPlacedIconId(null);
       setIsLoadingMapList(user ? true : false);
       return;
     }
@@ -170,7 +183,7 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     return () => unsubscribe();
-  }, [user, isAuthLoading, toast]);
+  }, [user, isAuthLoading, toast, setFocusedCellCoordinates, setSelectedPlacedIconId]);
 
   useEffect(() => {
     if (!currentMapId) {
@@ -194,6 +207,7 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           setCurrentLocalGrid(null);
           setCurrentMapId(null); 
           setFocusedCellCoordinates(null);
+          setSelectedPlacedIconId(null);
         }
       } else {
         setTimeout(() => toast({ title: "Error", description: `Map with ID ${currentMapId} not found. Selecting no map.`, variant: "destructive" }), 0);
@@ -201,6 +215,7 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setCurrentLocalGrid(null);
         setCurrentMapId(null);
         setFocusedCellCoordinates(null);
+        setSelectedPlacedIconId(null);
       }
       setIsLoadingMapData(false);
     }, (error) => {
@@ -210,13 +225,14 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     return () => unsubscribe();
-  }, [currentMapId, user, toast]);
+  }, [currentMapId, user, toast, setFocusedCellCoordinates, setSelectedPlacedIconId]);
 
   const selectMap = useCallback((mapId: string | null) => {
     if (mapId === currentMapId && mapId !== null) return; 
     setCurrentMapId(mapId);
     setFocusedCellCoordinates(null); 
-  }, [currentMapId]);
+    // setSelectedPlacedIconId(null) is handled by setFocusedCellCoordinates
+  }, [currentMapId, setFocusedCellCoordinates]);
 
   const createMap = useCallback(async (name: string): Promise<string | null> => {
     if (!user) {
@@ -274,37 +290,30 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [user, toast, userMapList, currentMapData]);
 
   const updateCurrentMapGridInFirestore = useCallback(async (newLocalGrid: LocalGridState) => {
-    console.log("MapContext: updateCurrentMapGridInFirestore called.");
     if (!currentMapId || !user) {
-        console.warn("MapContext: updateCurrentMapGridInFirestore - Aborted: No currentMapId or user not authenticated.", { currentMapId, userId: user?.uid });
         return;
     }
     
     const mapData = currentMapData; 
     if (!mapData) {
-        console.warn("MapContext: updateCurrentMapGridInFirestore - Aborted: currentMapData is null.");
         setTimeout(() => toast({ title: "Error", description: "Map data not loaded. Cannot save changes.", variant: "destructive" }), 0);
         return;
     }
     if (mapData.userId !== user.uid) {
-        console.warn(`MapContext: updateCurrentMapGridInFirestore - Aborted: Permission denied. Map owner: ${mapData.userId}, Current user: ${user.uid}`);
         setTimeout(() => toast({ title: "Permission Denied", description: "You cannot modify this map's grid.", variant: "destructive" }), 0);
         return;
     }
 
     const newFirestoreGrid = convertLocalToFirestoreGrid(newLocalGrid);
-    console.log("MapContext: Converted grid for Firestore:", newFirestoreGrid);
     try {
       await updateMapInFirestore(currentMapId, { gridState: newFirestoreGrid });
-      console.log("MapContext: Firestore update successful.");
     } catch (error) {
-       console.error("MapContext: updateCurrentMapGridInFirestore - Error during Firestore update:", error);
+       // Error handled by updateMapInFirestore
     }
   }, [currentMapId, user, currentMapData, updateMapInFirestore, toast]);
 
 
   const addPlacedIconToCell = useCallback((rowIndex: number, colIndex: number, iconType: IconType, x: number, y: number) => {
-    console.log(`MapContext: addPlacedIconToCell called for [${rowIndex}, ${colIndex}] with type ${iconType}`);
     setCurrentLocalGrid(prevGrid => {
       if (!prevGrid) return null;
       const newGrid = prevGrid.map((row, rIdx) =>
@@ -383,9 +392,13 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           : row
       );
       updateCurrentMapGridInFirestore(newGrid);
+      // If the deleted icon was the selected one, clear the selection
+      if (selectedPlacedIconId === placedIconId) {
+        setSelectedPlacedIconId(null);
+      }
       return newGrid;
     });
-  }, [updateCurrentMapGridInFirestore]);
+  }, [updateCurrentMapGridInFirestore, selectedPlacedIconId, setSelectedPlacedIconId]);
   
   const clearAllPlacedIconsInCell = useCallback((rowIndex: number, colIndex: number) => {
     setCurrentLocalGrid(prevGrid => {
@@ -396,9 +409,10 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           : row
       );
       updateCurrentMapGridInFirestore(newGrid);
+      setSelectedPlacedIconId(null); // Clear selected icon if all icons in its cell are cleared
       return newGrid;
     });
-  }, [updateCurrentMapGridInFirestore]);
+  }, [updateCurrentMapGridInFirestore, setSelectedPlacedIconId]);
 
   const updateCellNotes = useCallback((rowIndex: number, colIndex: number, notes: string) => {
     setCurrentLocalGrid(prevGrid => {
@@ -423,17 +437,16 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return;
     }
 
-    const newLocalGrid = initializeLocalGrid(); // This will now init with undefined backgroundImageUrl
+    const newLocalGrid = initializeLocalGrid(); 
     setCurrentLocalGrid(newLocalGrid); 
+    setSelectedPlacedIconId(null); // Clear selected icon
     try {
-      // TODO: Iterate through old grid and delete images from storage if necessary.
-      // For now, just clearing URLs from Firestore.
       await updateCurrentMapGridInFirestore(newLocalGrid);
       setTimeout(() => toast({ title: "Map Reset", description: "Current map grid has been reset." }), 0);
     } catch (error) {
       // Error already handled by updateCurrentMapGridInFirestore
     }
-  }, [currentMapId, user, currentMapData, toast, updateCurrentMapGridInFirestore]);
+  }, [currentMapId, user, currentMapData, toast, updateCurrentMapGridInFirestore, setSelectedPlacedIconId]);
   
   const deleteMap = useCallback(async (mapId: string) => {
     if (!user) {
@@ -445,8 +458,6 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setTimeout(() => toast({ title: "Permission Denied", description: "You do not have permission to delete this map.", variant: "destructive" }), 0);
         return;
     }
-    // TODO: Consider deleting all associated background images from Storage when a map is deleted.
-    // This is a more complex operation and will be omitted for now.
     try {
         await deleteDoc(doc(db, "maps", mapId));
         setTimeout(() => toast({ title: "Success", description: "Map deleted successfully." }), 0);
@@ -478,43 +489,33 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [user, userMapList, currentMapData, toast, updateMapInFirestore]);
 
   const uploadCellBackgroundImage = useCallback(async (rowIndex: number, colIndex: number, file: File) => {
-    console.log("MapContext: uploadCellBackgroundImage: Function called.", { rowIndex, colIndex, fileName: file.name, fileType: file.type, fileSize: file.size });
     if (!currentMapId || !user || !currentLocalGrid) {
       setTimeout(() => toast({ title: "Error", description: "Cannot upload image: No map selected or not authenticated.", variant: "destructive" }), 0);
-      console.error("MapContext: uploadCellBackgroundImage: Pre-check failed", { currentMapId, userPresent: !!user, currentLocalGridPresent: !!currentLocalGrid });
       return;
     }
     const cellData = currentLocalGrid[rowIndex]?.[colIndex];
     if (!cellData) {
       setTimeout(() => toast({ title: "Error", description: "Cell data not found.", variant: "destructive" }), 0);
-      console.error("MapContext: uploadCellBackgroundImage: Cell data not found for", { rowIndex, colIndex });
       return;
     }
 
     if (cellData.backgroundImageUrl) {
-      console.log("MapContext: uploadCellBackgroundImage: Attempting to delete old image:", cellData.backgroundImageUrl);
       try {
         const oldImageRef = storageRef(storage, cellData.backgroundImageUrl);
         await deleteObject(oldImageRef);
-        console.log("MapContext: uploadCellBackgroundImage: Old image deleted successfully.");
       } catch (error: any) {
-        console.warn("MapContext: uploadCellBackgroundImage: Could not delete old background image (this might be okay if it was already gone). Error:", error);
         if (error.code !== 'storage/object-not-found') {
           setTimeout(() => toast({ title: "Warning", description: "Could not remove the old background image. It might be orphaned in storage.", variant: "default" }), 0);
         }
       }
     }
 
-    console.log("MapContext: uploadCellBackgroundImage: File object to upload:", file);
     const imagePath = `map_backgrounds/${currentMapId}/${cellData.id}/${file.name}`;
     const imageFileRef = storageRef(storage, imagePath);
-    console.log("MapContext: uploadCellBackgroundImage: Attempting to upload new image to:", imagePath);
 
     try {
       const snapshot = await uploadBytes(imageFileRef, file);
-      console.log("MapContext: uploadCellBackgroundImage: Upload successful. Snapshot:", snapshot);
       const downloadURL = await getDownloadURL(snapshot.ref);
-      console.log("MapContext: uploadCellBackgroundImage: New image URL:", downloadURL);
 
       setCurrentLocalGrid(prevGrid => {
         if (!prevGrid) return null;
@@ -530,32 +531,25 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
       setTimeout(() => toast({ title: "Success", description: "Background image uploaded." }), 0);
     } catch (error: any) {
-      console.error("MapContext: uploadCellBackgroundImage: Error during image upload process. Full error object:", error);
       setTimeout(() => toast({ title: "Upload Failed", description: `Could not upload image: ${error.message || 'Unknown error'}. Check browser console for details. Ensure CORS is configured on your Firebase Storage bucket.`, variant: "destructive" }), 0);
     }
   }, [currentMapId, user, currentLocalGrid, toast, updateCurrentMapGridInFirestore]);
 
   const removeCellBackgroundImage = useCallback(async (rowIndex: number, colIndex: number) => {
-    console.log("MapContext: removeCellBackgroundImage: Function called.", { rowIndex, colIndex });
     if (!currentMapId || !user || !currentLocalGrid) {
       setTimeout(() => toast({ title: "Error", description: "Cannot remove image: No map selected or not authenticated.", variant: "destructive" }), 0);
-      console.error("MapContext: removeCellBackgroundImage: Pre-check failed", { currentMapId, userPresent: !!user, currentLocalGridPresent: !!currentLocalGrid });
       return;
     }
     const cellData = currentLocalGrid[rowIndex]?.[colIndex];
     if (!cellData || !cellData.backgroundImageUrl) {
       setTimeout(() => toast({ title: "Info", description: "No background image to remove.", variant: "default" }), 0);
-      console.log("MapContext: removeCellBackgroundImage: No background image URL found for cell", { rowIndex, colIndex });
       return;
     }
 
-    console.log("MapContext: removeCellBackgroundImage: Attempting to delete image from storage:", cellData.backgroundImageUrl);
     const imageToDeleteRef = storageRef(storage, cellData.backgroundImageUrl);
     try {
       await deleteObject(imageToDeleteRef);
-      console.log("MapContext: removeCellBackgroundImage: Image deleted from storage successfully.");
     } catch (error: any) {
-      console.warn("MapContext: removeCellBackgroundImage: Error deleting background image from storage (this might be okay if it was already gone). Error:", error);
       if (error.code !== 'storage/object-not-found') {
         setTimeout(() => toast({ title: "Storage Error", description: `Could not delete image from storage: ${error.message || 'Unknown error'}. Check console.`, variant: "destructive" }), 0);
       }
@@ -587,7 +581,9 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       isLoadingMapList,
       isLoadingMapData: isLoadingMapData || (currentMapId ? !currentMapData : false),
       focusedCellCoordinates,
+      selectedPlacedIconId, // Provide new state
       setFocusedCellCoordinates,
+      setSelectedPlacedIconId, // Provide new setter
       selectMap,
       createMap,
       deleteMap,

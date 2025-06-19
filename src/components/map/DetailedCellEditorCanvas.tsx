@@ -2,20 +2,16 @@
 "use client";
 
 import type React from 'react';
-import { useState, useEffect, useRef } from 'react';
+import { useRef } from 'react';
 import { useMap } from '@/contexts/MapContext';
 import { ICON_CONFIG_MAP } from '@/components/icons';
 import { ICON_TYPES, type PlacedIcon, type IconType } from '@/types';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AlertTriangle, Trash2, ImageIcon } from 'lucide-react';
+import { AlertTriangle, ImageIcon } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
-import { Popover, PopoverContent, PopoverAnchor } from "@/components/ui/popover";
-import { Textarea } from '@/components/ui/textarea';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
 import Image from 'next/image';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface DetailedCellEditorCanvasProps {
   rowIndex: number;
@@ -23,33 +19,32 @@ interface DetailedCellEditorCanvasProps {
   className?: string;
 }
 
-interface PlacedIconVisualProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'onContextMenu'> {
+interface PlacedIconVisualProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'onClick'> {
   iconData: PlacedIcon;
-  isEditingThisIcon: boolean;
+  isSelected: boolean;
   canEdit: boolean;
-  onContextMenu?: (e: React.MouseEvent<HTMLDivElement>) => void;
+  onClick: () => void;
 }
 
 const PlacedIconVisual: React.FC<PlacedIconVisualProps> = ({
   iconData,
-  isEditingThisIcon,
+  isSelected,
   canEdit,
-  onContextMenu,
+  onClick,
   ...divProps
 }) => {
   const Config = ICON_CONFIG_MAP[iconData.type];
   if (!Config) return null;
   const IconComponent = Config.IconComponent;
 
-  return (
+  const iconElement = (
     <div
       {...divProps}
-      onContextMenu={onContextMenu}
-      title={iconData.note || Config.label} // Use native title for hover note display
+      onClick={canEdit ? onClick : undefined} // Only allow click if canEdit
       className={cn(
         "absolute w-8 h-8",
         canEdit ? "cursor-pointer" : "cursor-default",
-        isEditingThisIcon ? "ring-2 ring-primary ring-offset-2 ring-offset-background rounded-md z-[2]" : "z-[1]", // Ensure editing icon is on top
+        isSelected && canEdit ? "ring-2 ring-primary ring-offset-2 ring-offset-background rounded-md z-[2]" : "z-[1]",
         divProps.className
       )}
       style={{
@@ -62,6 +57,22 @@ const PlacedIconVisual: React.FC<PlacedIconVisualProps> = ({
       <IconComponent className="w-full h-full text-primary" />
     </div>
   );
+
+  if (iconData.note && iconData.note.trim() !== '') {
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>{iconElement}</TooltipTrigger>
+          <TooltipContent>
+            <p className="font-semibold">{Config.label}</p>
+            <p>{iconData.note}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
+
+  return iconElement;
 };
 
 
@@ -72,27 +83,18 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
     currentMapData,
     addPlacedIconToCell,
     updatePlacedIconPositionInCell,
-    removePlacedIconFromCell,
-    updatePlacedIconNote
+    selectedPlacedIconId, // Get selected icon ID
+    setSelectedPlacedIconId, // Setter for selected icon
   } = useMap();
   const { user } = useAuth();
-  const { toast } = useToast();
 
-  const [editingIcon, setEditingIcon] = useState<PlacedIcon | null>(null);
-  const [editedNote, setEditedNote] = useState<string>('');
   const canvasRef = useRef<HTMLDivElement>(null);
-
   const cellData = currentLocalGrid?.[rowIndex]?.[colIndex];
 
   let canEdit = false;
   if (user && currentMapData && currentMapData.userId === user.uid) {
     canEdit = true;
   }
-
-  useEffect(() => {
-    // Close popover if focused cell changes
-    setEditingIcon(null);
-  }, [rowIndex, colIndex]);
 
   if (isLoadingMapData || !currentMapData) {
     return (
@@ -133,21 +135,24 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
     y = Math.max(0, Math.min(100, y));
 
     if (action === "move") {
-      const placedIconId = e.dataTransfer.getData("placedIconId");
-      if (placedIconId) {
-        updatePlacedIconPositionInCell(rowIndex, colIndex, placedIconId, x, y);
+      const placedIconIdToMove = e.dataTransfer.getData("placedIconId");
+      if (placedIconIdToMove) {
+        updatePlacedIconPositionInCell(rowIndex, colIndex, placedIconIdToMove, x, y);
+        setSelectedPlacedIconId(placedIconIdToMove); // Keep it selected after move
       }
     } else if (action === "add") {
       const iconTypeString = e.dataTransfer.getData("iconType");
       if (ICON_TYPES.includes(iconTypeString as IconType)) {
         const iconType = iconTypeString as IconType;
+        // addPlacedIconToCell will create an ID, we might want to select it after creation
+        // For now, adding doesn't auto-select. Can be added later if needed.
         addPlacedIconToCell(rowIndex, colIndex, iconType, x, y);
       }
     }
   };
 
   const handlePlacedIconDragStart = (e: React.DragEvent<HTMLDivElement>, placedIcon: PlacedIcon) => {
-    if (!canEdit || editingIcon?.id === placedIcon.id) { // Prevent dragging icon if its popover is open
+    if (!canEdit || selectedPlacedIconId === placedIcon.id) { 
       e.preventDefault();
       return;
     }
@@ -156,26 +161,10 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
     e.dataTransfer.effectAllowed = "move";
   };
 
-  const handleContextMenu = (e: React.MouseEvent<HTMLDivElement>, icon: PlacedIcon) => {
-    e.preventDefault();
-    if (!canEdit) return;
-    setEditingIcon(icon);
-    setEditedNote(icon.note || '');
-  };
-
-  const handleSaveNote = () => {
-    if (editingIcon) {
-      updatePlacedIconNote(rowIndex, colIndex, editingIcon.id, editedNote);
-      toast({ title: "Note Saved", description: "The icon's note has been updated." });
-      setEditingIcon(null); 
-    }
-  };
-
-  const handleDeleteIconFromPopover = () => {
-    if (editingIcon) {
-      removePlacedIconFromCell(rowIndex, colIndex, editingIcon.id);
-      toast({ title: "Icon Removed", description: "The icon has been removed from this cell." });
-      setEditingIcon(null);
+  const handleCanvasClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    // If click is directly on canvas and not on an icon, deselect icon
+    if (e.target === canvasRef.current) {
+      setSelectedPlacedIconId(null);
     }
   };
 
@@ -185,73 +174,34 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
       className={cn("relative overflow-hidden", className)}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
+      onClick={handleCanvasClick} // Deselect icon if canvas is clicked
     >
       {cellData.backgroundImageUrl && (
         <Image
           src={cellData.backgroundImageUrl}
           alt="Cell background"
           layout="fill"
-          objectFit="contain" // Ensures entire image is visible, letterboxing if aspect ratios differ
-          className="pointer-events-none" // Image is purely visual, not interactive
-          priority // Prioritize loading if visible
+          objectFit="contain" 
+          className="pointer-events-none" 
+          priority 
           data-ai-hint="map texture"
         />
       )}
-      {cellData.placedIcons.map((icon: PlacedIcon) => {
-        const Config = ICON_CONFIG_MAP[icon.type];
-        if (!Config) return null;
-
-        return (
-          <Popover key={icon.id} open={editingIcon?.id === icon.id} onOpenChange={(isOpen) => { if (!isOpen) setEditingIcon(null); }}>
-            <PopoverAnchor asChild>
-               <PlacedIconVisual
-                iconData={icon}
-                isEditingThisIcon={editingIcon?.id === icon.id}
-                canEdit={canEdit}
-                onContextMenu={canEdit ? (e) => handleContextMenu(e, icon) : undefined}
-                draggable={canEdit && editingIcon?.id !== icon.id} // Only draggable if popover not open for this icon
-                onDragStart={canEdit ? (e: React.DragEvent<HTMLDivElement>) => handlePlacedIconDragStart(e, icon) : undefined}
-              />
-            </PopoverAnchor>
-            {editingIcon?.id === icon.id && canEdit && (
-              <PopoverContent
-                className="w-64 p-3 z-20" 
-                side="bottom"
-                align="center"
-                onEscapeKeyDown={() => setEditingIcon(null)} // Also close on escape
-                onInteractOutside={(event) => {
-                    // Prevent closing if interaction is with the icon itself (e.g., trying to drag after popover appears)
-                    const popoverAnchor = (event.target as HTMLElement)?.closest(`[data-radix-popover-anchor]`);
-                    if (popoverAnchor && popoverAnchor.contains(event.target as Node)) {
-                        return;
-                    }
-                    setEditingIcon(null);
-                 }}
-              >
-                <div className="space-y-2">
-                  <Label htmlFor={`note-${icon.id}`} className="text-sm font-medium leading-none">Edit Note for {Config.label}</Label>
-                  <Textarea
-                    id={`note-${icon.id}`}
-                    value={editedNote}
-                    onChange={(e) => setEditedNote(e.target.value)}
-                    placeholder="Add a note..."
-                    className="min-h-[60px] text-sm"
-                  />
-                  <div className="flex justify-between items-center pt-1">
-                    <Button variant="destructive" size="icon" onClick={handleDeleteIconFromPopover} title="Delete Icon">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                    <div className="flex gap-2">
-                       <Button variant="ghost" size="sm" onClick={() => setEditingIcon(null)}>Cancel</Button>
-                       <Button size="sm" onClick={handleSaveNote}>Save</Button>
-                    </div>
-                  </div>
-                </div>
-              </PopoverContent>
-            )}
-          </Popover>
-        );
-      })}
+      {cellData.placedIcons.map((icon: PlacedIcon) => (
+        <PlacedIconVisual
+          key={icon.id}
+          iconData={icon}
+          isSelected={selectedPlacedIconId === icon.id}
+          canEdit={canEdit}
+          onClick={() => {
+            if (canEdit) {
+              setSelectedPlacedIconId(icon.id);
+            }
+          }}
+          draggable={canEdit && selectedPlacedIconId !== icon.id} 
+          onDragStart={canEdit ? (e: React.DragEvent<HTMLDivElement>) => handlePlacedIconDragStart(e, icon) : undefined}
+        />
+      ))}
       {cellData.placedIcons.length === 0 && !cellData.backgroundImageUrl && (
          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
           <p className="text-muted-foreground text-lg p-4 text-center bg-background/50 rounded-md">
@@ -262,6 +212,3 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
     </div>
   );
 }
-    
-
-    
