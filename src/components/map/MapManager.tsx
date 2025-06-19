@@ -10,12 +10,12 @@ import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { PlusCircle, Loader2, MapPin, Settings2, Trash2, Copy, ExternalLink } from 'lucide-react';
-import { formatDistanceToNow, parseISO } from 'date-fns'; // Added parseISO
+import { formatDistanceToNow, parseISO } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
 import type { MapData } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '../ui/separator';
-import { Timestamp } from 'firebase/firestore'; // Import Timestamp
+import type { Timestamp } from 'firebase/firestore';
 
 export function MapManager() {
   const {
@@ -40,7 +40,11 @@ export function MapManager() {
   const [publicLinkBase, setPublicLinkBase] = useState('');
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
+    // Prioritize NEXT_PUBLIC_APP_URL, then fall back to window.location.origin
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+    if (appUrl) {
+      setPublicLinkBase(appUrl.replace(/\/$/, '')); // Remove trailing slash if any
+    } else if (typeof window !== "undefined") {
       setPublicLinkBase(window.location.origin);
     }
   }, []);
@@ -51,17 +55,13 @@ export function MapManager() {
       const freshMapDataFromList = userMapList.find(m => m.id === mapInDialogId);
 
       if (freshMapDataFromList) {
-        // Deep comparison or specific field check might be better if objects are complex
-        // For now, a simple stringify should work for detecting relevant changes like publicViewId or isPublicViewable
         if (JSON.stringify(selectedMapForSettings) !== JSON.stringify(freshMapDataFromList)) {
           setSelectedMapForSettings(freshMapDataFromList);
-           // Only update settingsMapName if it's different AND the input isn't focused
-          if (settingsMapName !== freshMapDataFromList.name && document.activeElement?.id !== 'settingsMapName') {
+          if (settingsMapName !== freshMapDataFromList.name && document.activeElement?.id !== 'settingsMapNameInput') {
              setSettingsMapName(freshMapDataFromList.name);
           }
         }
       } else {
-        // If the map is no longer in the list (e.g., deleted elsewhere), close the dialog
         setSelectedMapForSettings(null);
       }
     }
@@ -94,7 +94,6 @@ export function MapManager() {
     setIsUpdatingSettings(true);
     try {
       await updateMapName(selectedMapForSettings.id, settingsMapName.trim());
-      // selectedMapForSettings will be updated by the useEffect listening to userMapList
     } catch (error) {
       // Error is handled by updateMapName or context
     } finally {
@@ -158,7 +157,7 @@ export function MapManager() {
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <Input
-                id="mapName"
+                id="newMapNameInput"
                 placeholder="E.g., My Personal Map"
                 value={newMapName}
                 onChange={(e) => setNewMapName(e.target.value)}
@@ -225,8 +224,8 @@ export function MapManager() {
                               </DialogHeader>
                               <div className="space-y-4 py-2">
                                   <div>
-                                      <Label htmlFor="settingsMapName" className="text-sm font-medium">Map Name</Label>
-                                      <Input id="settingsMapName" value={settingsMapName} onChange={e => setSettingsMapName(e.target.value)} className="mt-1" disabled={isUpdatingSettings} />
+                                      <Label htmlFor="settingsMapNameInput" className="text-sm font-medium">Map Name</Label>
+                                      <Input id="settingsMapNameInput" value={settingsMapName} onChange={e => setSettingsMapName(e.target.value)} className="mt-1" disabled={isUpdatingSettings} />
                                   </div>
                                   <Separator />
                                   <div>
@@ -242,7 +241,7 @@ export function MapManager() {
                                         {selectedMapForSettings.isPublicViewable ? "Public Link Enabled" : "Public Link Disabled"}
                                       </Label>
                                     </div>
-                                    {selectedMapForSettings.isPublicViewable && selectedMapForSettings.publicViewId && (
+                                    {selectedMapForSettings.isPublicViewable && selectedMapForSettings.publicViewId && publicLinkBase && (
                                       <div className="space-y-2">
                                         <p className="text-xs text-muted-foreground break-all">
                                           Share this link for view-only access: <br />
@@ -261,7 +260,7 @@ export function MapManager() {
                                             variant="outline"
                                             size="sm"
                                             onClick={() => copyToClipboard(`${publicLinkBase}/view/map/${selectedMapForSettings.publicViewId}`)}
-                                            disabled={isUpdatingSettings}
+                                            disabled={isUpdatingSettings || !publicLinkBase}
                                           >
                                             <Copy className="mr-2 h-3 w-3" /> Copy Link
                                           </Button>
@@ -319,3 +318,5 @@ export function MapManager() {
     </div>
   );
 }
+
+    
