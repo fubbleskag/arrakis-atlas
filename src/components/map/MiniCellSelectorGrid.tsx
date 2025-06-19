@@ -21,6 +21,7 @@ export function MiniCellSelectorGrid({
   const { currentLocalGrid } = useMap(); // Get grid data from context
 
   const getCellDisplayLabel = (dataRowIdx: number, dataColIdx: number): string => {
+    // This logic correctly maps dataRowIdx (0 for 'I', 8 for 'A') to labels
     const rowLetter = String.fromCharCode(65 + (GRID_SIZE - 1 - dataRowIdx));
     const colNumber = dataColIdx + 1;
     return `${rowLetter}${colNumber}`;
@@ -35,7 +36,10 @@ export function MiniCellSelectorGrid({
     >
       {Array.from({ length: GRID_SIZE }).map((_, visualRowIndex) => 
         Array.from({ length: GRID_SIZE }).map((_, visualColIndex) => {
-          const dataRowIndex = GRID_SIZE - 1 - visualRowIndex;
+          // To match main grid (I at top, A at bottom):
+          // Visual row 0 should map to data row 0 ('I')
+          // Visual row 8 should map to data row 8 ('A')
+          const dataRowIndex = visualRowIndex; 
           const dataColIndex = visualColIndex;
 
           const isCurrentlySelected =
@@ -65,8 +69,8 @@ export function MiniCellSelectorGrid({
                       hasContent ? 'bg-accent/15' : 'bg-card',
                       'hover:bg-accent hover:text-accent-foreground'
                     ),
-                !isCurrentlySelected && currentFocusedCell && !hasContent && "opacity-80", // Dim non-content cells if a cell is focused
-                !isCurrentlySelected && currentFocusedCell && hasContent && "opacity-90" // Slightly less dim for content cells
+                !isCurrentlySelected && currentFocusedCell && !hasContent && "opacity-80", 
+                !isCurrentlySelected && currentFocusedCell && hasContent && "opacity-90" 
               )}
               title={`Go to cell ${cellLabel}${hasContent ? ' (has content)' : ''}`}
               aria-label={`Select cell ${cellLabel}${hasContent ? ', has content' : ''}`}
