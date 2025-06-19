@@ -48,20 +48,26 @@ const initializeLocalGrid = (): LocalGridState => {
 const convertLocalToFirestoreGrid = (localGrid: LocalGridState): FirestoreGridState => {
   const firestoreGrid: FirestoreGridState = {};
   localGrid.forEach((rowArray, rIndex) => {
-    firestoreGrid[rIndex.toString()] = rowArray.map(cell => {
-      const firestoreCell: GridCellData = {
+    firestoreGrid[rIndex.toString()] = rowArray.map((cell: GridCellData) => {
+      const firestoreCellOutput: GridCellData = {
         id: cell.id,
         notes: cell.notes,
-        placedIcons: cell.placedIcons.map(pi => ({
+        placedIcons: cell.placedIcons.map((pi: PlacedIcon) => ({
           id: pi.id,
           type: pi.type,
           x: pi.x,
           y: pi.y,
-          note: pi.note || '',
+          note: pi.note || '', 
         })),
-        backgroundImageUrl: cell.backgroundImageUrl || undefined, // Ensure it's undefined if empty
       };
-      return firestoreCell;
+
+      // Only add backgroundImageUrl if it's a non-empty string
+      if (cell.backgroundImageUrl && cell.backgroundImageUrl.trim() !== '') {
+        firestoreCellOutput.backgroundImageUrl = cell.backgroundImageUrl;
+      }
+      // If cell.backgroundImageUrl is undefined or empty, the backgroundImageUrl field
+      // will not be present on firestoreCellOutput, which is correct for Firestore.
+      return firestoreCellOutput;
     });
   });
   return firestoreGrid;
@@ -499,7 +505,7 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
 
-    console.log("MapContext: uploadCellBackgroundImage: File object to upload:", { name: file.name, type: file.type, size: file.size });
+    console.log("MapContext: uploadCellBackgroundImage: File object to upload:", file);
     const imagePath = `map_backgrounds/${currentMapId}/${cellData.id}/${file.name}`;
     const imageFileRef = storageRef(storage, imagePath);
     console.log("MapContext: uploadCellBackgroundImage: Attempting to upload new image to:", imagePath);
