@@ -124,7 +124,7 @@ export function GridCell({
         !isReadOnly && !canEditCell && currentMapData && !hasContent && "bg-muted/30", 
         !isReadOnly && !canEditCell && currentMapData && hasContent && "opacity-80", 
         !isReadOnly && (!currentMapData || !context?.setFocusedCellCoordinates) && "cursor-not-allowed opacity-50",
-        isRowA && "border-2 border-emerald-600/75" // Added green border for Row A
+        isRowA && "border border-emerald-600/75" // Changed border-2 to border
       )}
     >
       {!canEditCell && currentMapData && isEmptyCellVisuals && !hasNotes && !isReadOnly && (
