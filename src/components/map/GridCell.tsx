@@ -2,12 +2,14 @@
 "use client";
 
 import type React from 'react';
-import type { IconType } from '@/types';
+import type { IconType, IconConfig } from '@/types';
 import { ICON_CONFIG_MAP } from '@/components/icons';
 import { useMap } from '@/contexts/MapContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { Lock, StickyNote, ZoomIn } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+
 
 interface GridCellProps {
   rowIndex: number;
@@ -44,9 +46,9 @@ export function GridCell({ rowIndex, colIndex, onMouseEnterCell, onMouseLeaveCel
   };
   
   const cellId = `cell-${rowIndex}-${colIndex}`;
-  const rowLetter = String.fromCharCode(65 + (GRID_CELL_INTERNAL_SIZE - 1 - rowIndex)); // A..I (bottom to top)
-  const colNumber = colIndex + 1; // 1..9 (left to right)
-  const cellCoordinate = `${rowLetter}-${colNumber}`; // Format: Letter-Number
+  const rowLetter = String.fromCharCode(65 + (GRID_CELL_INTERNAL_SIZE - 1 - rowIndex));
+  const colNumber = colIndex + 1;
+  const cellCoordinate = `${rowLetter}-${colNumber}`;
   const hasNotes = cellData.notes && cellData.notes.trim() !== '';
   
   const uniqueIconTypesInCell: IconType[] = [];
@@ -59,67 +61,96 @@ export function GridCell({ rowIndex, colIndex, onMouseEnterCell, onMouseLeaveCel
       }
     });
   }
-  const hasPlacedIcons = uniqueIconTypesInCell.length > 0;
-  const isEmptyCell = !hasPlacedIcons && !hasNotes;
+
+  const displayableElements: { key: string; IconComponent: React.FC<any>; label: string }[] = [];
+  
+  // Add resource icons (up to 8 if notes exist, up to 9 otherwise)
+  const maxResourceIcons = hasNotes ? 8 : 9;
+  uniqueIconTypesInCell.slice(0, maxResourceIcons).forEach(iconType => {
+    const config = ICON_CONFIG_MAP[iconType];
+    if (config) {
+      displayableElements.push({ key: iconType, IconComponent: config.IconComponent, label: config.label });
+    }
+  });
+
+  // Add notes icon if notes exist and there's space (total elements <= 9)
+  if (hasNotes && displayableElements.length < 9) {
+    displayableElements.push({ key: 'notes', IconComponent: StickyNote, label: 'Notes' });
+  }
+  
+  const finalDisplayItems = displayableElements.slice(0, 9);
+  const hasPlacedContent = finalDisplayItems.length > 0; // Includes notes icon now
+  const isEmptyCellVisuals = !hasPlacedContent;
 
 
   let ariaLabelContent = `Grid cell ${cellCoordinate}. `;
-  if (hasPlacedIcons) {
-    const iconLabels = uniqueIconTypesInCell
-      .slice(0, 3) 
-      .map(iconType => ICON_CONFIG_MAP[iconType]?.label || 'icon')
+  if (hasPlacedContent) {
+    const iconLabels = finalDisplayItems
+      .map(item => item.label)
       .join(', ');
-    ariaLabelContent += `Contains ${iconLabels}${uniqueIconTypesInCell.length > 3 ? ' and others' : ''}. `;
+    ariaLabelContent += `Contains ${iconLabels}. `;
   }
   if (hasNotes) {
-    ariaLabelContent += `Contains notes. `;
+    ariaLabelContent += `Notes: ${cellData.notes.substring(0, 100)}${cellData.notes.length > 100 ? '...' : ''}. `;
   }
-  if (isEmptyCell) {
+  if (isEmptyCellVisuals && !hasNotes) { // Adjusted for clarity
     ariaLabelContent += 'Empty. ';
   }
   ariaLabelContent += canEdit ? 'Click to view or edit.' : 'Click to view.';
 
-  return (
-      <button
-        id={cellId}
-        aria-label={ariaLabelContent}
-        disabled={!currentMapData} 
-        onClick={handleCellClick}
-        onMouseEnter={onMouseEnterCell}
-        onMouseLeave={onMouseLeaveCell}
-        className={cn(
-          "aspect-square flex items-center justify-center p-0.5 relative group transition-all duration-150 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-          "bg-card", 
-          currentMapData ? "hover:bg-accent/20 cursor-pointer" : "cursor-not-allowed",
-          !canEdit && currentMapData && "bg-muted/30"
-        )}
-      >
-        {!canEdit && currentMapData && isEmptyCell && (
-           <Lock className="h-1/2 w-1/2 text-muted-foreground/50 absolute inset-0 m-auto" />
-        )}
-        {hasNotes && (
-          <StickyNote className="absolute top-0.5 right-0.5 h-3 w-3 text-primary/70 group-hover:text-accent-foreground/70" />
-        )}
-        
-        {hasPlacedIcons && (
-          <div className="grid grid-cols-3 grid-rows-3 gap-px h-[calc(100%-4px)] w-[calc(100%-4px)] p-px">
-            {uniqueIconTypesInCell.slice(0, 9).map((iconType, index) => {
-              const { IconComponent, label } = ICON_CONFIG_MAP[iconType];
-              return (
-                <div key={`${iconType}-${index}`} className="flex items-center justify-center overflow-hidden" title={label}>
-                  <IconComponent className="w-[60%] h-[60%] text-primary" />
-                </div>
-              );
-            })}
-          </div>
-        )}
+  const cellButton = (
+    <button
+      id={cellId}
+      aria-label={ariaLabelContent}
+      disabled={!currentMapData} 
+      onClick={handleCellClick}
+      onMouseEnter={onMouseEnterCell}
+      onMouseLeave={onMouseLeaveCell}
+      className={cn(
+        "aspect-square flex items-center justify-center p-0.5 relative group transition-all duration-150 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+        "bg-card", 
+        currentMapData ? "hover:bg-accent/20 cursor-pointer" : "cursor-not-allowed",
+        !canEdit && currentMapData && "bg-muted/30"
+      )}
+    >
+      {!canEdit && currentMapData && isEmptyCellVisuals && (
+         <Lock className="h-1/2 w-1/2 text-muted-foreground/50 absolute inset-0 m-auto" />
+      )}
+      
+      {hasPlacedContent && (
+        <div className="grid grid-cols-3 grid-rows-3 gap-px h-[calc(100%-4px)] w-[calc(100%-4px)] p-px">
+          {finalDisplayItems.map((item) => {
+            const IconComponent = item.IconComponent;
+            return (
+              <div key={item.key} className="flex items-center justify-center overflow-hidden" title={item.label}>
+                <IconComponent className={cn("w-[60%] h-[60%]", item.key === 'notes' ? 'text-yellow-400' : 'text-primary')} />
+              </div>
+            );
+          })}
+        </div>
+      )}
 
-        {currentMapData && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <ZoomIn className="h-2/5 w-2/5 text-foreground opacity-10 group-hover:opacity-30 transition-opacity duration-150" />
-            </div>
-        )}
-         
-      </button>
+      {currentMapData && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <ZoomIn className="h-2/5 w-2/5 text-foreground opacity-10 group-hover:opacity-30 transition-opacity duration-150" />
+          </div>
+      )}
+       
+    </button>
   );
+
+  if (hasNotes) {
+    return (
+      <TooltipProvider delayDuration={300}>
+        <Tooltip>
+          <TooltipTrigger asChild>{cellButton}</TooltipTrigger>
+          <TooltipContent side="bottom" align="start" className="max-w-xs p-2 whitespace-pre-wrap">
+            <p className="text-sm">{cellData.notes}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
+
+  return cellButton;
 }

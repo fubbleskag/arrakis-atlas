@@ -198,7 +198,6 @@ export function IconSourcePalette({ rowIndex, colIndex, className }: IconSourceP
               </TooltipProvider>
             )}
         </div>
-        {canEdit && <p className="text-xs text-muted-foreground mt-1 mb-1.5">Drag markers onto the cell canvas.</p>}
         <ScrollArea className="flex-shrink pr-1 max-h-[200px] min-h-[100px]"> 
           <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 border-t border-border pt-1.5"> 
             {ICON_TYPES.map((iconType) => {
@@ -228,7 +227,6 @@ export function IconSourcePalette({ rowIndex, colIndex, className }: IconSourceP
 
         
         <h5 className="text-sm font-medium text-foreground mb-0">Cell Background</h5>
-        {canEdit && <p className="text-xs text-muted-foreground mt-1 mb-1.5">Upload an image to set as the cell background.</p>}
         {canEdit && (
           <div className="flex gap-2 mb-2">
             <input
@@ -283,7 +281,7 @@ export function IconSourcePalette({ rowIndex, colIndex, className }: IconSourceP
             onChange={handleNotesInputChange}
             onBlur={handleNotesBlur}
             placeholder={canEdit ? "Add general notes for this cell..." : "No notes or view only."}
-            className="min-h-[120px] w-full text-sm bg-input placeholder:text-muted-foreground flex-grow"
+            className="min-h-[150px] w-full text-sm bg-input placeholder:text-muted-foreground flex-grow"
             aria-label="Cell notes"
             disabled={!canEdit}
             readOnly={!canEdit}
