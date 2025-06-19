@@ -44,9 +44,9 @@ export function GridCell({ rowIndex, colIndex, onMouseEnterCell, onMouseLeaveCel
   };
   
   const cellId = `cell-${rowIndex}-${colIndex}`;
-  const rowLabel = String.fromCharCode(65 + (GRID_CELL_INTERNAL_SIZE - 1 - rowIndex));
-  const colLabel = colIndex + 1;
-  const cellCoordinate = `${rowLabel}${colLabel}`;
+  const rowLetter = String.fromCharCode(65 + (GRID_CELL_INTERNAL_SIZE - 1 - rowIndex));
+  const colNumber = colIndex + 1;
+  const cellCoordinate = `${colNumber}-${rowLetter}`;
   const hasNotes = cellData.notes && cellData.notes.trim() !== '';
   
   const uniqueIconTypesInCell: IconType[] = [];
@@ -123,4 +123,3 @@ export function GridCell({ rowIndex, colIndex, onMouseEnterCell, onMouseLeaveCel
       </button>
   );
 }
-

@@ -14,9 +14,9 @@ export function AppHeader() {
   const { currentMapData, selectMap, focusedCellCoordinates, setFocusedCellCoordinates } = useMap();
 
   const getCellCoordinateLabel = (rowIndex: number, colIndex: number): string => {
-    const rowLabel = String.fromCharCode(65 + (GRID_SIZE - 1 - rowIndex));
-    const colLabel = colIndex + 1;
-    return `${rowLabel}${colLabel}`;
+    const rowLetter = String.fromCharCode(65 + (GRID_SIZE - 1 - rowIndex));
+    const colNumber = colIndex + 1;
+    return `${colNumber}-${rowLetter}`;
   };
 
   const breadcrumbItems: Array<{

@@ -54,9 +54,9 @@ export function IconSourcePalette({ rowIndex, colIndex, className }: IconSourceP
   }, [cellData?.notes, rowIndex, colIndex]);
 
   const getCellCoordinateLabel = (rIdx: number, cIdx: number): string => {
-    const rowLabel = String.fromCharCode(65 + (GRID_SIZE - 1 - rIdx));
-    const colLabel = cIdx + 1;
-    return `${rowLabel}${colLabel}`;
+    const rowLetter = String.fromCharCode(65 + (GRID_SIZE - 1 - rIdx));
+    const colNumber = cIdx + 1;
+    return `${colNumber}-${rowLetter}`;
   };
 
   const cellLabel = getCellCoordinateLabel(rowIndex, colIndex);
@@ -171,7 +171,7 @@ export function IconSourcePalette({ rowIndex, colIndex, className }: IconSourceP
         
         {/* Resource Icons / Map Markers */}
         <div className="flex justify-between items-center mb-1 mt-2">
-            <h5 className="text-sm font-medium text-foreground">Map Markers</h5>
+            <h5 className="text-sm font-medium text-foreground">Markers</h5>
             {canEdit && (
               <Button 
                 variant="ghost" 
@@ -216,7 +216,7 @@ export function IconSourcePalette({ rowIndex, colIndex, className }: IconSourceP
         <Separator className="my-3" />
 
         {/* Cell Background Image */}
-        <h5 className="text-sm font-medium text-foreground mb-1">Map Background</h5>
+        <h5 className="text-sm font-medium text-foreground mb-1">Cell Background</h5>
         {canEdit && (
           <div className="space-y-2 mb-2">
             <input
@@ -263,7 +263,7 @@ export function IconSourcePalette({ rowIndex, colIndex, className }: IconSourceP
         {/* Cell Notes */}
         <div className="flex-grow flex flex-col mt-1">
           <Label htmlFor="cell-notes" className="text-sm font-medium text-foreground mb-1 block">
-            Map Notes
+            Cell Notes
           </Label>
           <Textarea
             id="cell-notes"
@@ -272,7 +272,7 @@ export function IconSourcePalette({ rowIndex, colIndex, className }: IconSourceP
             onBlur={handleNotesBlur}
             placeholder={canEdit ? "Add general notes for this cell..." : "No notes or view only."}
             className="min-h-[80px] w-full text-sm bg-input placeholder:text-muted-foreground flex-grow"
-            aria-label="Map notes"
+            aria-label="Cell notes"
             disabled={!canEdit}
             readOnly={!canEdit}
           />
