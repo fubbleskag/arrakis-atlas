@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card'; 
+import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card';
 import { Trash2, X as XIcon, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -56,13 +56,14 @@ export function MarkerEditorPanel({ rowIndex, colIndex, className }: MarkerEdito
     if (selectedIcon) {
       resetLocalState();
     } else if (selectedPlacedIconId) {
+      // If an ID is selected but the icon isn't found (e.g., stale selection), clear it.
       setSelectedPlacedIconId(null);
     }
   }, [selectedIcon, selectedPlacedIconId, setSelectedPlacedIconId, resetLocalState]);
 
   let canEdit = false;
   if (user && currentMapData) {
-    canEdit = currentMapData.ownerId === user.uid || (!currentMapData.ownerId && currentMapData.userId === user.uid);
+    canEdit = currentMapData.ownerId === user.uid;
   }
 
   if (isLoadingMapData && selectedPlacedIconId) {
@@ -95,9 +96,9 @@ export function MarkerEditorPanel({ rowIndex, colIndex, className }: MarkerEdito
       </Card>
     );
   }
-  
+
   if (!selectedIcon || !currentMapData) {
-    return null; 
+    return null;
   }
 
   const IconConfig = ICON_CONFIG_MAP[selectedIcon.type];
@@ -126,7 +127,7 @@ export function MarkerEditorPanel({ rowIndex, colIndex, className }: MarkerEdito
       }
     }
   };
-  
+
   const handleCoordinateSave = (coordType: 'x' | 'y') => {
     if (!canEdit) return;
 
@@ -140,7 +141,7 @@ export function MarkerEditorPanel({ rowIndex, colIndex, className }: MarkerEdito
         valueToSave = typeof localY === 'string' ? parseFloat(localY) : localY;
         currentValueInIcon = selectedIcon.y;
     }
-    
+
     if (isNaN(valueToSave)) {
         toast({ title: "Invalid Input", description: `Coordinate must be a number. Reverting.`, variant: "destructive" });
         resetLocalState();
@@ -164,6 +165,7 @@ export function MarkerEditorPanel({ rowIndex, colIndex, className }: MarkerEdito
     if (canEdit) {
       removePlacedIconFromCell(rowIndex, colIndex, selectedIcon.id);
       toast({ title: "Marker Deleted", description: `${IconConfig?.label || 'Marker'} removed.` });
+      // setSelectedPlacedIconId(null); // Already handled by removePlacedIconFromCell if ID matches
     }
   };
 

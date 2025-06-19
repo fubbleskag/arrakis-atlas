@@ -19,7 +19,7 @@ interface DetailedCellEditorCanvasProps {
   className?: string;
 }
 
-interface PlacedIconVisualProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'onClick' | 'onContextMenu'> {
+interface PlacedIconVisualProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'onClick'> {
   iconData: PlacedIcon;
   isSelected: boolean;
   canEdit: boolean;
@@ -37,7 +37,7 @@ const PlacedIconVisual: React.FC<PlacedIconVisualProps> = ({
   if (!Config) return null;
   const IconComponent = Config.IconComponent;
 
-  const iconElement = (
+  const iconElementBase = (
     <div
       {...divProps}
       onClick={onClick}
@@ -53,13 +53,26 @@ const PlacedIconVisual: React.FC<PlacedIconVisualProps> = ({
         transform: 'translate(-50%, -50%)',
         ...divProps.style,
       }}
-      title={iconData.note && iconData.note.trim() !== '' ? `${Config.label}: ${iconData.note}` : Config.label} // Native tooltip for hover
     >
       <IconComponent className="w-full h-full text-primary" />
     </div>
   );
 
-  return iconElement; 
+  if (iconData.note && iconData.note.trim() !== '') {
+    return (
+      <TooltipProvider delayDuration={300}>
+        <Tooltip>
+          <TooltipTrigger asChild>{iconElementBase}</TooltipTrigger>
+          <TooltipContent side="top" align="center" className="max-w-xs p-2 whitespace-pre-wrap">
+            <p className="text-sm font-semibold mb-0.5">{Config.label}</p>
+            <p className="text-xs">{iconData.note}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
+
+  return iconElementBase;
 };
 
 
@@ -80,7 +93,7 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
 
   let canEdit = false;
   if (user && currentMapData) {
-    canEdit = currentMapData.ownerId === user.uid || (!currentMapData.ownerId && currentMapData.userId === user.uid);
+    canEdit = currentMapData.ownerId === user.uid;
   }
 
   if (isLoadingMapData || !currentMapData) {
@@ -125,7 +138,7 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
       const placedIconIdToMove = e.dataTransfer.getData("placedIconId");
       if (placedIconIdToMove) {
         updatePlacedIconPositionInCell(rowIndex, colIndex, placedIconIdToMove, x, y);
-        setSelectedPlacedIconId(placedIconIdToMove); 
+        setSelectedPlacedIconId(placedIconIdToMove);
       }
     } else if (action === "add") {
       const iconTypeString = e.dataTransfer.getData("iconType");
@@ -137,7 +150,7 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
   };
 
   const handlePlacedIconDragStart = (e: React.DragEvent<HTMLDivElement>, placedIcon: PlacedIcon) => {
-    if (!canEdit || selectedPlacedIconId === placedIcon.id) { 
+    if (!canEdit || selectedPlacedIconId === placedIcon.id) {
       e.preventDefault();
       return;
     }
@@ -158,16 +171,16 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
       className={cn("relative overflow-hidden", className)}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
-      onClick={handleCanvasClick} 
+      onClick={handleCanvasClick}
     >
       {cellData.backgroundImageUrl && (
         <Image
           src={cellData.backgroundImageUrl}
           alt="Cell background"
           layout="fill"
-          objectFit="contain" 
-          className="pointer-events-none" 
-          priority 
+          objectFit="contain"
+          className="pointer-events-none"
+          priority
           data-ai-hint="map texture"
         />
       )}
@@ -180,7 +193,7 @@ export function DetailedCellEditorCanvas({ rowIndex, colIndex, className }: Deta
           onClick={() => {
             setSelectedPlacedIconId(icon.id);
           }}
-          draggable={canEdit && selectedPlacedIconId !== icon.id} 
+          draggable={canEdit && selectedPlacedIconId !== icon.id}
           onDragStart={canEdit ? (e: React.DragEvent<HTMLDivElement>) => handlePlacedIconDragStart(e, icon) : undefined}
         />
       ))}

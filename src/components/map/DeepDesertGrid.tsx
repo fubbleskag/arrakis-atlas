@@ -25,31 +25,31 @@ import { cn } from '@/lib/utils';
 const GRID_SIZE = 9;
 
 export function DeepDesertGrid() {
-  const { 
-    currentLocalGrid, 
-    isLoadingMapData, 
+  const {
+    currentLocalGrid,
+    isLoadingMapData,
     resetCurrentMapGrid,
     currentMapData,
-    focusedCellCoordinates 
-  } = useMap(); 
+    focusedCellCoordinates
+  } = useMap();
   const { user, isAuthenticated } = useAuth();
   const [hoveredCell, setHoveredCell] = useState<{row: number | null, col: number | null}>({ row: null, col: null });
 
 
   if (isLoadingMapData || !currentLocalGrid) {
-    return <div>Loading map grid...</div>; 
+    return <div>Loading map grid...</div>;
   }
-  
+
   const gridToRender: LocalGridState = currentLocalGrid;
 
   let canResetMap = false;
   if (isAuthenticated && user && currentMapData) {
-    canResetMap = currentMapData.ownerId === user.uid || (!currentMapData.ownerId && currentMapData.userId === user.uid);
+    canResetMap = currentMapData.ownerId === user.uid;
   }
 
-  const sidebarWidth = 300; 
-  const gapWidth = 24; 
-  const gridWidthStyle = focusedCellCoordinates 
+  const sidebarWidth = 300;
+  const gapWidth = 24;
+  const gridWidthStyle = focusedCellCoordinates
     ? `min(calc(100vh - 250px - ${sidebarWidth}px - ${gapWidth}px), calc(100vw - 32px - ${sidebarWidth}px - ${gapWidth}px))`
     : `min(calc(100vh - 250px), calc(100vw - 32px))`;
 
@@ -59,14 +59,14 @@ export function DeepDesertGrid() {
       <div
         className="grid"
         style={{
-          gridTemplateColumns: 'auto 1fr', 
-          gridTemplateRows: 'auto 1fr',    
-          gap: '0.25rem', 
-          width: gridWidthStyle, 
-          maxWidth: '800px', 
+          gridTemplateColumns: 'auto 1fr',
+          gridTemplateRows: 'auto 1fr',
+          gap: '0.25rem',
+          width: gridWidthStyle,
+          maxWidth: '800px',
         }}
       >
-        <div /> 
+        <div />
         <div className="grid grid-cols-9 gap-px justify-items-center">
           {Array.from({ length: GRID_SIZE }).map((_, colIndex) => (
             <div
@@ -98,8 +98,8 @@ export function DeepDesertGrid() {
           role="grid"
           aria-label="Deep Desert Map"
         >
-          {gridToRender.map((row, rIndex) => 
-            row.map((cellData, cIndex) => ( 
+          {gridToRender.map((row, rIndex) =>
+            row.map((cellData, cIndex) => (
               <GridCell
                 key={cellData.id || `${rIndex}-${cIndex}`}
                 rowIndex={rIndex}

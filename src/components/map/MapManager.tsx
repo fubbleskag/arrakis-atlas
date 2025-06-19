@@ -17,13 +17,13 @@ import { useToast } from '@/hooks/use-toast';
 import { Separator } from '../ui/separator';
 
 export function MapManager() {
-  const { 
-    userMapList, 
-    isLoadingMapList, 
-    selectMap, 
-    createMap, 
-    deleteMap, 
-    updateMapName, 
+  const {
+    userMapList,
+    isLoadingMapList,
+    selectMap,
+    createMap,
+    deleteMap,
+    updateMapName,
     currentMapData: selectedMapFromContext,
     togglePublicView,
     regeneratePublicViewId
@@ -43,7 +43,7 @@ export function MapManager() {
       setPublicLinkBase(window.location.origin);
     }
   }, []);
-  
+
   useEffect(() => {
     if (selectedMapForSettings && selectedMapFromContext && selectedMapFromContext.id === selectedMapForSettings.id) {
         const freshMapData = userMapList.find(m => m.id === selectedMapFromContext.id) || selectedMapFromContext;
@@ -71,7 +71,7 @@ export function MapManager() {
 
   const handleUpdateNameSetting = async () => {
     if (!selectedMapForSettings || !settingsMapName.trim() || !user) return;
-    const isOwner = selectedMapForSettings.ownerId === user.uid || (!selectedMapForSettings.ownerId && selectedMapForSettings.userId === user.uid);
+    const isOwner = selectedMapForSettings.ownerId === user.uid;
     if (!isOwner) {
       toast({title: "Permission Denied", description: "You don't have permission to change settings for this map.", variant: "destructive"});
       return;
@@ -100,7 +100,7 @@ export function MapManager() {
       toast({ title: "Error", description: "Could not copy link.", variant: "destructive" });
     });
   };
-  
+
   if (isLoadingMapList) {
     return (
       <div className="flex flex-col items-center justify-center flex-grow p-8">
@@ -162,7 +162,7 @@ export function MapManager() {
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {userMapList.map((map) => {
-            const isMapOwner = user && (map.ownerId === user.uid || (!map.ownerId && map.userId === user.uid));
+            const isMapOwner = user && map.ownerId === user.uid;
             return (
               <Card key={map.id} className="flex flex-col">
                 <CardHeader>
@@ -217,9 +217,9 @@ export function MapManager() {
                                       <div className="space-y-2">
                                         <p className="text-xs text-muted-foreground break-all">
                                           Share this link for view-only access: <br />
-                                          <a 
-                                            href={`${publicLinkBase}/view/map/${selectedMapForSettings.publicViewId}`} 
-                                            target="_blank" 
+                                          <a
+                                            href={`${publicLinkBase}/view/map/${selectedMapForSettings.publicViewId}`}
+                                            target="_blank"
                                             rel="noopener noreferrer"
                                             className="text-primary hover:underline"
                                           >
@@ -228,17 +228,17 @@ export function MapManager() {
                                           </a>
                                         </p>
                                         <div className="flex gap-2">
-                                          <Button 
-                                            variant="outline" 
-                                            size="sm" 
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
                                             onClick={() => copyToClipboard(`${publicLinkBase}/view/map/${selectedMapForSettings.publicViewId}`)}
                                             disabled={isUpdatingSettings}
                                           >
                                             <Copy className="mr-2 h-3 w-3" /> Copy Link
                                           </Button>
-                                          <Button 
-                                            variant="outline" 
-                                            size="sm" 
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
                                             onClick={() => handleRegeneratePublicViewId(map.id)}
                                             disabled={isUpdatingSettings}
                                           >

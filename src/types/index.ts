@@ -7,7 +7,7 @@ export const ICON_TYPES = [
   'testing_station',
   'cave',
   'shipwreck',
-  'stravidium', // Corrected spelling
+  'stravidium',
   'spice',
   'titanium',
 ] as const;
@@ -15,22 +15,22 @@ export const ICON_TYPES = [
 export type IconType = typeof ICON_TYPES[number];
 
 export interface PlacedIcon {
-  id: string; 
+  id: string;
   type: IconType;
-  x: number; 
-  y: number; 
-  note?: string; 
+  x: number;
+  y: number;
+  note?: string;
 }
 
 export interface GridCellData {
-  id: string; 
+  id: string;
   placedIcons: PlacedIcon[];
-  notes: string; 
-  backgroundImageUrl?: string; 
+  notes: string;
+  backgroundImageUrl?: string;
 }
 
-export type LocalGridState = GridCellData[][]; 
-export type FirestoreGridState = Record<string, GridCellData[]>; 
+export type LocalGridState = GridCellData[][];
+export type FirestoreGridState = Record<string, GridCellData[]>;
 
 export interface IconConfig {
   label: string;
@@ -38,17 +38,16 @@ export interface IconConfig {
 }
 
 export interface MapData {
-  id: string; 
-  ownerId: string; // UID of the user who created this map (primary identifier)
-  userId?: string; // Optional: For backward compatibility with maps created before ownerId was introduced
+  id: string;
+  ownerId: string; // UID of the user who created this map
   name: string;
   gridState: FirestoreGridState;
   createdAt: Timestamp;
   updatedAt: Timestamp;
   isPublicViewable: boolean;
   publicViewId: string | null;
-  collaboratorShareId: string | null; 
-  editors: string[]; 
+  collaboratorShareId: string | null;
+  editors: string[];
 }
 
 export interface UserProfile {
