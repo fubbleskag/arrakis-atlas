@@ -6,7 +6,7 @@ import { DeepDesertGrid } from '@/components/map/DeepDesertGrid';
 import { MapManager } from '@/components/map/MapManager';
 import { IconSourcePalette } from '@/components/map/IconSourcePalette';
 import { DetailedCellEditorCanvas } from '@/components/map/DetailedCellEditorCanvas';
-import { MarkerEditorPanel } from '@/components/map/MarkerEditorPanel'; // Import new component
+import { MarkerEditorPanel } from '@/components/map/MarkerEditorPanel'; 
 import { AuthProvider } from '@/contexts/AuthContext';
 import { MapProvider, useMap } from '@/contexts/MapContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -21,7 +21,7 @@ function HomePageContent() {
     isLoadingMapList, 
     isLoadingMapData, 
     focusedCellCoordinates, 
-    selectedPlacedIconId, // Get selected icon ID
+    selectedPlacedIconId, 
     currentLocalGrid 
   } = useMap();
 
@@ -57,11 +57,9 @@ function HomePageContent() {
     return <MapManager />;
   }
 
-  // If a cell is focused, show the detailed editor view (canvas + sidebar)
   if (focusedCellCoordinates && currentMapId) {
     return (
       <div className="flex flex-row w-full flex-grow gap-6 p-4 md:p-6 items-start">
-        {/* Detailed Cell Editor Canvas Area */}
         <div 
           className="flex flex-col items-center justify-start"
           style={{ 
@@ -71,7 +69,7 @@ function HomePageContent() {
         >
            {(isLoadingMapData || !currentLocalGrid) && (
              <div
-               className="w-full aspect-square bg-card rounded-lg shadow-xl flex items-center justify-center border border-border"
+               className="w-full aspect-square bg-card rounded-lg shadow-xl flex items-center justify-center border border-border" 
              >
                 <Skeleton className="w-full h-full"/>
              </div>
@@ -80,18 +78,17 @@ function HomePageContent() {
              <DetailedCellEditorCanvas
                 rowIndex={focusedCellCoordinates.rowIndex}
                 colIndex={focusedCellCoordinates.colIndex}
-                className="w-full aspect-square bg-background rounded-lg shadow-xl border border-border" 
+                // className is now optional for additional styling, core visuals are internal
              />
            )}
         </div>
 
-        {/* Sidebar Area: IconSourcePalette and optionally MarkerEditorPanel */}
         <div className="w-[300px] flex-shrink-0 flex flex-col gap-4">
           <IconSourcePalette
             rowIndex={focusedCellCoordinates.rowIndex}
             colIndex={focusedCellCoordinates.colIndex}
           />
-          {selectedPlacedIconId && currentLocalGrid && ( // Render MarkerEditorPanel if an icon is selected
+          {selectedPlacedIconId && currentLocalGrid && ( 
             <MarkerEditorPanel
               rowIndex={focusedCellCoordinates.rowIndex}
               colIndex={focusedCellCoordinates.colIndex}
@@ -102,7 +99,6 @@ function HomePageContent() {
     );
   }
 
-  // Default view: Deep Desert Grid
   return (
     <div className="flex flex-row w-full flex-grow gap-6 p-4 md:p-6">
       <div className="flex-grow flex flex-col items-center justify-start">
@@ -173,3 +169,5 @@ export default function Home() {
     </AuthProvider>
   );
 }
+
+    

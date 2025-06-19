@@ -12,13 +12,13 @@ import { AlertTriangle, ImageIcon } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import Image from 'next/image';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { GRID_SIZE } from '@/lib/mapUtils';
 
 interface DetailedCellEditorCanvasProps {
   rowIndex: number;
   colIndex: number;
   className?: string;
-  // Override props for use outside MapContext (e.g., public view)
-  isEditorOverride?: boolean; // True if canvas allows editing, false if read-only (public view)
+  isEditorOverride?: boolean;
   mapDataOverride?: MapData;
   cellDataOverride?: GridCellData;
   selectedIconIdOverride?: string | null;
@@ -84,7 +84,7 @@ const PlacedIconVisual: React.FC<PlacedIconVisualProps> = ({
 export function DetailedCellEditorCanvas({ 
   rowIndex, 
   colIndex, 
-  className,
+  className, // For additional parent-provided classes (e.g., margins)
   isEditorOverride,
   mapDataOverride,
   cellDataOverride,
@@ -93,9 +93,6 @@ export function DetailedCellEditorCanvas({
 }: DetailedCellEditorCanvasProps) {
   const canvasRef = useRef<HTMLDivElement>(null);
 
-  // Determine if we are in context mode or override mode.
-  // Context mode is when isEditorOverride is undefined (implies normal editor usage) or true.
-  // Override mode is when isEditorOverride is explicitly false (public read-only view).
   const isContextMode = typeof isEditorOverride === 'undefined' || isEditorOverride === true;
 
   const context = isContextMode ? useMap() : null;
@@ -110,25 +107,45 @@ export function DetailedCellEditorCanvas({
 
   const selectedPlacedIconId = isContextMode ? context?.selectedPlacedIconId : selectedIconIdOverride;
   
-  // Use override setter if in override mode, otherwise use context setter
   const effectiveSetSelectedPlacedIconId = !isContextMode ? onIconSelectOverride : context?.setSelectedPlacedIconId;
   
-  // Editing functions are only available from context
   const addPlacedIconToCell = context?.addPlacedIconToCell; 
   const updatePlacedIconPositionInCell = context?.updatePlacedIconPositionInCell;
 
   let canEditCanvas = false;
-  if (isContextMode) { // Context mode (normal editor)
+  if (isContextMode) {
     if (user && mapData && context) {
       canEditCanvas = mapData.ownerId === user.uid;
     }
-  } else { // Override mode (public view)
-    canEditCanvas = isEditorOverride ?? false; // isEditorOverride should be false for public view
+  } else { 
+    canEditCanvas = isEditorOverride ?? false;
   }
+
+  const isRowA = rowIndex === GRID_SIZE - 1;
+  const isA3 = isRowA && colIndex === 2;
+  const isA4 = isRowA && colIndex === 3;
+  const isA6 = isRowA && colIndex === 5;
+  const isA7 = isRowA && colIndex === 6;
+
+  const dynamicBorderClasses: string[] = ['border']; 
+
+  if (isRowA) {
+    dynamicBorderClasses.push('border-emerald-600/75'); 
+    if (isA3) dynamicBorderClasses.push('!border-r-destructive'); 
+    else if (isA4) dynamicBorderClasses.push('!border-l-destructive'); 
+    else if (isA6) dynamicBorderClasses.push('!border-r-destructive');
+    else if (isA7) dynamicBorderClasses.push('!border-l-destructive');
+  } else {
+    dynamicBorderClasses.push('border-border'); 
+  }
+
 
   if (isLoading || !mapData) {
     return (
-      <div className={cn("relative w-full aspect-square bg-card rounded-lg shadow-xl flex items-center justify-center border border-border", className)}>
+      <div className={cn(
+        "relative w-full aspect-square bg-card rounded-lg shadow-xl flex items-center justify-center border border-border", // Standard loading state appearance
+        className
+      )}>
         <Skeleton className="w-full h-full" />
       </div>
     );
@@ -136,7 +153,10 @@ export function DetailedCellEditorCanvas({
 
   if (!cellData) {
     return (
-      <div className={cn("relative w-full aspect-square bg-destructive/10 rounded-lg shadow-xl flex flex-col items-center justify-center p-4 text-center border border-border", className)}>
+      <div className={cn(
+        "relative w-full aspect-square bg-destructive/10 rounded-lg shadow-xl flex flex-col items-center justify-center p-4 text-center border border-destructive", // Standard error state appearance
+        className
+      )}>
         <AlertTriangle className="h-10 w-10 text-destructive mb-2" />
         <p className="text-sm text-destructive-foreground">Cell data not available.</p>
       </div>
@@ -154,7 +174,6 @@ export function DetailedCellEditorCanvas({
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    // Drop only works if canvas is editable and functions are available (implies context mode for mutations)
     if (!canEditCanvas || !canvasRef.current || (!addPlacedIconToCell && !updatePlacedIconPositionInCell)) return; 
 
     const action = e.dataTransfer.getData("action");
@@ -183,7 +202,6 @@ export function DetailedCellEditorCanvas({
   };
 
   const handlePlacedIconDragStart = (e: React.DragEvent<HTMLDivElement>, placedIcon: PlacedIcon) => {
-    // Dragging existing icons is only allowed if canvas is editable AND in context mode
     if (!canEditCanvas || !isContextMode || selectedPlacedIconId === placedIcon.id) {
       e.preventDefault();
       return;
@@ -202,7 +220,11 @@ export function DetailedCellEditorCanvas({
   return (
     <div
       ref={canvasRef}
-      className={cn("relative overflow-hidden", className)}
+      className={cn(
+        "relative overflow-hidden w-full aspect-square bg-background rounded-lg shadow-xl", 
+        dynamicBorderClasses, 
+        className 
+      )}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
       onClick={handleCanvasClick}
@@ -241,3 +263,5 @@ export function DetailedCellEditorCanvas({
     </div>
   );
 }
+
+    

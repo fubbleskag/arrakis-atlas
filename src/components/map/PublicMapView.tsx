@@ -14,8 +14,8 @@ import { AlertTriangle } from 'lucide-react';
 import { GRID_SIZE } from '@/lib/mapUtils';
 
 interface PublicMapViewProps {
-  mapData: MapData | null; // Allow null if map not found
-  localGrid: LocalGridState | null; // Allow null
+  mapData: MapData | null; 
+  localGrid: LocalGridState | null; 
   publicViewId: string;
 }
 
@@ -38,7 +38,6 @@ export function PublicMapView({ mapData: initialMapData, localGrid: initialLocal
   const [focusedCellCoords, setFocusedCellCoords] = useState<FocusedCellCoordinates | null>(null);
   const [selectedIconId, setSelectedIconId] = useState<string | null>(null);
 
-  // This effect is to handle potential hydration mismatches if initial props were different
   useEffect(() => {
     setMapData(initialMapData);
     setLocalGrid(initialLocalGrid);
@@ -46,8 +45,6 @@ export function PublicMapView({ mapData: initialMapData, localGrid: initialLocal
 
 
   if (!mapData || !localGrid) {
-    // This case should ideally be handled by the parent page.tsx with a "Not Found" message
-    // But as a fallback:
     return (
       <div className="flex flex-col min-h-screen bg-background">
         <PublicHeader mapName="Not Found" />
@@ -65,7 +62,7 @@ export function PublicMapView({ mapData: initialMapData, localGrid: initialLocal
   
   const handleCellFocus = (rowIndex: number, colIndex: number) => {
     setFocusedCellCoords({ rowIndex, colIndex });
-    setSelectedIconId(null); // Clear icon selection when focusing a new cell
+    setSelectedIconId(null); 
   };
 
   const handleIconSelect = (iconId: string | null) => {
@@ -99,20 +96,18 @@ export function PublicMapView({ mapData: initialMapData, localGrid: initialLocal
               <DetailedCellEditorCanvas
                 rowIndex={focusedCellCoords.rowIndex}
                 colIndex={focusedCellCoords.colIndex}
-                className="w-full aspect-square bg-background rounded-lg shadow-xl border border-border"
-                // Override props for public/read-only mode:
                 isEditorOverride={false} 
                 mapDataOverride={mapData}
                 cellDataOverride={currentFocusedCellData}
                 selectedIconIdOverride={selectedIconId}
                 onIconSelectOverride={handleIconSelect}
+                // className is now optional, core visuals are internal
               />
             </div>
             <div className="w-[300px] flex-shrink-0 flex flex-col gap-4">
               <IconSourcePalette
                 rowIndex={focusedCellCoords.rowIndex}
                 colIndex={focusedCellCoords.colIndex}
-                // Override props for public/read-only mode:
                 isReadOnlyOverride={true}
                 mapDataOverride={mapData}
                 cellDataOverride={currentFocusedCellData}
@@ -122,7 +117,6 @@ export function PublicMapView({ mapData: initialMapData, localGrid: initialLocal
                 <MarkerEditorPanel
                   rowIndex={focusedCellCoords.rowIndex}
                   colIndex={focusedCellCoords.colIndex}
-                  // Override props for public/read-only mode:
                   isReadOnlyOverride={true}
                   mapDataOverride={mapData}
                   cellDataOverride={currentFocusedCellData} 
@@ -150,7 +144,7 @@ export function PublicMapView({ mapData: initialMapData, localGrid: initialLocal
             initialGridState={localGrid}
             initialMapData={mapData}
             isReadOnly={true}
-            onCellClick={handleCellFocus} // Pass the handler
+            onCellClick={handleCellFocus} 
           />
         </div>
       </main>
