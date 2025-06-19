@@ -15,7 +15,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyBS8JR7Hn6jRqVg5mitgoiMBHpvsfnQz6w",
   authDomain: "arrakis-atlas.firebaseapp.com",
   projectId: "arrakis-atlas",
-  storageBucket: "arrakis-atlas.appspot.com", // Ensure this is correct for Storage (often projectId.appspot.com)
+  storageBucket: "arrakis-atlas.firebasestorage.app", // Ensure this is correct for Storage
   messagingSenderId: "713153409549",
   appId: "1:713153409549:web:1e3e92668de0a3a29cdb44"
 };
@@ -28,3 +28,4 @@ const storage = getStorage(app); // Initialize Firebase Storage
 const googleProvider = new GoogleAuthProvider();
 
 export { app, auth, db, storage, googleProvider }; // Export storage
+
