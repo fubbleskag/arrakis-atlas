@@ -4,72 +4,106 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check if the user is authenticated
+    // --- Helper Functions ---
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // Helper function to check if the request.auth.uid matches the document's userId
-    function isOwner(docData) {
-      return isAuthenticated() && request.auth.uid == docData.userId;
+    // Checks if the authenticated user's UID matches the provided userId
+    function isUser(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // Helper function to validate the basic structure of a user profile
-    // Note: uid is the document ID, not a field in the document itself.
+    // Checks if the authenticated user is the owner of the given map data
+    function isMapOwner(mapData) {
+      return isAuthenticated() && request.auth.uid == mapData.ownerId;
+    }
+
+    // Validates user profile data for create/update
     function isValidUserProfileData(data) {
+      // UID is the document ID, not a field in the document itself.
       return data.keys().hasAll(['email', 'displayName', 'lastLogin'])
-             && data.email is string || data.email == null
-             && data.displayName is string || data.displayName == null
+             && (data.email is string || data.email == null) // email can be null if not provided by auth provider
+             && (data.displayName is string || data.displayName == null) // displayName can be null
              && data.lastLogin is timestamp;
     }
 
-    // Helper function to validate the basic structure of a map document
-    function isValidMapData(data) {
-      return data.keys().hasAll(['userId', 'name', 'gridState', 'createdAt', 'updatedAt'])
-             && data.userId is string
-             && data.userId == request.auth.uid // On create, userId must be the creator
-             && data.name is string
-             && data.gridState is map
-             && data.createdAt is timestamp
-             && data.updatedAt is timestamp;
+    // Validates map data structure for creation
+    function isValidNewMap(data) {
+      return data.keys().hasAll([
+               'ownerId', 'name', 'gridState', 'createdAt', 'updatedAt',
+               'isPublicViewable', 'publicViewId', 'collaboratorShareId', 'editors'
+             ])
+             && data.ownerId == request.auth.uid // Creator must be the owner
+             && data.name is string && data.name.size() > 0 && data.name.size() < 100 // Basic name validation
+             && data.gridState is map // gridState should be a map object
+             && data.createdAt == request.time // Enforce server timestamp on create
+             && data.updatedAt == request.time // Enforce server timestamp on create
+             && data.isPublicViewable is bool
+             && (data.publicViewId == null || data.publicViewId is string)
+             && (data.collaboratorShareId == null || data.collaboratorShareId is string)
+             && data.editors is list && data.editors.size() == 0; // Editors list must be empty on creation
     }
-     function isValidMapDataForUpdate(newData, oldData) {
-      return newData.keys().hasAll(['userId', 'name', 'gridState', 'createdAt', 'updatedAt'])
-             && newData.userId is string
-             && newData.userId == oldData.userId // userId cannot change
-             && newData.name is string
+
+    // Validates map data structure for updates, comparing new data with old data
+    function isValidUpdatedMap(newData, oldData) {
+      return newData.ownerId == oldData.ownerId // Owner cannot change
+             && newData.createdAt == oldData.createdAt // Creation timestamp cannot change
+             && newData.updatedAt == request.time // Updated timestamp must be server time on update
+             && newData.name is string && newData.name.size() > 0 && newData.name.size() < 100
              && newData.gridState is map
-             && newData.createdAt is timestamp
-             && newData.createdAt == oldData.createdAt // createdAt cannot change
-             && newData.updatedAt is timestamp;
+             && newData.isPublicViewable is bool
+             && (newData.publicViewId == null || newData.publicViewId is string)
+             && (newData.collaboratorShareId == null || newData.collaboratorShareId is string)
+             && newData.editors is list; // Further validation for editor list contents can be added
+             // Optional: Check that only specific fields are being modified
+             // && newData.diff(oldData).affectedKeys().hasOnly([
+             //   'name', 'gridState', 'updatedAt', 'isPublicViewable', 'publicViewId', 'collaboratorShareId', 'editors'
+             // ]);
     }
 
+    // --- User Profiles ---
+    // Document ID is the user's UID
+    match /users/{userDocId} {
+      allow read: if isUser(userDocId);
 
-    // Rules for user profiles
-    match /users/{userId} {
-      allow read: if isAuthenticated() && request.auth.uid == userId;
-      allow create: if isAuthenticated() && request.auth.uid == userId
-                      && isValidUserProfileData(request.resource.data);
-      allow update: if isAuthenticated() && request.auth.uid == userId
+      allow create: if isUser(userDocId) // User can only create their own profile
                       && isValidUserProfileData(request.resource.data)
-                      && request.resource.data.lastLogin == request.time; // Ensure lastLogin is updated to server time
-      allow delete: if false; // Generally, users don't delete their own profiles directly
+                      && request.resource.data.lastLogin == request.time; // lastLogin must be server time on create
+
+      allow update: if isUser(userDocId) // User can only update their own profile
+                      && isValidUserProfileData(request.resource.data)
+                      && request.resource.data.lastLogin == request.time; // lastLogin should be server time on update
+                      // Add more specific field update rules if necessary, e.g., email cannot be changed.
+
+      allow delete: if false; // Generally, users don't delete their own profiles.
     }
 
-    // Rules for maps
+    // --- Maps ---
+    // Document ID is the mapId
     match /maps/{mapId} {
-      allow read: if isAuthenticated() && isOwner(resource.data);
+      // Allow read if the user is the owner.
+      // Future: Extend to include editors or public view logic.
+      allow read: if isAuthenticated() && (
+                       resource.data.ownerId == request.auth.uid
+                       // || request.auth.uid in resource.data.editors // For editor read access
+                       // || resource.data.isPublicViewable // For authenticated public view access
+                     );
+                     // Unauthenticated public read would require a separate rule or path,
+                     // or more complex conditions if this path is used.
 
       allow create: if isAuthenticated()
-                      && isValidMapData(request.resource.data)
-                      && request.resource.data.createdAt == request.time
-                      && request.resource.data.updatedAt == request.time;
+                      && isValidNewMap(request.resource.data);
 
-      allow update: if isAuthenticated() && isOwner(resource.data)
-                      && isValidMapDataForUpdate(request.resource.data, resource.data)
-                      && request.resource.data.updatedAt == request.time; // Ensure updatedAt is server time
+      // Allow update if the user is the owner.
+      // Future: Extend to allow editors to update specific fields.
+      allow update: if isAuthenticated()
+                      && isMapOwner(resource.data) // Check against existing document's owner
+                      && isValidUpdatedMap(request.resource.data, resource.data);
 
-      allow delete: if isAuthenticated() && isOwner(resource.data);
+      // Allow delete if the user is the owner.
+      allow delete: if isAuthenticated()
+                      && isMapOwner(resource.data);
     }
   }
 }
