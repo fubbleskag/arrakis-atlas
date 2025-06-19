@@ -7,7 +7,7 @@ export const ICON_TYPES = [
   'testing_station',
   'cave',
   'shipwreck',
-  'stravidium',
+  'stravidium', // Corrected spelling
   'spice',
   'titanium',
 ] as const;
@@ -23,14 +23,14 @@ export interface PlacedIcon {
 }
 
 export interface GridCellData {
-  id: string;
+  id:string;
   placedIcons: PlacedIcon[];
   notes: string;
   backgroundImageUrl?: string;
 }
 
 export type LocalGridState = GridCellData[][];
-export type FirestoreGridState = Record<string, GridCellData[]>;
+export type FirestoreGridState = Record<string, GridCellData[]>; // Keys are row indices as strings
 
 export interface IconConfig {
   label: string;
@@ -39,11 +39,11 @@ export interface IconConfig {
 
 export interface MapData {
   id: string;
-  ownerId: string; // UID of the user who created this map
+  ownerId: string;
   name: string;
   gridState: FirestoreGridState;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
+  createdAt: Timestamp | string; // Can be Timestamp or serialized string
+  updatedAt: Timestamp | string; // Can be Timestamp or serialized string
   isPublicViewable: boolean;
   publicViewId: string | null;
   collaboratorShareId: string | null;
@@ -54,7 +54,7 @@ export interface UserProfile {
   uid: string;
   email: string | null;
   displayName: string | null;
-  lastLogin?: Timestamp;
+  lastLogin?: Timestamp; // Keep as Timestamp as it's directly from Firestore
 }
 
 export interface FocusedCellCoordinates {

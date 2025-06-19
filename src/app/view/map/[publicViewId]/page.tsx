@@ -1,12 +1,12 @@
 
 import { db } from '@/firebase/firebaseConfig';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore'; // Import Timestamp
 import { convertFirestoreToLocalGrid } from '@/lib/mapUtils';
 import type { MapData } from '@/types';
 import { AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { PublicMapView } from '@/components/map/PublicMapView'; // Import the new client component
+import { PublicMapView } from '@/components/map/PublicMapView';
 
 interface PublicMapPageProps {
   params: { publicViewId: string };
@@ -27,7 +27,8 @@ async function getMapByPublicViewId(publicViewId: string): Promise<MapData | nul
       return null;
     }
     const mapDoc = querySnapshot.docs[0];
-    return { id: mapDoc.id, ...mapDoc.data() } as MapData;
+    // Firestore data will have Timestamps for createdAt and updatedAt
+    return { id: mapDoc.id, ...mapDoc.data() } as MapData; 
   } catch (error) {
     console.error("Error fetching map by publicViewId:", error);
     return null; 
@@ -52,9 +53,9 @@ export default async function PublicMapPage({ params }: PublicMapPageProps) {
     );
   }
 
-  const mapData = await getMapByPublicViewId(publicViewId);
+  const mapDataResult = await getMapByPublicViewId(publicViewId);
 
-  if (!mapData) {
+  if (!mapDataResult) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen text-center p-8 space-y-4">
         <AlertTriangle className="h-16 w-16 text-destructive" />
@@ -69,14 +70,25 @@ export default async function PublicMapPage({ params }: PublicMapPageProps) {
     );
   }
 
-  const localGrid = convertFirestoreToLocalGrid(mapData.gridState);
+  // Serialize Timestamps to strings before passing to Client Component
+  const serializableMapData: MapData = {
+    ...mapDataResult,
+    createdAt: mapDataResult.createdAt instanceof Timestamp 
+      ? mapDataResult.createdAt.toDate().toISOString() 
+      : mapDataResult.createdAt, // Already a string if somehow pre-serialized
+    updatedAt: mapDataResult.updatedAt instanceof Timestamp 
+      ? mapDataResult.updatedAt.toDate().toISOString() 
+      : mapDataResult.updatedAt, // Already a string
+  };
 
-  // Pass fetched data to the client component
-  return <PublicMapView mapData={mapData} localGrid={localGrid} publicViewId={publicViewId} />;
+  const localGrid = convertFirestoreToLocalGrid(mapDataResult.gridState); // Use original mapDataResult for grid conversion
+
+  // Pass serializableMapData (with string dates) to the client component
+  return <PublicMapView mapData={serializableMapData} localGrid={localGrid} publicViewId={publicViewId} />;
 }
 
 export async function generateMetadata({ params }: PublicMapPageProps) {
-  const mapData = await getMapByPublicViewId(params.publicViewId);
+  const mapData = await getMapByPublicViewId(params.publicViewId); // Fetches with Timestamp
   if (!mapData) {
     return {
       title: 'Map Not Found - Arrakis Atlas',
@@ -87,5 +99,3 @@ export async function generateMetadata({ params }: PublicMapPageProps) {
     description: `View the Arrakis Atlas map: ${mapData.name}.`,
   };
 }
-
-    

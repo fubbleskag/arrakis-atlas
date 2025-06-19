@@ -10,11 +10,12 @@ import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { PlusCircle, Loader2, MapPin, Settings2, Trash2, Copy, ExternalLink } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, parseISO } from 'date-fns'; // Added parseISO
 import { useAuth } from '@/contexts/AuthContext';
 import type { MapData } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '../ui/separator';
+import { Timestamp } from 'firebase/firestore'; // Import Timestamp
 
 export function MapManager() {
   const {
@@ -24,7 +25,7 @@ export function MapManager() {
     createMap,
     deleteMap,
     updateMapName,
-    currentMapData: selectedMapFromContext, // This is the globally selected map from context
+    currentMapData: selectedMapFromContext,
     togglePublicView,
     regeneratePublicViewId
   } = useMap();
@@ -33,7 +34,6 @@ export function MapManager() {
   const [newMapName, setNewMapName] = useState('');
   const [isCreatingMap, setIsCreatingMap] = useState(false);
 
-  // Local state for the map whose settings are currently being edited in the dialog
   const [selectedMapForSettings, setSelectedMapForSettings] = useState<MapData | null>(null);
   const [settingsMapName, setSettingsMapName] = useState('');
   const [isUpdatingSettings, setIsUpdatingSettings] = useState(false);
@@ -51,13 +51,17 @@ export function MapManager() {
       const freshMapDataFromList = userMapList.find(m => m.id === mapInDialogId);
 
       if (freshMapDataFromList) {
+        // Deep comparison or specific field check might be better if objects are complex
+        // For now, a simple stringify should work for detecting relevant changes like publicViewId or isPublicViewable
         if (JSON.stringify(selectedMapForSettings) !== JSON.stringify(freshMapDataFromList)) {
           setSelectedMapForSettings(freshMapDataFromList);
+           // Only update settingsMapName if it's different AND the input isn't focused
           if (settingsMapName !== freshMapDataFromList.name && document.activeElement?.id !== 'settingsMapName') {
              setSettingsMapName(freshMapDataFromList.name);
           }
         }
       } else {
+        // If the map is no longer in the list (e.g., deleted elsewhere), close the dialog
         setSelectedMapForSettings(null);
       }
     }
@@ -90,7 +94,7 @@ export function MapManager() {
     setIsUpdatingSettings(true);
     try {
       await updateMapName(selectedMapForSettings.id, settingsMapName.trim());
-      // No need to manually update selectedMapForSettings here; useEffect handles it.
+      // selectedMapForSettings will be updated by the useEffect listening to userMapList
     } catch (error) {
       // Error is handled by updateMapName or context
     } finally {
@@ -118,6 +122,12 @@ export function MapManager() {
     }).catch(err => {
       toast({ title: "Error", description: "Could not copy link.", variant: "destructive" });
     });
+  };
+
+  const getFormattedDate = (dateValue: Timestamp | string | undefined) => {
+    if (!dateValue) return 'N/A';
+    const date = dateValue instanceof Timestamp ? dateValue.toDate() : parseISO(dateValue as string);
+    return formatDistanceToNow(date, { addSuffix: true });
   };
 
   if (isLoadingMapList) {
@@ -189,7 +199,7 @@ export function MapManager() {
                     <CardTitle className="text-xl group-hover:text-primary transition-colors mb-1">{map.name}</CardTitle>
                   </div>
                   <CardDescription>
-                    Last updated {map.updatedAt ? formatDistanceToNow(map.updatedAt.toDate(), { addSuffix: true }) : 'N/A'}
+                    Last updated {getFormattedDate(map.updatedAt)}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="flex-grow">
