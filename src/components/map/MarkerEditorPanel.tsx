@@ -10,11 +10,12 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Trash2, X as XIcon, GripVertical, Info } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card'; // Removed CardFooter
+import { Trash2, X as XIcon, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface MarkerEditorPanelProps {
   rowIndex: number;
@@ -55,8 +56,6 @@ export function MarkerEditorPanel({ rowIndex, colIndex, className }: MarkerEdito
     if (selectedIcon) {
       resetLocalState();
     } else if (selectedPlacedIconId) {
-      // If an ID is selected but icon not found (e.g., deleted from another source, or context issue)
-      // Deselect to prevent broken state.
       setSelectedPlacedIconId(null);
     }
   }, [selectedIcon, selectedPlacedIconId, setSelectedPlacedIconId, resetLocalState]);
@@ -69,16 +68,18 @@ export function MarkerEditorPanel({ rowIndex, colIndex, className }: MarkerEdito
   if (isLoadingMapData && selectedPlacedIconId) {
      return (
       <Card className={cn("w-full shadow-lg border-border bg-card", className)}>
-        <CardHeader>
-          <Skeleton className="h-6 w-3/4" />
-          <Skeleton className="h-7 w-7 rounded-sm self-end -mt-7" />
-        </CardHeader>
-        <CardContent className="space-y-3">
+        <CardHeader className="p-3 md:p-4 flex flex-row justify-between items-center">
           <div className="flex items-center gap-2">
-            <Skeleton className="h-8 w-8 rounded-md" />
+            <Skeleton className="h-6 w-6 rounded-sm" />
             <Skeleton className="h-5 w-20" />
           </div>
-          <Skeleton className="h-5 w-1/4" />
+          <div className="flex items-center gap-1">
+            <Skeleton className="h-7 w-7 rounded-sm" />
+            <Skeleton className="h-7 w-7 rounded-sm" />
+          </div>
+        </CardHeader>
+        <CardContent className="p-3 md:p-4 space-y-3">
+          <Skeleton className="h-5 w-1/4 mb-1" />
           <Skeleton className="h-16 w-full" />
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -91,9 +92,6 @@ export function MarkerEditorPanel({ rowIndex, colIndex, className }: MarkerEdito
             </div>
           </div>
         </CardContent>
-        <CardFooter>
-          <Skeleton className="h-9 w-20" />
-        </CardFooter>
       </Card>
     );
   }
@@ -145,7 +143,7 @@ export function MarkerEditorPanel({ rowIndex, colIndex, className }: MarkerEdito
     
     if (isNaN(valueToSave)) {
         toast({ title: "Invalid Input", description: `Coordinate must be a number. Reverting.`, variant: "destructive" });
-        resetLocalState(); // Revert to original values
+        resetLocalState();
         return;
     }
 
@@ -157,7 +155,6 @@ export function MarkerEditorPanel({ rowIndex, colIndex, className }: MarkerEdito
         updatePlacedIconPositionInCell(rowIndex, colIndex, selectedIcon.id, newX, newY);
         toast({ title: "Position Updated", description: `${coordType.toUpperCase()} coordinate for ${IconConfig?.label || 'marker'} saved.` });
     }
-    // Always update local state to reflect clamped value or if it was just parsed
     if (coordType === 'x') setLocalX(clampedValue.toFixed(2));
     if (coordType === 'y') setLocalY(clampedValue.toFixed(2));
   };
@@ -167,7 +164,6 @@ export function MarkerEditorPanel({ rowIndex, colIndex, className }: MarkerEdito
     if (canEdit) {
       removePlacedIconFromCell(rowIndex, colIndex, selectedIcon.id);
       toast({ title: "Marker Deleted", description: `${IconConfig?.label || 'Marker'} removed.` });
-      // setSelectedPlacedIconId(null) is called by removePlacedIconFromCell if it's the selected one
     }
   };
 
@@ -175,22 +171,32 @@ export function MarkerEditorPanel({ rowIndex, colIndex, className }: MarkerEdito
 
   return (
     <Card className={cn("w-full shadow-lg border-border bg-card", className)}>
-      <CardHeader className="p-3 md:p-4">
-        <div className="flex justify-between items-center">
-          <CardTitle className="text-base font-semibold leading-none text-foreground">
-            Edit Marker
-          </CardTitle>
+      <CardHeader className="p-3 md:p-4 flex flex-row justify-between items-center">
+        <div className="flex items-center gap-2">
+          {IconComponent && <IconComponent className="w-5 h-5 text-primary" />}
+          <span className="text-sm font-semibold text-foreground">{IconConfig?.label || 'Marker'}</span>
+        </div>
+        <div className="flex items-center gap-1">
+          {canEdit && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" onClick={handleDelete} aria-label="Delete marker" className="h-7 w-7 text-muted-foreground hover:text-destructive">
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <p>Delete Marker</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
           <Button variant="ghost" size="icon" onClick={handleClose} aria-label="Close marker editor" className="h-7 w-7 text-muted-foreground hover:text-foreground">
             <XIcon className="h-4 w-4" />
           </Button>
         </div>
       </CardHeader>
       <CardContent className="p-3 md:p-4 space-y-3">
-        <div className="flex items-center gap-2">
-          {IconComponent && <IconComponent className="w-7 h-7 text-primary" />}
-          <span className="text-sm font-medium text-foreground">{IconConfig?.label || 'Marker'}</span>
-        </div>
-        
         <div>
           <Label htmlFor={`marker-note-${selectedIcon.id}`} className="text-xs font-medium text-foreground mb-1 block">Note</Label>
           <Textarea
@@ -242,19 +248,12 @@ export function MarkerEditorPanel({ rowIndex, colIndex, className }: MarkerEdito
           </div>
         </div>
         {!canEdit && (
-             <CardDescription className="text-xs flex items-center gap-1">
+             <CardDescription className="text-xs flex items-center gap-1 text-muted-foreground pt-1">
                 <Info className="h-3 w-3" /> You do not have permission to edit this marker.
             </CardDescription>
         )}
       </CardContent>
-      {canEdit && (
-        <CardFooter className="p-3 md:p-4">
-          <Button variant="destructive" size="sm" onClick={handleDelete} className="w-full">
-            <Trash2 className="mr-2 h-4 w-4" />
-            Delete Marker
-          </Button>
-        </CardFooter>
-      )}
     </Card>
   );
 }
+
