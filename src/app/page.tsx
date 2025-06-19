@@ -6,6 +6,7 @@ import { DeepDesertGrid } from '@/components/map/DeepDesertGrid';
 import { MapManager } from '@/components/map/MapManager';
 import { IconSourcePalette } from '@/components/map/IconSourcePalette';
 import { DetailedCellEditorCanvas } from '@/components/map/DetailedCellEditorCanvas';
+import { MarkerEditorPanel } from '@/components/map/MarkerEditorPanel'; // Import new component
 import { AuthProvider } from '@/contexts/AuthContext';
 import { MapProvider, useMap } from '@/contexts/MapContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -14,16 +15,21 @@ import { AlertTriangle } from 'lucide-react';
 
 function HomePageContent() {
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
-  const { userMapList, currentMapId, isLoadingMapList, isLoadingMapData, focusedCellCoordinates, currentLocalGrid } = useMap();
+  const { 
+    userMapList, 
+    currentMapId, 
+    isLoadingMapList, 
+    isLoadingMapData, 
+    focusedCellCoordinates, 
+    selectedPlacedIconId, // Get selected icon ID
+    currentLocalGrid 
+  } = useMap();
 
   const userMapListIsEmpty = !userMapList || userMapList.length === 0;
   const overallLoading = isAuthLoading || (userMapListIsEmpty && isLoadingMapList);
 
-  // This width is used by DeepDesertGrid for its main container (grid + labels)
-  // We'll use it for the DetailedCellEditorCanvas's container as well.
   const baseGridDisplayWidth = `min(calc(100vh - 250px), calc(100vw - 32px))`; 
   const maxGridDisplayWidth = '800px';
-
 
   if (overallLoading) {
     return (
@@ -52,19 +58,19 @@ function HomePageContent() {
   }
 
   // If a cell is focused, show the detailed editor view (canvas + sidebar)
-  if (focusedCellCoordinates && currentMapId) { // No need to check currentLocalGrid here, canvas/palette handle their own loading/empty states
+  if (focusedCellCoordinates && currentMapId) {
     return (
       <div className="flex flex-row w-full flex-grow gap-6 p-4 md:p-6 items-start">
         {/* Detailed Cell Editor Canvas Area */}
         <div 
-          className="flex flex-col items-center justify-start" // Removed flex-grow to use explicit width
+          className="flex flex-col items-center justify-start"
           style={{ 
-            width: baseGridDisplayWidth, // Explicitly set the width to match DeepDesertGrid's container
-            maxWidth: maxGridDisplayWidth, // Match DeepDesertGrid's maxWidth
+            width: baseGridDisplayWidth,
+            maxWidth: maxGridDisplayWidth,
            }} 
         >
-           {(isLoadingMapData || !currentLocalGrid) && ( // Show skeleton if map data or grid is loading
-             <div // This div will use baseGridDisplayWidth and become square due to aspect-square skeleton
+           {(isLoadingMapData || !currentLocalGrid) && (
+             <div
                className="w-full aspect-square bg-card rounded-lg shadow-xl flex items-center justify-center border border-border"
              >
                 <Skeleton className="w-full h-full"/>
@@ -74,18 +80,23 @@ function HomePageContent() {
              <DetailedCellEditorCanvas
                 rowIndex={focusedCellCoordinates.rowIndex}
                 colIndex={focusedCellCoordinates.colIndex}
-                // w-full makes it take the width from parent, aspect-square makes it square
                 className="w-full aspect-square bg-background rounded-lg shadow-xl border border-border" 
              />
            )}
         </div>
 
-        {/* Icon Source Palette (sidebar) */}
-        <div className="w-[300px] flex-shrink-0">
+        {/* Sidebar Area: IconSourcePalette and optionally MarkerEditorPanel */}
+        <div className="w-[300px] flex-shrink-0 flex flex-col gap-4">
           <IconSourcePalette
             rowIndex={focusedCellCoordinates.rowIndex}
             colIndex={focusedCellCoordinates.colIndex}
           />
+          {selectedPlacedIconId && currentLocalGrid && ( // Render MarkerEditorPanel if an icon is selected
+            <MarkerEditorPanel
+              rowIndex={focusedCellCoordinates.rowIndex}
+              colIndex={focusedCellCoordinates.colIndex}
+            />
+          )}
         </div>
       </div>
     );
@@ -94,20 +105,18 @@ function HomePageContent() {
   // Default view: Deep Desert Grid
   return (
     <div className="flex flex-row w-full flex-grow gap-6 p-4 md:p-6">
-      {/* This outer div for DeepDesertGrid now also needs to allow for shrinking if sidebar is present */}
-      {/* However, the sidebar is only shown when focusedCellCoordinates is true, handled above */}
       <div className="flex-grow flex flex-col items-center justify-start">
         {(isLoadingMapData && currentMapId) && (
           <div className="flex flex-col items-center space-y-4 w-full p-4">
             <Skeleton className="h-10 w-full max-w-lg mb-4" />
-            <div // This is the container for the grid skeleton's labels and cells
+            <div
               className="grid"
               style={{
                 gridTemplateColumns: 'auto 1fr',
                 gridTemplateRows: 'auto 1fr',
                 gap: '0.25rem',
-                width: baseGridDisplayWidth, // Use the same width var
-                maxWidth: maxGridDisplayWidth, // Use the same maxWidth var
+                width: baseGridDisplayWidth,
+                maxWidth: maxGridDisplayWidth,
               }}
             >
               <div />
@@ -127,7 +136,7 @@ function HomePageContent() {
                 ))}
               </div>
             </div>
-            <Skeleton className="h-10 w-40 mt-4" /> {/* Adjusted width for "Coriolis Storm" button */}
+            <Skeleton className="h-10 w-40 mt-4" />
           </div>
         )}
         {(!isLoadingMapData && currentMapId && currentLocalGrid) && (
