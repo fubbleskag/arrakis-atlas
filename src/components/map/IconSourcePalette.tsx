@@ -178,13 +178,13 @@ export function IconSourcePalette({ rowIndex, colIndex, className }: IconSourceP
                 size="sm" 
                 onClick={() => {
                     clearAllPlacedIconsInCell(rowIndex, colIndex);
-                    setTimeout(() => toast({ title: "Canvas Cleared", description: "All icons removed from this cell's canvas."}), 0);
+                    setTimeout(() => toast({ title: "Cell Cleared", description: "All icons removed from this cell."}), 0);
                 }}
                 className="text-xs text-muted-foreground hover:text-destructive"
                 disabled={!canEdit || cellData.placedIcons.length === 0}
               >
                 <Trash2 className="mr-1 h-3 w-3" />
-                Clear Canvas
+                Clear Cell
               </Button>
             )}
         </div>
@@ -218,7 +218,7 @@ export function IconSourcePalette({ rowIndex, colIndex, className }: IconSourceP
         
         <h5 className="text-sm font-medium text-foreground mb-1">Cell Background</h5>
         {canEdit && (
-          <div className="space-y-2 mb-2">
+          <div className="flex gap-2 mb-2">
             <input
               type="file"
               accept="image/*"
@@ -230,30 +230,30 @@ export function IconSourcePalette({ rowIndex, colIndex, className }: IconSourceP
             <Button
               onClick={() => fileInputRef.current?.click()}
               variant="outline"
-              className="w-full"
+              className="flex-1"
               disabled={isUploadingBackground}
             >
-              {isUploadingBackground && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isUploadingBackground && !cellData.backgroundImageUrl && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               <Upload className="mr-2 h-4 w-4" />
-              {cellData.backgroundImageUrl ? 'Replace Background' : 'Upload Background'}
+              {cellData.backgroundImageUrl ? 'Replace' : 'Upload'}
             </Button>
             {cellData.backgroundImageUrl && (
               <Button
                 onClick={handleRemoveBackground}
                 variant="destructive"
-                className="w-full"
+                className="flex-1"
                 disabled={isUploadingBackground}
               >
                 {isUploadingBackground && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 <Trash2 className="mr-2 h-4 w-4" />
-                Remove Background
+                Remove
               </Button>
             )}
           </div>
         )}
         
         {!cellData.backgroundImageUrl && !canEdit && (
-            <div className="flex items-center justify-center text-xs text-muted-foreground p-2 border border-dashed rounded-md">
+            <div className="flex items-center justify-center text-xs text-muted-foreground p-2 border border-dashed rounded-md mb-2">
                 <ImageIcon className="mr-2 h-4 w-4" /> No background image.
             </div>
         )}
@@ -271,7 +271,7 @@ export function IconSourcePalette({ rowIndex, colIndex, className }: IconSourceP
             onChange={handleNotesInputChange}
             onBlur={handleNotesBlur}
             placeholder={canEdit ? "Add general notes for this cell..." : "No notes or view only."}
-            className="min-h-[80px] w-full text-sm bg-input placeholder:text-muted-foreground flex-grow"
+            className="min-h-[120px] w-full text-sm bg-input placeholder:text-muted-foreground flex-grow"
             aria-label="Cell notes"
             disabled={!canEdit}
             readOnly={!canEdit}
