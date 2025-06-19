@@ -7,7 +7,7 @@ export const ICON_TYPES = [
   'testing_station',
   'cave',
   'shipwreck',
-  'stavidium',
+  'stravidium',
   'spice',
   'titanium',
 ] as const;

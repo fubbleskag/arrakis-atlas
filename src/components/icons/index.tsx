@@ -5,7 +5,7 @@ import PoiIcon from './PoiIcon';
 import TestingStationIcon from './TestingStationIcon';
 import CaveIcon from './CaveIcon';
 import ShipwreckIcon from './ShipwreckIcon';
-import StavidiumIcon from './StavidiumIcon';
+import StravidiumIcon from './StravidiumIcon';
 import SpiceIcon from './SpiceIcon';
 import TitaniumIcon from './TitaniumIcon';
 
@@ -15,7 +15,7 @@ export {
   TestingStationIcon,
   CaveIcon,
   ShipwreckIcon,
-  StavidiumIcon,
+  StravidiumIcon,
   SpiceIcon,
   TitaniumIcon,
 };
@@ -26,7 +26,7 @@ export const ICON_CONFIG_MAP: Record<IconType, IconConfig> = {
   testing_station: { label: 'Testing Station', IconComponent: TestingStationIcon },
   cave: { label: 'Cave', IconComponent: CaveIcon },
   shipwreck: { label: 'Shipwreck', IconComponent: ShipwreckIcon },
-  stavidium: { label: 'Stavidium', IconComponent: StavidiumIcon },
+  stravidium: { label: 'Stravidium', IconComponent: StravidiumIcon },
   spice: { label: 'Spice', IconComponent: SpiceIcon },
   titanium: { label: 'Titanium', IconComponent: TitaniumIcon },
 };
