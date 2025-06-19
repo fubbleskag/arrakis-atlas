@@ -25,11 +25,10 @@ interface IconSourcePaletteProps {
   rowIndex: number;
   colIndex: number;
   className?: string;
-  // Override props for public/read-only mode
-  isReadOnlyOverride?: boolean;
+  isReadOnlyOverride?: boolean; // True for public read-only view
   mapDataOverride?: MapData;
   cellDataOverride?: GridCellData;
-  onCloseOverride?: () => void; // For public view to close the detailed view
+  onCloseOverride?: () => void; 
 }
 
 export function IconSourcePalette({ 
@@ -41,14 +40,17 @@ export function IconSourcePalette({
   cellDataOverride,
   onCloseOverride
 }: IconSourcePaletteProps) {
-  const context = useMap();
-  const { isAuthenticated, user } = useAuth();
-  const { toast } = useToast();
+  
+  const isContextMode = typeof isReadOnlyOverride === 'undefined' || isReadOnlyOverride === false;
 
-  const isContextMode = isReadOnlyOverride === undefined; // True if not overridden
+  const context = isContextMode ? useMap() : null;
+  const authData = isContextMode ? useAuth() : { user: null, isAuthenticated: false, isLoading: false };
+  const { toast } = useToast(); // Toast can be used in either mode
 
-  const currentMapData = isContextMode ? context.currentMapData : mapDataOverride;
-  const currentLocalGrid = isContextMode ? context.currentLocalGrid : null; // Not used directly if cellDataOverride is present
+  const { user, isAuthenticated } = authData;
+
+  const currentMapData = isContextMode ? context?.currentMapData : mapDataOverride;
+  const currentLocalGrid = isContextMode ? context?.currentLocalGrid : null;
   const cellDataSource = isContextMode ? currentLocalGrid?.[rowIndex]?.[colIndex] : cellDataOverride;
 
   const [cellData, setCellData] = useState(cellDataSource);
@@ -56,12 +58,11 @@ export function IconSourcePalette({
   const [isUploadingBackground, setIsUploadingBackground] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Sync local state if override props change or context data changes
   useEffect(() => {
-    const newCellData = isContextMode ? context.currentLocalGrid?.[rowIndex]?.[colIndex] : cellDataOverride;
+    const newCellData = isContextMode ? context?.currentLocalGrid?.[rowIndex]?.[colIndex] : cellDataOverride;
     setCellData(newCellData);
     setLocalNotes(newCellData?.notes || '');
-  }, [isContextMode, context.currentLocalGrid, rowIndex, colIndex, cellDataOverride, cellData?.notes]);
+  }, [isContextMode, context?.currentLocalGrid, rowIndex, colIndex, cellDataOverride, cellData?.notes]);
 
 
   const getCellCoordinateLabel = (rIdx: number, cIdx: number): string => {
@@ -72,15 +73,13 @@ export function IconSourcePalette({
   const cellLabel = getCellCoordinateLabel(rowIndex, colIndex);
 
   let canEdit = false;
-  if (isContextMode) { // Use context for edit permissions
-    if (isAuthenticated && user && currentMapData) {
-      canEdit = currentMapData.ownerId === user.uid;
-    }
-  } else { // Use override for edit permissions
-    canEdit = !isReadOnlyOverride;
+  if (isContextMode && context && user && currentMapData) {
+    canEdit = currentMapData.ownerId === user.uid;
+  } else if (!isContextMode) { // Override mode
+    canEdit = !isReadOnlyOverride; // Should be false if isReadOnlyOverride is true
   }
   
-  const isLoading = isContextMode ? context.isLoadingMapData : false;
+  const isLoading = isContextMode ? context?.isLoadingMapData ?? (authData.isLoading) : false;
 
   if (isLoading || (isContextMode && !currentMapData)) {
      return (
@@ -106,13 +105,12 @@ export function IconSourcePalette({
         <AlertTriangle className="h-12 w-12 text-destructive" />
         <h2 className="text-xl font-semibold text-destructive-foreground">Cell Error</h2>
         <p className="text-muted-foreground text-sm"> Detailed cell data is unavailable. </p>
-         <Button variant="outline" size="sm" onClick={isContextMode ? () => context.setFocusedCellCoordinates(null) : onCloseOverride}>
+         <Button variant="outline" size="sm" onClick={isContextMode ? () => context?.setFocusedCellCoordinates(null) : onCloseOverride}>
             Close
         </Button>
       </Card>
     );
   }
-
 
   const handleNotesInputChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
     if (canEdit) {
@@ -121,14 +119,13 @@ export function IconSourcePalette({
   };
   
   const handleNotesBlur = () => {
-    if (canEdit && cellData && localNotes !== cellData.notes && isContextMode && context.updateCellNotes) {
+    if (canEdit && cellData && localNotes !== cellData.notes && isContextMode && context?.updateCellNotes) {
       context.updateCellNotes(rowIndex, colIndex, localNotes);
     }
-    // For read-only or non-context mode, notes are not saved back.
   };
 
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, iconType: IconType) => {
-    if (!canEdit || !isContextMode) { // Dragging only allowed in context mode & if editable
+    if (!canEdit || !isContextMode) { 
       e.preventDefault();
       return;
     }
@@ -138,7 +135,7 @@ export function IconSourcePalette({
   };
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (!canEdit || !isContextMode || !context.uploadCellBackgroundImage) return;
+    if (!canEdit || !isContextMode || !context?.uploadCellBackgroundImage) return;
     const file = event.target.files?.[0];
     if (file) {
       setIsUploadingBackground(true);
@@ -153,7 +150,7 @@ export function IconSourcePalette({
   };
 
   const handleRemoveBackground = async () => {
-    if (!canEdit || !isContextMode || !context.removeCellBackgroundImage) return;
+    if (!canEdit || !isContextMode || !context?.removeCellBackgroundImage) return;
     setIsUploadingBackground(true);
     try {
       await context.removeCellBackgroundImage(rowIndex, colIndex);
@@ -162,7 +159,7 @@ export function IconSourcePalette({
   };
   
   const handleClose = () => {
-    if (isContextMode && context.setFocusedCellCoordinates) {
+    if (isContextMode && context?.setFocusedCellCoordinates) {
       context.setFocusedCellCoordinates(null);
     } else if (onCloseOverride) {
       onCloseOverride();
@@ -187,7 +184,7 @@ export function IconSourcePalette({
         
         <div className="flex justify-between items-center mb-0 mt-2">
             <h5 className="text-sm font-medium text-foreground">Markers</h5>
-            {canEdit && isContextMode && context.clearAllPlacedIconsInCell && (
+            {canEdit && isContextMode && context?.clearAllPlacedIconsInCell && (
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -219,7 +216,7 @@ export function IconSourcePalette({
                 <div
                   key={iconType}
                   onDragStart={(e) => handleDragStart(e, iconType)}
-                  draggable={canEdit && isContextMode} // Draggable only if editable and in context mode
+                  draggable={canEdit && isContextMode} 
                   title={(canEdit && isContextMode) ? `Drag to add ${config.label}` : config.label}
                   className={cn(
                     "text-sm font-normal flex items-center p-1.5 rounded-md border border-transparent transition-colors group", 
@@ -272,17 +269,16 @@ export function IconSourcePalette({
             )}
           </div>
         )}
-        {!canEdit && !isContextMode && !cellData.backgroundImageUrl && ( // Show only if not editable in override AND no background
+        {(!canEdit || !isContextMode) && !cellData.backgroundImageUrl && ( 
             <div className="flex items-center justify-center text-xs text-muted-foreground p-2 border border-dashed rounded-md mb-2">
                 <ImageIcon className="mr-2 h-4 w-4" /> No background image.
             </div>
         )}
-         {cellData.backgroundImageUrl && !(canEdit && isContextMode) && ( // Show if background exists but not editable in context mode
+         {cellData.backgroundImageUrl && (!canEdit || !isContextMode) && ( 
           <div className="flex items-center justify-center text-xs text-muted-foreground p-2 border border-dashed rounded-md mb-2">
             <ImageIcon className="mr-2 h-4 w-4" /> Background image present.
           </div>
         )}
-
 
         <Separator className="my-3" />
 
@@ -306,5 +302,3 @@ export function IconSourcePalette({
     </Card>
   );
 }
-
-    
