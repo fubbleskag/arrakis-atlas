@@ -5,7 +5,7 @@ import type React from 'react';
 import { cn } from '@/lib/utils';
 import { GRID_SIZE } from '@/lib/mapUtils';
 import type { FocusedCellCoordinates, LocalGridState } from '@/types';
-import { useMap } from '@/contexts/MapContext'; 
+import { useMap } from '@/contexts/MapContext';
 
 interface MiniCellSelectorGridProps {
   currentFocusedCell: FocusedCellCoordinates | null;
@@ -18,7 +18,7 @@ export function MiniCellSelectorGrid({
   onCellSelect,
   className,
 }: MiniCellSelectorGridProps) {
-  const { currentLocalGrid } = useMap(); 
+  const { currentLocalGrid } = useMap();
 
   const getCellDisplayLabel = (dataRowIdx: number, dataColIdx: number): string => {
     const rowLetter = String.fromCharCode(65 + (GRID_SIZE - 1 - dataRowIdx));
@@ -33,15 +33,15 @@ export function MiniCellSelectorGrid({
         className
       )}
     >
-      {Array.from({ length: GRID_SIZE }).map((_, visualRowIndex) => 
+      {Array.from({ length: GRID_SIZE }).map((_, visualRowIndex) =>
         Array.from({ length: GRID_SIZE }).map((_, visualColIndex) => {
-          const dataRowIndex = visualRowIndex; 
+          const dataRowIndex = visualRowIndex;
           const dataColIndex = visualColIndex;
 
           const isCurrentlySelected =
             currentFocusedCell?.rowIndex === dataRowIndex &&
             currentFocusedCell?.colIndex === dataColIndex;
-          
+
           const cellLabel = getCellDisplayLabel(dataRowIndex, dataColIndex);
 
           let hasContent = false;
@@ -53,6 +53,10 @@ export function MiniCellSelectorGrid({
           }
 
           const isRowA = dataRowIndex === GRID_SIZE - 1;
+          const isA3 = isRowA && dataColIndex === 2;
+          const isA4 = isRowA && dataColIndex === 3;
+          const isA6 = isRowA && dataColIndex === 5;
+          const isA7 = isRowA && dataColIndex === 6;
 
           return (
             <button
@@ -60,16 +64,20 @@ export function MiniCellSelectorGrid({
               onClick={() => onCellSelect({ rowIndex: dataRowIndex, colIndex: dataColIndex })}
               className={cn(
                 "w-7 h-7 flex items-center justify-center text-xs font-mono rounded-sm transition-colors",
-                "border", // Default border
+                "border",
                 isCurrentlySelected
-                  ? "bg-primary text-primary-foreground font-semibold ring-1 ring-primary-foreground ring-offset-1 ring-offset-primary border-primary" // Ensure selected border matches ring
+                  ? "bg-primary text-primary-foreground font-semibold ring-1 ring-primary-foreground ring-offset-1 ring-offset-primary border-primary"
                   : cn(
                       hasContent ? 'bg-accent/15' : 'bg-card',
                       'hover:bg-accent hover:text-accent-foreground',
-                      isRowA ? 'border-emerald-600/75' : 'border-transparent' // Green border for Row A, transparent for others
+                      isRowA ? 'border-emerald-600/75' : 'border-transparent'
                     ),
-                !isCurrentlySelected && currentFocusedCell && !hasContent && "opacity-80", 
-                !isCurrentlySelected && currentFocusedCell && hasContent && "opacity-90" 
+                !isCurrentlySelected && currentFocusedCell && !hasContent && "opacity-80",
+                !isCurrentlySelected && currentFocusedCell && hasContent && "opacity-90",
+                isA3 && "border-r-destructive",
+                isA4 && "border-l-destructive",
+                isA6 && "border-r-destructive",
+                isA7 && "border-l-destructive"
               )}
               title={`Go to cell ${cellLabel}${hasContent ? ' (has content)' : ''}${isRowA ? ' (PVE Zone)' : ''}`}
               aria-label={`Select cell ${cellLabel}${hasContent ? ', has content' : ''}${isRowA ? ', PVE Zone' : ''}`}

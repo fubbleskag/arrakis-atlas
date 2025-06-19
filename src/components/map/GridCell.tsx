@@ -17,22 +17,22 @@ interface GridCellProps {
   onMouseEnterCell: () => void;
   onMouseLeaveCell: () => void;
   isReadOnly?: boolean;
-  cellData?: GridCellDataType; 
-  mapData?: MapData; 
+  cellData?: GridCellDataType;
+  mapData?: MapData;
   onCellClick?: (rowIndex: number, colIndex: number) => void;
 }
 
-export function GridCell({ 
-  rowIndex, 
-  colIndex, 
-  onMouseEnterCell, 
-  onMouseLeaveCell, 
+export function GridCell({
+  rowIndex,
+  colIndex,
+  onMouseEnterCell,
+  onMouseLeaveCell,
   isReadOnly = false,
   cellData: directCellData,
   mapData: directMapData,
   onCellClick
 }: GridCellProps) {
-  
+
   const context = !isReadOnly ? useMap() : null;
   const { isAuthenticated, user } = !isReadOnly ? useAuth() : { isAuthenticated: false, user: null };
 
@@ -43,7 +43,7 @@ export function GridCell({
   const currentMapData = isReadOnly ? directMapData : mapDataFromContext;
 
 
-  if (!cellData) { 
+  if (!cellData) {
       return <div className="aspect-square bg-destructive/20 flex items-center justify-center text-xs text-destructive">Err</div>;
   }
 
@@ -51,7 +51,7 @@ export function GridCell({
   if (!isReadOnly && isAuthenticated && user && currentMapData && context) {
     canEditCell = currentMapData.ownerId === user.uid;
   }
-  
+
   const handleCellButtonClick = () => {
      if (isReadOnly && onCellClick) {
         onCellClick(rowIndex, colIndex);
@@ -59,16 +59,16 @@ export function GridCell({
         context.setFocusedCellCoordinates({ rowIndex, colIndex });
      }
   };
-  
+
   const cellId = `cell-${rowIndex}-${colIndex}`;
   const rowLetter = String.fromCharCode(65 + (GRID_SIZE - 1 - rowIndex));
   const colNumber = colIndex + 1;
   const cellCoordinate = `${rowLetter}-${colNumber}`;
-  
+
   const hasIcons = cellData.placedIcons.length > 0;
   const hasNotes = cellData.notes && cellData.notes.trim() !== '';
   const hasContent = hasIcons || hasNotes;
-  
+
   const uniqueIconTypesInCell: IconType[] = [];
   if (hasIcons) {
     const seenTypes = new Set<IconType>();
@@ -81,13 +81,13 @@ export function GridCell({
   }
 
   const finalDisplayItems: { key: string; IconComponent: React.FC<any>; label: string }[] = uniqueIconTypesInCell
-    .slice(0, 9) 
+    .slice(0, 9)
     .map(iconType => {
       const config = ICON_CONFIG_MAP[iconType];
       return config ? { key: iconType, IconComponent: config.IconComponent, label: config.label } : null;
     })
     .filter(item => item !== null) as { key: string; IconComponent: React.FC<any>; label: string }[];
-  
+
   const isEmptyCellVisuals = finalDisplayItems.length === 0;
 
   let ariaLabelContent = `Grid cell ${cellCoordinate}. `;
@@ -103,10 +103,15 @@ export function GridCell({
   if (isEmptyCellVisuals && !hasNotes) {
     ariaLabelContent += 'Empty. ';
   }
-  
+
   ariaLabelContent += 'Click to view details.';
 
   const isRowA = rowIndex === GRID_SIZE - 1;
+  const isA3 = isRowA && colIndex === 2;
+  const isA4 = isRowA && colIndex === 3;
+  const isA6 = isRowA && colIndex === 5;
+  const isA7 = isRowA && colIndex === 6;
+
 
   const cellButton = (
     <button
@@ -121,16 +126,20 @@ export function GridCell({
         hasContent ? 'bg-accent/15' : 'bg-card',
         (currentMapData || isReadOnly) && "cursor-pointer focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         (currentMapData || isReadOnly) && (hasContent ? 'hover:bg-accent/25' : 'hover:bg-accent/20'),
-        !isReadOnly && !canEditCell && currentMapData && !hasContent && "bg-muted/30", 
-        !isReadOnly && !canEditCell && currentMapData && hasContent && "opacity-80", 
+        !isReadOnly && !canEditCell && currentMapData && !hasContent && "bg-muted/30",
+        !isReadOnly && !canEditCell && currentMapData && hasContent && "opacity-80",
         !isReadOnly && (!currentMapData || !context?.setFocusedCellCoordinates) && "cursor-not-allowed opacity-50",
-        isRowA && "border border-emerald-600/75" // Changed border-2 to border
+        isRowA && "border border-emerald-600/75",
+        isA3 && "border-r-destructive",
+        isA4 && "border-l-destructive",
+        isA6 && "border-r-destructive",
+        isA7 && "border-l-destructive"
       )}
     >
       {!canEditCell && currentMapData && isEmptyCellVisuals && !hasNotes && !isReadOnly && (
          <Lock className="h-1/2 w-1/2 text-muted-foreground/50 absolute inset-0 m-auto" />
       )}
-      
+
       {hasIcons && (
         <div className="grid grid-cols-3 grid-rows-3 gap-px h-[calc(100%-4px)] w-[calc(100%-4px)] p-px">
           {finalDisplayItems.map((item) => {
@@ -149,7 +158,7 @@ export function GridCell({
               <ZoomIn className="h-2/5 w-2/5 text-foreground opacity-10 group-hover:opacity-30 transition-opacity duration-150" />
           </div>
       )}
-       
+
     </button>
   );
 
