@@ -9,13 +9,15 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
-import { PlusCircle, Loader2, MapPin, Settings2, Trash2, Copy, ExternalLink } from 'lucide-react';
+import { PlusCircle, Loader2, MapPin, Settings2, Trash2, Copy, ExternalLink, UserPlus, UserX } from 'lucide-react';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
 import type { MapData } from '@/types';
 import { useToast } from '@/hooks/use-toast';
-import { Separator } from '../ui/separator';
-import { Timestamp } from 'firebase/firestore'; // Import Timestamp
+import { Separator } from '@/components/ui/separator';
+import { Timestamp } from 'firebase/firestore'; 
+import { ScrollArea } from '@/components/ui/scroll-area';
+
 
 export function MapManager() {
   const {
@@ -27,7 +29,9 @@ export function MapManager() {
     updateMapName,
     currentMapData: selectedMapFromContext,
     togglePublicView,
-    regeneratePublicViewId
+    regeneratePublicViewId,
+    addEditorToMap,
+    removeEditorFromMap,
   } = useMap();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -38,6 +42,9 @@ export function MapManager() {
   const [settingsMapName, setSettingsMapName] = useState('');
   const [isUpdatingSettings, setIsUpdatingSettings] = useState(false);
   const [publicLinkBase, setPublicLinkBase] = useState('');
+  const [newEditorUid, setNewEditorUid] = useState('');
+  const [isManagingEditors, setIsManagingEditors] = useState(false);
+
 
   useEffect(() => {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL;
@@ -54,17 +61,13 @@ export function MapManager() {
       const freshMapDataFromList = userMapList.find(m => m.id === mapInDialogId);
 
       if (freshMapDataFromList) {
-        // Check if the data has actually changed to avoid unnecessary state updates
         if (JSON.stringify(selectedMapForSettings) !== JSON.stringify(freshMapDataFromList)) {
           setSelectedMapForSettings(freshMapDataFromList);
-          // Only update settingsMapName if it's different AND the input isn't focused,
-          // to prevent losing user input during typing.
           if (settingsMapName !== freshMapDataFromList.name && document.activeElement?.id !== 'settingsMapNameInput') {
              setSettingsMapName(freshMapDataFromList.name);
           }
         }
       } else {
-        // The map is no longer in the list (e.g., deleted elsewhere), so close the dialog.
         setSelectedMapForSettings(null);
       }
     }
@@ -85,38 +88,67 @@ export function MapManager() {
   const openSettingsDialog = (map: MapData) => {
     setSelectedMapForSettings(map);
     setSettingsMapName(map.name);
+    setNewEditorUid(''); // Reset new editor input when dialog opens
   };
 
   const handleUpdateNameSetting = async () => {
     if (!selectedMapForSettings || !settingsMapName.trim() || !user) return;
-    const isOwner = selectedMapForSettings.ownerId === user.uid;
-    if (!isOwner) {
-      toast({title: "Permission Denied", description: "You don't have permission to change settings for this map.", variant: "destructive"});
+    if (selectedMapForSettings.ownerId !== user.uid) {
+      toast({title: "Permission Denied", description: "Only the owner can change the map name.", variant: "destructive"});
       return;
     }
     setIsUpdatingSettings(true);
     try {
       await updateMapName(selectedMapForSettings.id, settingsMapName.trim());
-    } catch (error) {
-      // Error is handled by updateMapName or context
-    } finally {
-      setIsUpdatingSettings(false);
-    }
+    } catch (error) { /* Handled by context */ }
+    finally { setIsUpdatingSettings(false); }
   };
 
   const handleTogglePublicView = async (mapId: string, enable: boolean) => {
-    if (!selectedMapForSettings || selectedMapForSettings.id !== mapId) return; 
+    if (!selectedMapForSettings || selectedMapForSettings.id !== mapId || !user) return; 
+    if (selectedMapForSettings.ownerId !== user.uid) {
+      toast({title: "Permission Denied", description: "Only the owner can change public sharing.", variant: "destructive"});
+      return;
+    }
     setIsUpdatingSettings(true);
     await togglePublicView(mapId, enable);
     setIsUpdatingSettings(false);
   };
 
   const handleRegeneratePublicViewId = async (mapId: string) => {
-     if (!selectedMapForSettings || selectedMapForSettings.id !== mapId) return; 
+     if (!selectedMapForSettings || selectedMapForSettings.id !== mapId || !user) return; 
+     if (selectedMapForSettings.ownerId !== user.uid) {
+      toast({title: "Permission Denied", description: "Only the owner can regenerate public links.", variant: "destructive"});
+      return;
+    }
     setIsUpdatingSettings(true);
     await regeneratePublicViewId(mapId);
     setIsUpdatingSettings(false);
   };
+
+  const handleAddEditor = async () => {
+    if (!selectedMapForSettings || !newEditorUid.trim() || !user) return;
+    if (selectedMapForSettings.ownerId !== user.uid) {
+      toast({title: "Permission Denied", description: "Only the owner can add editors.", variant: "destructive"});
+      return;
+    }
+    setIsManagingEditors(true);
+    await addEditorToMap(selectedMapForSettings.id, newEditorUid.trim());
+    setNewEditorUid('');
+    setIsManagingEditors(false);
+  };
+
+  const handleRemoveEditor = async (editorUidToRemove: string) => {
+    if (!selectedMapForSettings || !editorUidToRemove || !user) return;
+     if (selectedMapForSettings.ownerId !== user.uid) {
+      toast({title: "Permission Denied", description: "Only the owner can remove editors.", variant: "destructive"});
+      return;
+    }
+    setIsManagingEditors(true);
+    await removeEditorFromMap(selectedMapForSettings.id, editorUidToRemove);
+    setIsManagingEditors(false);
+  };
+
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text).then(() => {
@@ -128,9 +160,31 @@ export function MapManager() {
 
   const getFormattedDate = (dateValue: Timestamp | string | undefined) => {
     if (!dateValue) return 'N/A';
-    const date = dateValue instanceof Timestamp ? dateValue.toDate() : parseISO(dateValue as string);
+    
+    let date: Date;
+    if (dateValue instanceof Timestamp) {
+        date = dateValue.toDate();
+    } else if (typeof dateValue === 'string') {
+        date = parseISO(dateValue);
+    } else {
+        // Fallback for a raw object that might come from Firestore before full hydration,
+        // though ideally `updatedAt` on MapData is always Timestamp or string.
+        // This might happen if serverTimestamp() hasn't resolved yet and you get a POJO.
+        // For this case, we'll treat it as 'Processing...' or 'N/A'.
+        // Alternatively, if `dateValue` might have `seconds` and `nanoseconds`:
+        if (typeof dateValue === 'object' && 'seconds' in dateValue && 'nanoseconds' in dateValue) {
+          try {
+            date = new Timestamp((dateValue as any).seconds, (dateValue as any).nanoseconds).toDate();
+          } catch {
+            return 'Processing date...';
+          }
+        } else {
+          return 'Invalid date';
+        }
+    }
     return formatDistanceToNow(date, { addSuffix: true });
-  };
+};
+
 
   if (isLoadingMapList) {
     return (
@@ -161,7 +215,7 @@ export function MapManager() {
             <div className="grid gap-4 py-4">
               <Input
                 id="newMapNameInput"
-                placeholder="E.g., My Personal Map"
+                placeholder="E.g., My Guild's Map"
                 value={newMapName}
                 onChange={(e) => setNewMapName(e.target.value)}
                 disabled={isCreatingMap}
@@ -194,6 +248,7 @@ export function MapManager() {
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {userMapList.map((map) => {
             const isMapOwner = user && map.ownerId === user.uid;
+            const mapRole = isMapOwner ? "Owner" : (map.editors?.includes(user?.uid || '') ? "Editor" : "Viewer (indirectly)");
             return (
               <Card key={map.id} className="flex flex-col">
                 <CardHeader>
@@ -201,17 +256,19 @@ export function MapManager() {
                     <CardTitle className="text-xl group-hover:text-primary transition-colors mb-1">{map.name}</CardTitle>
                   </div>
                   <CardDescription>
+                    Role: {mapRole} <br/>
                     Last updated {getFormattedDate(map.updatedAt)}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="flex-grow">
-                  {/* Content placeholder */}
+                  {/* Placeholder for map preview or stats if desired later */}
                 </CardContent>
                 <CardFooter className="flex-col sm:flex-row gap-2 pt-4 border-t">
                   <Button onClick={() => selectMap(map.id)} className="w-full sm:w-auto flex-grow">
                     View Map
                   </Button>
-                  {isMapOwner && (
+                  {/* Settings button available to owners and editors, but content inside dialog checks for owner for specific actions */}
+                   {(isMapOwner || map.editors?.includes(user?.uid || '')) && (
                     <div className="flex gap-2 w-full sm:w-auto">
                       <Dialog onOpenChange={(isOpen) => { if (!isOpen) setSelectedMapForSettings(null); }}>
                           <DialogTrigger asChild>
@@ -225,91 +282,147 @@ export function MapManager() {
                                   <DialogTitle>Map Settings: {selectedMapForSettings.name}</DialogTitle>
                                   <DialogDescription>Manage your map&apos;s details and sharing options.</DialogDescription>
                               </DialogHeader>
-                              <div className="space-y-4 py-2">
-                                  <div>
-                                      <Label htmlFor="settingsMapNameInput" className="text-sm font-medium">Map Name</Label>
-                                      <Input id="settingsMapNameInput" value={settingsMapName} onChange={e => setSettingsMapName(e.target.value)} className="mt-1" disabled={isUpdatingSettings} />
-                                  </div>
-                                  <Separator />
-                                  <div>
-                                    <h4 className="text-sm font-medium mb-2">Public View-Only Link</h4>
-                                    <div className="flex items-center space-x-2 mb-2">
-                                      <Switch
-                                        id={`public-view-switch-${map.id}`}
-                                        checked={selectedMapForSettings.isPublicViewable} 
-                                        onCheckedChange={(checked) => handleTogglePublicView(map.id, checked)}
-                                        disabled={isUpdatingSettings}
-                                      />
-                                      <Label htmlFor={`public-view-switch-${map.id}`}>
-                                        {selectedMapForSettings.isPublicViewable ? "Public Link Enabled" : "Public Link Disabled"}
-                                      </Label>
-                                    </div>
-                                    {selectedMapForSettings.isPublicViewable && selectedMapForSettings.publicViewId && publicLinkBase && (
-                                      <div className="space-y-2">
-                                        <p className="text-xs text-muted-foreground break-all">
-                                          Share this link for view-only access: <br />
-                                          <a
-                                            href={`${publicLinkBase}/view/map/${selectedMapForSettings.publicViewId}`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="text-primary hover:underline"
-                                          >
-                                            {`${publicLinkBase}/view/map/${selectedMapForSettings.publicViewId}`}
-                                            <ExternalLink className="inline-block h-3 w-3 ml-1"/>
-                                          </a>
-                                        </p>
-                                        <div className="flex gap-2">
-                                          <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => copyToClipboard(`${publicLinkBase}/view/map/${selectedMapForSettings.publicViewId}`)}
-                                            disabled={isUpdatingSettings || !publicLinkBase}
-                                          >
-                                            <Copy className="mr-2 h-3 w-3" /> Copy Link
-                                          </Button>
-                                          <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => handleRegeneratePublicViewId(map.id)}
-                                            disabled={isUpdatingSettings}
-                                          >
-                                            {isUpdatingSettings && selectedMapForSettings.publicViewId ? <Loader2 className="mr-2 h-3 w-3 animate-spin"/> : null}
-                                            Regenerate Link
-                                          </Button>
-                                        </div>
+                              <ScrollArea className="max-h-[calc(100vh-200px)]">
+                                <div className="space-y-4 p-1 pr-4">
+                                  {isMapOwner && (
+                                    <>
+                                      <div>
+                                          <Label htmlFor="settingsMapNameInput" className="text-sm font-medium">Map Name</Label>
+                                          <Input id="settingsMapNameInput" value={settingsMapName} onChange={e => setSettingsMapName(e.target.value)} className="mt-1" disabled={isUpdatingSettings || !isMapOwner} />
                                       </div>
-                                    )}
-                                     {!selectedMapForSettings.isPublicViewable && (
-                                      <p className="text-xs text-muted-foreground">Enable the switch to generate and share a public view-only link.</p>
-                                    )}
-                                  </div>
-                              </div>
+                                      <Separator />
+                                    </>
+                                  )}
+                                  
+                                  {isMapOwner && (
+                                    <div>
+                                      <h4 className="text-sm font-medium mb-2">Editors</h4>
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <Input 
+                                          id="newEditorUidInput" 
+                                          placeholder="Enter User ID to add" 
+                                          value={newEditorUid} 
+                                          onChange={e => setNewEditorUid(e.target.value)} 
+                                          className="flex-grow"
+                                          disabled={isManagingEditors || !isMapOwner}
+                                        />
+                                        <Button onClick={handleAddEditor} size="sm" disabled={isManagingEditors || !newEditorUid.trim() || !isMapOwner}>
+                                          {isManagingEditors ? <Loader2 className="h-4 w-4 animate-spin"/> : <UserPlus className="h-4 w-4"/>}
+                                        </Button>
+                                      </div>
+                                      {selectedMapForSettings.editors && selectedMapForSettings.editors.length > 0 ? (
+                                        <ul className="space-y-1 text-xs max-h-32 overflow-y-auto border rounded-md p-2 bg-muted/50">
+                                          {selectedMapForSettings.editors.map(editorId => (
+                                            <li key={editorId} className="flex justify-between items-center">
+                                              <span className="truncate" title={editorId}>{editorId}</span>
+                                              <Button variant="ghost" size="icon" onClick={() => handleRemoveEditor(editorId)} className="h-6 w-6" disabled={isManagingEditors || !isMapOwner}>
+                                                <UserX className="h-3 w-3 text-destructive"/>
+                                              </Button>
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      ) : (
+                                        <p className="text-xs text-muted-foreground">No other editors yet.</p>
+                                      )}
+                                      <Separator className="my-4" />
+                                    </div>
+                                  )}
+
+                                  {isMapOwner && (
+                                    <div>
+                                      <h4 className="text-sm font-medium mb-2">Public View-Only Link</h4>
+                                      <div className="flex items-center space-x-2 mb-2">
+                                        <Switch
+                                          id={`public-view-switch-${map.id}`}
+                                          checked={selectedMapForSettings.isPublicViewable} 
+                                          onCheckedChange={(checked) => handleTogglePublicView(map.id, checked)}
+                                          disabled={isUpdatingSettings || !isMapOwner}
+                                        />
+                                        <Label htmlFor={`public-view-switch-${map.id}`}>
+                                          {selectedMapForSettings.isPublicViewable ? "Public Link Enabled" : "Public Link Disabled"}
+                                        </Label>
+                                      </div>
+                                      {selectedMapForSettings.isPublicViewable && selectedMapForSettings.publicViewId && publicLinkBase && (
+                                        <div className="space-y-2">
+                                          <p className="text-xs text-muted-foreground break-all">
+                                            Share this link for view-only access: <br />
+                                            <a
+                                              href={`${publicLinkBase}/view/map/${selectedMapForSettings.publicViewId}`}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="text-primary hover:underline"
+                                            >
+                                              {`${publicLinkBase}/view/map/${selectedMapForSettings.publicViewId}`}
+                                              <ExternalLink className="inline-block h-3 w-3 ml-1"/>
+                                            </a>
+                                          </p>
+                                          <div className="flex gap-2">
+                                            <Button
+                                              variant="outline"
+                                              size="sm"
+                                              onClick={() => copyToClipboard(`${publicLinkBase}/view/map/${selectedMapForSettings.publicViewId}`)}
+                                              disabled={isUpdatingSettings || !publicLinkBase || !isMapOwner}
+                                            >
+                                              <Copy className="mr-2 h-3 w-3" /> Copy Link
+                                            </Button>
+                                            <Button
+                                              variant="outline"
+                                              size="sm"
+                                              onClick={() => handleRegeneratePublicViewId(map.id)}
+                                              disabled={isUpdatingSettings || !isMapOwner}
+                                            >
+                                              {isUpdatingSettings && selectedMapForSettings.publicViewId ? <Loader2 className="mr-2 h-3 w-3 animate-spin"/> : null}
+                                              Regenerate Link
+                                            </Button>
+                                          </div>
+                                        </div>
+                                      )}
+                                      {!selectedMapForSettings.isPublicViewable && (
+                                        <p className="text-xs text-muted-foreground">Enable the switch to generate and share a public view-only link.</p>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {!isMapOwner && (
+                                    <p className="text-sm text-muted-foreground">You are an editor for this map. Some settings can only be managed by the owner.</p>
+                                  )}
+                                </div>
+                              </ScrollArea>
                               <DialogFooter className="mt-4">
-                                  <DialogClose asChild><Button variant="ghost" onClick={() => setSelectedMapForSettings(null)} disabled={isUpdatingSettings}>Cancel</Button></DialogClose>
-                                  <DialogClose asChild>
-                                    <Button onClick={handleUpdateNameSetting} disabled={isUpdatingSettings || !settingsMapName.trim()}>
-                                      {isUpdatingSettings && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>} Save & Close
-                                    </Button>
-                                  </DialogClose>
+                                  <DialogClose asChild><Button variant="ghost" onClick={() => setSelectedMapForSettings(null)} disabled={isUpdatingSettings || isManagingEditors}>Cancel</Button></DialogClose>
+                                  {isMapOwner && (
+                                    <DialogClose asChild>
+                                      <Button onClick={handleUpdateNameSetting} disabled={isUpdatingSettings || isManagingEditors || !settingsMapName.trim() || !isMapOwner}>
+                                        {(isUpdatingSettings || isManagingEditors) && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>} Save & Close
+                                      </Button>
+                                    </DialogClose>
+                                  )}
+                                  {!isMapOwner && ( // If only editor, just a close button
+                                    <DialogClose asChild>
+                                        <Button disabled={isUpdatingSettings || isManagingEditors}>Close</Button>
+                                    </DialogClose>
+                                  )}
                               </DialogFooter>
                           </DialogContent>
                           )}
                       </Dialog>
-                      <Dialog>
-                          <DialogTrigger asChild>
-                              <Button variant="destructive" size="icon" title="Delete Map">
-                                  <Trash2 className="h-4 w-4" />
-                              </Button>
-                          </DialogTrigger>
-                          <DialogContent>
-                              <DialogHeader><DialogTitle>Delete Map: {map.name}</DialogTitle></DialogHeader>
-                              <DialogDescription>Are you sure you want to delete this map? This action cannot be undone.</DialogDescription>
-                              <DialogFooter>
-                                  <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
-                                  <Button variant="destructive" onClick={() => deleteMap(map.id)}>Delete</Button>
-                              </DialogFooter>
-                          </DialogContent>
-                      </Dialog>
+                      {isMapOwner && ( // Delete button only for owner
+                        <Dialog>
+                            <DialogTrigger asChild>
+                                <Button variant="destructive" size="icon" title="Delete Map">
+                                    <Trash2 className="h-4 w-4" />
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                                <DialogHeader><DialogTitle>Delete Map: {map.name}</DialogTitle></DialogHeader>
+                                <DialogDescription>Are you sure you want to delete this map? This action cannot be undone.</DialogDescription>
+                                <DialogFooter>
+                                    <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
+                                    <Button variant="destructive" onClick={() => deleteMap(map.id)}>Delete</Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
+                      )}
                     </div>
                   )}
                 </CardFooter>
