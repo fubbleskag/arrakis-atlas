@@ -16,7 +16,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { Timestamp } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
-import { Users, Clock, Crown, Loader2, X as XIcon, RotateCcw, Settings2, Copy, ExternalLink, UserPlus, UserX, Link as LinkIcon, RefreshCw, XCircle } from 'lucide-react';
+import { Users, Clock, Crown, Loader2, X as XIcon, RotateCcw, Settings2, Copy, ExternalLink, UserPlus, UserX, Link as LinkIcon, RefreshCw, XCircle, Trash2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -25,6 +25,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogClose,
 } from '@/components/ui/dialog';
 import {
   AlertDialog,
@@ -36,7 +37,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from '@/components/ui/alert-dialog'; // Added AlertDialog imports
+} from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 
 
@@ -61,6 +62,7 @@ export function MapDetailsPanel({ mapData, currentUser, className }: MapDetailsP
     removeEditorFromMap,
     regenerateCollaboratorShareId,
     disableCollaboratorShareId,
+    deleteMap,
   } = useMap();
   const { toast } = useToast();
 
@@ -72,7 +74,7 @@ export function MapDetailsPanel({ mapData, currentUser, className }: MapDetailsP
 
 
   useEffect(() => {
-    setLocalSettingsMapName(mapData.name); // Keep local dialog name in sync if mapData prop changes
+    setLocalSettingsMapName(mapData.name);
   }, [mapData.name]);
 
   useEffect(() => {
@@ -165,7 +167,7 @@ export function MapDetailsPanel({ mapData, currentUser, className }: MapDetailsP
     if (!localNewEditorUid.trim() || !isCurrentUserOwner) return;
     setIsUpdatingSettingsDialog(true);
     await addEditorToMap(mapData.id, localNewEditorUid.trim());
-    setLocalNewEditorUid(''); // Clear input after attempting to add
+    setLocalNewEditorUid(''); 
     setIsUpdatingSettingsDialog(false);
   };
 
@@ -285,13 +287,12 @@ export function MapDetailsPanel({ mapData, currentUser, className }: MapDetailsP
               <h3 className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center">
                  MAP ACTIONS
               </h3>
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <Dialog open={isSettingsDialogOpen} onOpenChange={(isOpen) => {
                     setIsSettingsDialogOpen(isOpen);
                     if (isOpen) {
-                        setLocalSettingsMapName(mapData.name); // Reset name on dialog open
-                        setLocalNewEditorUid(''); // Clear editor UID input
-                        // Fetch profiles if needed, though it's likely already done by panel load
+                        setLocalSettingsMapName(mapData.name); 
+                        setLocalNewEditorUid(''); 
                         const editorIds = mapData.editors || [];
                         if (editorIds.length > 0) fetchEditorProfiles(editorIds);
                     }
@@ -487,7 +488,7 @@ export function MapDetailsPanel({ mapData, currentUser, className }: MapDetailsP
 
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button variant="destructive" size="sm" className="flex-1" disabled={isContextLoadingMapData}>
+                    <Button variant="outline" size="sm" className="flex-1" disabled={isContextLoadingMapData}>
                       <RotateCcw className="mr-2 h-4 w-4" /> Coriolis Storm
                     </Button>
                   </AlertDialogTrigger>
@@ -495,8 +496,7 @@ export function MapDetailsPanel({ mapData, currentUser, className }: MapDetailsP
                     <AlertDialogHeader>
                       <AlertDialogTitle>Invoke a Coriolis Storm?</AlertDialogTitle>
                       <AlertDialogDescription>
-                        This action cannot be undone. This will permanently reset the grid for the current map
-                        (&quot;{mapData?.name || 'Unnamed Map'}&quot;), clearing all placed icons and notes.
+                        This action will permanently reset the grid for &quot;{mapData?.name || 'Unnamed Map'}&quot;, clearing all placed icons and notes. This action cannot be undone.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -505,6 +505,27 @@ export function MapDetailsPanel({ mapData, currentUser, className }: MapDetailsP
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
+
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" size="sm" className="flex-1" disabled={isContextLoadingMapData}>
+                      <Trash2 className="mr-2 h-4 w-4" /> Delete Map
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete Map: {mapData.name}?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This action cannot be undone. This will permanently delete the map &quot;{mapData?.name || 'Unnamed Map'}&quot; and all its data.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => deleteMap(mapData.id)}>Delete</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+
               </div>
             </div>
           </>
@@ -513,6 +534,3 @@ export function MapDetailsPanel({ mapData, currentUser, className }: MapDetailsP
     </Card>
   );
 }
-
-
-    
