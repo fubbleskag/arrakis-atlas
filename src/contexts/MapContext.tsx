@@ -19,7 +19,7 @@ import {
   Timestamp,
   updateDoc,
   getDocs,
-  getDoc, 
+  getDoc,
   arrayUnion,
   arrayRemove,
 } from 'firebase/firestore';
@@ -30,10 +30,10 @@ import {
   deleteObject
 } from "firebase/storage";
 import { useToast } from "@/hooks/use-toast";
-import { 
-  initializeLocalGrid, 
-  convertLocalToFirestoreGrid, 
-  convertFirestoreToLocalGrid 
+import {
+  initializeLocalGrid,
+  convertLocalToFirestoreGrid,
+  convertFirestoreToLocalGrid
 } from '@/lib/mapUtils';
 
 
@@ -112,7 +112,7 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const fetchEditorProfiles = useCallback(async (editorUids: string[]) => {
     if (!editorUids || editorUids.length === 0) {
-      setEditorProfiles(prev => ({...prev})); 
+      setEditorProfiles(prev => ({...prev}));
       return;
     }
 
@@ -124,7 +124,7 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setIsLoadingEditorProfiles(true);
     const newProfilesUpdate: Record<string, UserProfile | null> = {};
-    
+
     try {
       for (const uid of uidsToActuallyFetch) {
         const userDocRef = doc(db, "users", uid);
@@ -137,17 +137,17 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             displayName: data.displayName || null,
           };
         } else {
-          newProfilesUpdate[uid] = null; 
+          newProfilesUpdate[uid] = null;
         }
       }
       setEditorProfiles(prevProfiles => ({ ...prevProfiles, ...newProfilesUpdate }));
     } catch (error: any) {
       console.error("Error fetching editor profiles:", error);
+      let desc = "Could not load some editor details.";
       if (error.code === 'permission-denied') {
-          toast({ title: "Permissions Error", description: "Could not load some editor details due to Firestore security rules. Ensure rules allow reading user profiles.", variant: "destructive", duration: 10000 });
-      } else {
-          toast({ title: "Error", description: "Could not load some editor details.", variant: "destructive" });
+        desc = "Could not load some editor details due to Firestore security rules. Ensure rules allow reading user profiles.";
       }
+      toast({ title: "Error", description: desc, variant: "destructive", duration: 10000 });
     } finally {
       setIsLoadingEditorProfiles(false);
     }
@@ -181,7 +181,7 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const combined = [...mapSources.owner, ...mapSources.editor];
       const uniqueMapsMap = new Map<string, MapData>();
       combined.forEach(map => {
-        if (map && map.id) { 
+        if (map && map.id) {
           uniqueMapsMap.set(map.id, map);
         }
       });
@@ -201,18 +201,18 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       mapSources.owner = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MapData));
       if (!ownerLoaded) ownerLoaded = true;
       updateCombinedList();
-    }, (error) => { 
+    }, (error) => {
       console.error("Error fetching owner maps:", error);
       toast({ title: "Error Loading Owned Maps", description: "Could not load your owned maps. Check console for details.", variant: "destructive" });
-      if (!ownerLoaded) ownerLoaded = true; 
-      if (editorLoaded) setIsLoadingMapList(false); 
+      if (!ownerLoaded) ownerLoaded = true;
+      if (editorLoaded) setIsLoadingMapList(false);
     });
 
     const unsubEditor = onSnapshot(qEditor, (snapshot) => {
       mapSources.editor = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MapData));
       if (!editorLoaded) editorLoaded = true;
       updateCombinedList();
-    }, (error: any) => { 
+    }, (error: any) => {
       console.error("Error fetching shared maps:", error);
       let desc = "Could not load maps shared with you. This might be due to Firestore security rules or missing indexes. Check browser console for details.";
       if (error.code === 'failed-precondition') {
@@ -220,16 +220,16 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       } else if (error.code === 'permission-denied') {
         desc = "Could not load shared maps due to Firestore security rules. Ensure rules allow querying maps where you are an editor.";
       }
-      toast({ 
-        title: "Error Loading Shared Maps", 
-        description: desc, 
+      toast({
+        title: "Error Loading Shared Maps",
+        description: desc,
         variant: "destructive",
-        duration: 10000 
+        duration: 10000
       });
-      if (!editorLoaded) editorLoaded = true; 
-      if (ownerLoaded) setIsLoadingMapList(false); 
+      if (!editorLoaded) editorLoaded = true;
+      if (ownerLoaded) setIsLoadingMapList(false);
     });
-    
+
     return () => { unsubOwner(); unsubEditor(); };
 
   }, [user, isAuthLoading, toast, setFocusedCellCoordinates, setSelectedPlacedIconId]);
@@ -239,9 +239,8 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setCurrentMapData(null);
       setCurrentLocalGrid(null);
       setIsLoadingMapData(false);
-      // Do not clear focusedCellCoordinates or selectedPlacedIconId here,
-      // as they might be set by URL params before map data fully loads
-      // or if map selection fails. The page component will manage URL sync.
+      setFocusedCellCoordinates(null);
+      setSelectedPlacedIconId(null);
       return;
     }
 
@@ -257,23 +256,20 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           setCurrentMapData(mapData);
           setCurrentLocalGrid(convertFirestoreToLocalGrid(mapData.gridState));
         } else {
-          // User might not be authenticated yet, or doesn't have access
-          // If user is null (still loading auth) but mapId is from URL, wait.
-          // If user is loaded and still no access, then deny.
-          if(user || !isAuthLoading) { 
+          if(user || !isAuthLoading) {
             toast({ title: "Access Denied", description: "You do not have permission to view this map.", variant: "destructive" });
             setCurrentMapData(null);
             setCurrentLocalGrid(null);
-            setCurrentMapId(null); // This will trigger URL update via page.tsx
+            setCurrentMapId(null);
             setFocusedCellCoordinates(null);
             setSelectedPlacedIconId(null);
           }
         }
       } else {
-        toast({ title: "Error", description: `Map with ID ${currentMapId} not found. Selecting no map.`, variant: "destructive" });
+        toast({ title: "Error", description: `Map with ID ${currentMapId} not found.`, variant: "destructive" });
         setCurrentMapData(null);
         setCurrentLocalGrid(null);
-        setCurrentMapId(null); // This will trigger URL update
+        setCurrentMapId(null);
         setFocusedCellCoordinates(null);
         setSelectedPlacedIconId(null);
       }
@@ -281,9 +277,9 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, (error) => {
       console.error(`Error fetching map ${currentMapId}:`, error);
       toast({ title: "Error", description: "Could not load selected map data.", variant: "destructive" });
-      setCurrentMapData(null); // Clear map data on error
+      setCurrentMapData(null);
       setCurrentLocalGrid(null);
-      setCurrentMapId(null); // This will trigger URL update
+      setCurrentMapId(null);
       setIsLoadingMapData(false);
     });
 
@@ -291,22 +287,14 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [currentMapId, user, toast, setFocusedCellCoordinates, setSelectedPlacedIconId, isAuthLoading]);
 
   const selectMap = useCallback((mapId: string | null) => {
-    if (mapId === currentMapId && mapId !== null) {
-      // If clicking the same map (e.g. in breadcrumb to unfocus cell)
-      setFocusedCellCoordinates(null); // This will also clear selectedPlacedIconId
-      // URL update will be handled by page.tsx based on focusedCellCoordinates becoming null
-      return;
-    }
-
-    // If mapId is different or changing to null
     setCurrentMapId(mapId);
-    setFocusedCellCoordinates(null); 
+    setFocusedCellCoordinates(null);
     setSelectedPlacedIconId(null);
     if (mapId !== null) {
-      setEditorProfiles({}); 
+      setEditorProfiles({});
     }
-    // URL update will be handled by page.tsx based on currentMapId changing
-  }, [currentMapId, setFocusedCellCoordinates, setSelectedPlacedIconId]);
+  }, [setFocusedCellCoordinates, setSelectedPlacedIconId]);
+
 
   const createMap = useCallback(async (name: string): Promise<string | null> => {
     if (!user) {
@@ -318,23 +306,19 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newMapData: Omit<MapData, 'id'> = {
       name,
       ownerId: user.uid,
-      editors: [], 
+      editors: [],
       gridState: convertLocalToFirestoreGrid(initializeLocalGrid()),
       createdAt: now as Timestamp,
       updatedAt: now as Timestamp,
       isPublicViewable: false,
       publicViewId: null,
-      collaboratorShareId: null, 
+      collaboratorShareId: null,
     };
 
     try {
       const docRef = await addDoc(collection(db, "maps"), newMapData);
       toast({ title: "Success", description: `Map "${name}" created.` });
-      // selectMap will be called by page.tsx if it detects a new map and no mapId in URL,
-      // or if the creation logic redirects/updates URL to include the new mapId.
-      // For now, just return ID. If page.tsx needs to react, it will.
-      // Or, we can call selectMap here, and page.tsx will sync URL. Let's do that.
-      selectMap(docRef.id); 
+      selectMap(docRef.id);
       return docRef.id;
     } catch (error: any) {
       console.error("Error creating map:", error);
@@ -350,7 +334,7 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         toast({ title: "Error", description: "Authentication required to update map.", variant: "destructive" });
         throw new Error("Authentication required");
     }
-    
+
     const mapToUpdate = userMapList.find(m => m.id === mapId) || (currentMapData?.id === mapId ? currentMapData : null);
 
     if (!mapToUpdate) {
@@ -360,14 +344,14 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const isOwner = mapToUpdate.ownerId === user.uid;
     const isEditor = mapToUpdate.editors && mapToUpdate.editors.includes(user.uid);
-    
+
     if (!isOwner && !isEditor) {
         toast({ title: "Permission Denied", description: "You do not have permission to update this map.", variant: "destructive" });
         throw new Error("Permission denied to update map");
     }
-    
+
     if (isEditor && !isOwner) {
-      const allowedEditorUpdateKeys = ['gridState', 'updatedAt']; 
+      const allowedEditorUpdateKeys = ['gridState', 'updatedAt'];
       for (const key in updates) {
         if (!allowedEditorUpdateKeys.includes(key)) {
            toast({ title: "Permission Denied", description: `Editors cannot modify '${key}'.`, variant: "destructive" });
@@ -436,7 +420,7 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updatedAt: serverTimestamp()
       });
       toast({ title: "Success", description: `User added as editor.` });
-      fetchEditorProfiles([editorUid]); 
+      fetchEditorProfiles([editorUid]);
     } catch (error: any) {
       console.error("Error adding editor:", error);
       toast({ title: "Error", description: `Failed to add editor: ${error.message}`, variant: "destructive" });
@@ -867,7 +851,7 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const newPublicViewId = crypto.randomUUID();
     try {
-      await updateMapInFirestore(mapId, { publicViewId: newPublicViewId, isPublicViewable: true }); 
+      await updateMapInFirestore(mapId, { publicViewId: newPublicViewId, isPublicViewable: true });
       toast({ title: "Success", description: "Public view link regenerated." });
     } catch (error) {
       // Error handled by updateMapInFirestore
