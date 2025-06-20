@@ -99,11 +99,6 @@ export function MapDetailsPanel({ mapData, currentUser, className }: MapDetailsP
         </Button>
       </CardHeader>
       <CardContent className="p-3 md:p-4 space-y-3 text-sm">
-        <div>
-          <h3 className="text-xs font-medium text-muted-foreground mb-0.5">MAP NAME</h3>
-          <p className="font-semibold text-foreground truncate" title={mapData.name}>{mapData.name}</p>
-        </div>
-        <Separator />
         
         <div>
           <h3 className="text-xs font-medium text-muted-foreground mb-1 flex items-center">
@@ -156,3 +151,4 @@ export function MapDetailsPanel({ mapData, currentUser, className }: MapDetailsP
     </Card>
   );
 }
+
