@@ -46,7 +46,7 @@ export interface MapData {
   updatedAt: Timestamp | string; // Can be Timestamp or serialized string
   isPublicViewable: boolean;
   publicViewId: string | null;
-  collaboratorShareId: string | null;
+  collaboratorShareId: string | null; // For editor invite links
   editors: string[];
 }
 
@@ -61,3 +61,4 @@ export interface FocusedCellCoordinates {
   rowIndex: number;
   colIndex: number;
 }
+

@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
-import { PlusCircle, Loader2, MapPin, Settings2, Trash2, Copy, ExternalLink, UserPlus, UserX } from 'lucide-react';
+import { PlusCircle, Loader2, MapPin, Settings2, Trash2, Copy, ExternalLink, UserPlus, UserX, Link as LinkIcon, RefreshCw, XCircle } from 'lucide-react';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
 import type { MapData, UserProfile } from '@/types';
@@ -27,14 +27,16 @@ export function MapManager() {
     createMap,
     deleteMap,
     updateMapName,
-    currentMapData: selectedMapFromContext,
+    currentMapData: selectedMapFromContext, // Can be used if needed, but dialog uses its own state
     togglePublicView,
     regeneratePublicViewId,
     addEditorToMap,
     removeEditorFromMap,
-    editorProfiles, // New context state
-    isLoadingEditorProfiles, // New context state
-    fetchEditorProfiles, // New context function
+    editorProfiles, 
+    isLoadingEditorProfiles, 
+    fetchEditorProfiles, 
+    regenerateCollaboratorShareId,
+    disableCollaboratorShareId,
   } = useMap();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -43,7 +45,7 @@ export function MapManager() {
 
   const [selectedMapForSettings, setSelectedMapForSettings] = useState<MapData | null>(null);
   const [settingsMapName, setSettingsMapName] = useState('');
-  const [isUpdatingSettings, setIsUpdatingSettings] = useState(false);
+  const [isUpdatingSettings, setIsUpdatingSettings] = useState(false); // General flag for any setting update
   const [publicLinkBase, setPublicLinkBase] = useState('');
   const [newEditorUid, setNewEditorUid] = useState('');
   const [isManagingEditors, setIsManagingEditors] = useState(false);
@@ -64,19 +66,21 @@ export function MapManager() {
       const freshMapDataFromList = userMapList.find(m => m.id === mapInDialogId);
 
       if (freshMapDataFromList) {
-        // Check if a deep comparison is needed or just specific fields
+        let needsUpdate = false;
         if (JSON.stringify(selectedMapForSettings) !== JSON.stringify(freshMapDataFromList)) {
-          setSelectedMapForSettings(freshMapDataFromList);
-          if (settingsMapName !== freshMapDataFromList.name && document.activeElement?.id !== 'settingsMapNameInput') {
-             setSettingsMapName(freshMapDataFromList.name);
-          }
-          // If editors list changed, re-fetch profiles
-          if (JSON.stringify(selectedMapForSettings.editors) !== JSON.stringify(freshMapDataFromList.editors) && freshMapDataFromList.editors.length > 0) {
-            fetchEditorProfiles(freshMapDataFromList.editors);
-          }
+            needsUpdate = true;
+        }
+        
+        if (needsUpdate) {
+            setSelectedMapForSettings(freshMapDataFromList);
+            if (settingsMapName !== freshMapDataFromList.name && document.activeElement?.id !== 'settingsMapNameInput') {
+                setSettingsMapName(freshMapDataFromList.name);
+            }
+            if (JSON.stringify(selectedMapForSettings.editors) !== JSON.stringify(freshMapDataFromList.editors) && freshMapDataFromList.editors && freshMapDataFromList.editors.length > 0) {
+              fetchEditorProfiles(freshMapDataFromList.editors);
+            }
         }
       } else {
-        // Map no longer in list, close dialog or handle
         setSelectedMapForSettings(null);
       }
     }
@@ -161,10 +165,32 @@ export function MapManager() {
     setIsManagingEditors(false);
   };
 
+  const handleRegenerateCollaboratorShareId = async (mapId: string) => {
+    if (!selectedMapForSettings || selectedMapForSettings.id !== mapId || !user) return;
+    if (selectedMapForSettings.ownerId !== user.uid) {
+      toast({title: "Permission Denied", description: "Only the owner can manage invite links.", variant: "destructive"});
+      return;
+    }
+    setIsUpdatingSettings(true);
+    await regenerateCollaboratorShareId(mapId);
+    setIsUpdatingSettings(false);
+  };
 
-  const copyToClipboard = (text: string) => {
+  const handleDisableCollaboratorShareId = async (mapId: string) => {
+    if (!selectedMapForSettings || selectedMapForSettings.id !== mapId || !user) return;
+    if (selectedMapForSettings.ownerId !== user.uid) {
+      toast({title: "Permission Denied", description: "Only the owner can manage invite links.", variant: "destructive"});
+      return;
+    }
+    setIsUpdatingSettings(true);
+    await disableCollaboratorShareId(mapId);
+    setIsUpdatingSettings(false);
+  };
+
+
+  const copyToClipboard = (text: string, message: string = "Link copied to clipboard.") => {
     navigator.clipboard.writeText(text).then(() => {
-      toast({ title: "Copied!", description: "Link copied to clipboard." });
+      toast({ title: "Copied!", description: message });
     }).catch(err => {
       toast({ title: "Error", description: "Could not copy link.", variant: "destructive" });
     });
@@ -301,7 +327,7 @@ export function MapManager() {
                                   
                                   {isMapOwner && (
                                     <div>
-                                      <h4 className="text-sm font-medium mb-2">Editors</h4>
+                                      <h4 className="text-sm font-medium mb-2">Editors (UID)</h4>
                                       <div className="flex items-center gap-2 mb-2">
                                         <Input 
                                           id="newEditorUidInput" 
@@ -350,6 +376,47 @@ export function MapManager() {
 
                                   {isMapOwner && (
                                     <div>
+                                      <h4 className="text-sm font-medium mb-2">Editor Invite Link</h4>
+                                      {selectedMapForSettings.collaboratorShareId && publicLinkBase ? (
+                                        <div className="space-y-2">
+                                            <p className="text-xs text-muted-foreground break-all">
+                                                Share this invite link: <br />
+                                                <a
+                                                  href={`${publicLinkBase}/join/${selectedMapForSettings.collaboratorShareId}`}
+                                                  target="_blank"
+                                                  rel="noopener noreferrer"
+                                                  className="text-primary hover:underline"
+                                                >
+                                                  {`${publicLinkBase}/join/${selectedMapForSettings.collaboratorShareId}`}
+                                                  <ExternalLink className="inline-block h-3 w-3 ml-1"/>
+                                                </a>
+                                            </p>
+                                            <div className="flex flex-wrap gap-2">
+                                                <Button variant="outline" size="sm" onClick={() => copyToClipboard(`${publicLinkBase}/join/${selectedMapForSettings.collaboratorShareId}`, "Invite link copied!")} disabled={isUpdatingSettings} >
+                                                    <Copy className="mr-2 h-3 w-3" /> Copy Invite
+                                                </Button>
+                                                <Button variant="outline" size="sm" onClick={() => handleRegenerateCollaboratorShareId(map.id)} disabled={isUpdatingSettings} >
+                                                    <RefreshCw className="mr-2 h-3 w-3" /> Regenerate
+                                                </Button>
+                                                <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => handleDisableCollaboratorShareId(map.id)} disabled={isUpdatingSettings} >
+                                                    <XCircle className="mr-2 h-3 w-3" /> Disable
+                                                </Button>
+                                            </div>
+                                        </div>
+                                      ) : (
+                                        <div className="space-y-2">
+                                            <p className="text-xs text-muted-foreground">No active invite link. Generate one to allow others to join as editors.</p>
+                                            <Button variant="default" size="sm" onClick={() => handleRegenerateCollaboratorShareId(map.id)} disabled={isUpdatingSettings} >
+                                                <LinkIcon className="mr-2 h-3 w-3" /> Generate Invite Link
+                                            </Button>
+                                        </div>
+                                      )}
+                                      <Separator className="my-4" />
+                                    </div>
+                                  )}
+
+                                  {isMapOwner && (
+                                    <div>
                                       <h4 className="text-sm font-medium mb-2">Public View-Only Link</h4>
                                       <div className="flex items-center space-x-2 mb-2">
                                         <Switch
@@ -391,8 +458,8 @@ export function MapManager() {
                                               onClick={() => handleRegeneratePublicViewId(map.id)}
                                               disabled={isUpdatingSettings || !isMapOwner}
                                             >
-                                              {isUpdatingSettings && selectedMapForSettings.publicViewId ? <Loader2 className="mr-2 h-3 w-3 animate-spin"/> : null}
-                                              Regenerate Link
+                                              {isUpdatingSettings && selectedMapForSettings.publicViewId ? <Loader2 className="mr-2 h-3 w-3 animate-spin"/> : <RefreshCw className="h-3 w-3" />}
+                                              Regenerate
                                             </Button>
                                           </div>
                                         </div>
@@ -454,3 +521,4 @@ export function MapManager() {
     </div>
   );
 }
+

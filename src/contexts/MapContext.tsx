@@ -19,7 +19,7 @@ import {
   Timestamp,
   updateDoc,
   getDocs,
-  getDoc, // Added getDoc
+  getDoc, 
   arrayUnion,
   arrayRemove,
 } from 'firebase/firestore';
@@ -71,6 +71,10 @@ interface MapContextType {
   addEditorToMap: (mapId: string, editorUid: string) => Promise<void>;
   removeEditorFromMap: (mapId: string, editorUid: string) => Promise<void>;
 
+  regenerateCollaboratorShareId: (mapId: string) => Promise<void>;
+  disableCollaboratorShareId: (mapId: string) => Promise<void>;
+  claimEditorInvite: (mapIdToJoin: string, providedShareId: string) => Promise<boolean>;
+
   editorProfiles: Record<string, UserProfile | null>;
   isLoadingEditorProfiles: boolean;
   fetchEditorProfiles: (editorUids: string[]) => Promise<void>;
@@ -108,6 +112,7 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const fetchEditorProfiles = useCallback(async (editorUids: string[]) => {
     if (!editorUids || editorUids.length === 0) {
+      setEditorProfiles(prev => ({...prev})); // Ensure state update if list is empty
       return;
     }
 
@@ -130,16 +135,19 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             uid: uid,
             email: data.email || null,
             displayName: data.displayName || null,
-            // lastLogin is not strictly needed for this feature
           };
         } else {
-          newProfilesUpdate[uid] = null; // Mark as fetched but not found
+          newProfilesUpdate[uid] = null; 
         }
       }
       setEditorProfiles(prevProfiles => ({ ...prevProfiles, ...newProfilesUpdate }));
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching editor profiles:", error);
-      toast({ title: "Error", description: "Could not load some editor details.", variant: "destructive" });
+      if (error.code === 'permission-denied') {
+          toast({ title: "Permissions Error", description: "Could not load some editor details due to Firestore security rules. Ensure rules allow reading user profiles.", variant: "destructive", duration: 10000 });
+      } else {
+          toast({ title: "Error", description: "Could not load some editor details.", variant: "destructive" });
+      }
     } finally {
       setIsLoadingEditorProfiles(false);
     }
@@ -204,11 +212,17 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       mapSources.editor = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MapData));
       if (!editorLoaded) editorLoaded = true;
       updateCombinedList();
-    }, (error) => { 
+    }, (error: any) => { 
       console.error("Error fetching shared maps:", error);
+      let desc = "Could not load maps shared with you. This might be due to Firestore security rules or missing indexes. Check browser console for details.";
+      if (error.code === 'failed-precondition') {
+        desc = "Could not load shared maps due to a missing Firestore index. The browser console may have a link to create it.";
+      } else if (error.code === 'permission-denied') {
+        desc = "Could not load shared maps due to Firestore security rules. Ensure rules allow querying maps where you are an editor.";
+      }
       toast({ 
         title: "Error Loading Shared Maps", 
-        description: "Could not load maps shared with you. This might be due to Firestore security rules or missing indexes. Check browser console for details.", 
+        description: desc, 
         variant: "destructive",
         duration: 10000 
       });
@@ -276,7 +290,7 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     setCurrentMapId(mapId);
     setFocusedCellCoordinates(null);
-    setEditorProfiles({}); // Clear editor profiles when map changes
+    setEditorProfiles({}); 
   }, [currentMapId, focusedCellCoordinates, setFocusedCellCoordinates]);
 
   const createMap = useCallback(async (name: string): Promise<string | null> => {
@@ -295,7 +309,7 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       updatedAt: now as Timestamp,
       isPublicViewable: false,
       publicViewId: null,
-      collaboratorShareId: null,
+      collaboratorShareId: null, 
     };
 
     try {
@@ -334,9 +348,9 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     
     if (isEditor && !isOwner) {
-      const allowedEditorUpdates = ['gridState', 'updatedAt']; 
+      const allowedEditorUpdateKeys = ['gridState', 'updatedAt']; 
       for (const key in updates) {
-        if (!allowedEditorUpdates.includes(key) && key !== 'updatedAt') {
+        if (!allowedEditorUpdateKeys.includes(key)) {
            toast({ title: "Permission Denied", description: `Editors cannot modify '${key}'.`, variant: "destructive" });
            throw new Error(`Editors cannot modify '${key}'`);
         }
@@ -403,7 +417,7 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updatedAt: serverTimestamp()
       });
       toast({ title: "Success", description: `User added as editor.` });
-      fetchEditorProfiles([editorUid]); // Fetch profile for newly added editor
+      fetchEditorProfiles([editorUid]); 
     } catch (error: any) {
       console.error("Error adding editor:", error);
       toast({ title: "Error", description: `Failed to add editor: ${error.message}`, variant: "destructive" });
@@ -841,6 +855,87 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [user, userMapList, currentMapData, toast, updateMapInFirestore]);
 
+  const regenerateCollaboratorShareId = useCallback(async (mapId: string) => {
+    if (!user) {
+      toast({ title: "Error", description: "Authentication required.", variant: "destructive" });
+      return;
+    }
+    const mapData = userMapList.find(m => m.id === mapId) || (currentMapData?.id === mapId ? currentMapData : null);
+    if (!mapData || mapData.ownerId !== user.uid) {
+      toast({ title: "Permission Denied", description: "Only the map owner can manage invite links.", variant: "destructive" });
+      return;
+    }
+    const newShareId = crypto.randomUUID();
+    try {
+      await updateMapInFirestore(mapId, { collaboratorShareId: newShareId });
+      toast({ title: "Success", description: "Editor invite link generated/regenerated." });
+    } catch (error) { /* Handled by updateMapInFirestore */ }
+  }, [user, userMapList, currentMapData, toast, updateMapInFirestore]);
+
+  const disableCollaboratorShareId = useCallback(async (mapId: string) => {
+    if (!user) {
+      toast({ title: "Error", description: "Authentication required.", variant: "destructive" });
+      return;
+    }
+    const mapData = userMapList.find(m => m.id === mapId) || (currentMapData?.id === mapId ? currentMapData : null);
+    if (!mapData || mapData.ownerId !== user.uid) {
+      toast({ title: "Permission Denied", description: "Only the map owner can manage invite links.", variant: "destructive" });
+      return;
+    }
+    try {
+      await updateMapInFirestore(mapId, { collaboratorShareId: null });
+      toast({ title: "Success", description: "Editor invite link disabled." });
+    } catch (error) { /* Handled by updateMapInFirestore */ }
+  }, [user, userMapList, currentMapData, toast, updateMapInFirestore]);
+
+  const claimEditorInvite = useCallback(async (mapIdToJoin: string, providedShareId: string): Promise<boolean> => {
+    if (!user) {
+      toast({ title: "Authentication Required", description: "Please log in to join a map.", variant: "destructive" });
+      return false;
+    }
+    try {
+      const mapDocRef = doc(db, "maps", mapIdToJoin);
+      const mapSnapshot = await getDoc(mapDocRef);
+
+      if (!mapSnapshot.exists()) {
+        toast({ title: "Invite Error", description: "This invite link is invalid or the map no longer exists.", variant: "destructive" });
+        return false;
+      }
+      const mapData = mapSnapshot.data() as MapData;
+
+      if (mapData.ownerId === user.uid) {
+        toast({ title: "Already Owner", description: "You are the owner of this map.", variant: "default" });
+        return true; // Technically success as they have access
+      }
+      if (mapData.editors && mapData.editors.includes(user.uid)) {
+        toast({ title: "Already Editor", description: "You are already an editor for this map.", variant: "default" });
+        return true; // Success
+      }
+      if (mapData.collaboratorShareId !== providedShareId || !mapData.collaboratorShareId) {
+        toast({ title: "Invite Error", description: "This invite link is invalid or has expired.", variant: "destructive" });
+        return false;
+      }
+
+      // If all checks pass, attempt to add user to editors list
+      // This relies on Firestore security rules allowing this specific update.
+      await updateDoc(mapDocRef, {
+        editors: arrayUnion(user.uid),
+        updatedAt: serverTimestamp(),
+      });
+      toast({ title: "Joined Map!", description: `You are now an editor for "${mapData.name}".` });
+      return true;
+
+    } catch (error: any) {
+      console.error("Error claiming editor invite:", error);
+      if (error.code === 'permission-denied') {
+        toast({ title: "Permission Denied", description: "Could not join map. This may be due to Firestore security rules.", variant: "destructive" });
+      } else {
+        toast({ title: "Invite Error", description: `Failed to join map: ${error.message}`, variant: "destructive" });
+      }
+      return false;
+    }
+  }, [user, toast]);
+
 
   return (
     <MapContext.Provider value={{
@@ -871,6 +966,9 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       regeneratePublicViewId,
       addEditorToMap,
       removeEditorFromMap,
+      regenerateCollaboratorShareId,
+      disableCollaboratorShareId,
+      claimEditorInvite,
       editorProfiles,
       isLoadingEditorProfiles,
       fetchEditorProfiles,
@@ -887,3 +985,4 @@ export const useMap = (): MapContextType => {
   }
   return context;
 };
+
