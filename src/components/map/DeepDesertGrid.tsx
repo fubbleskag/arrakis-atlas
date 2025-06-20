@@ -14,13 +14,15 @@ interface DeepDesertGridProps {
   initialMapData?: MapData;
   isReadOnly?: boolean;
   onCellClick?: (rowIndex: number, colIndex: number) => void;
+  className?: string; // Added className prop
 }
 
 export function DeepDesertGrid({
   initialGridState,
   initialMapData,
   isReadOnly = false,
-  onCellClick
+  onCellClick,
+  className, // Use className prop
 }: DeepDesertGridProps) {
   const context = !isReadOnly ? useMap() : null;
 
@@ -32,7 +34,7 @@ export function DeepDesertGrid({
 
   if ((!isReadOnly && isLoadingMapData && !currentLocalGrid) || (!isReadOnly && !currentMapData)) {
     return (
-      <div className="w-full h-full flex flex-col items-center justify-center bg-card rounded-lg shadow-xl border border-border">
+      <div className={cn("w-full h-full flex flex-col items-center justify-center bg-card rounded-lg shadow-xl border border-border", className)}>
         <Skeleton className="w-full h-full" />
       </div>
     );
@@ -40,7 +42,7 @@ export function DeepDesertGrid({
 
   if (isReadOnly && (!initialGridState || !initialMapData)) {
     return (
-      <div className="w-full h-full flex flex-col items-center justify-center bg-card rounded-lg shadow-xl border border-border">
+      <div className={cn("w-full h-full flex flex-col items-center justify-center bg-card rounded-lg shadow-xl border border-border", className)}>
         <Skeleton className="w-full h-full" />
       </div>
     );
@@ -51,32 +53,35 @@ export function DeepDesertGrid({
 
   if (!gridToRender || !mapDataForGrid) {
     return (
-      <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground">
+      <div className={cn("w-full h-full flex flex-col items-center justify-center text-muted-foreground", className)}>
         Loading map grid...
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col items-center space-y-2 w-full h-full">
+    <div 
+      className={cn("flex flex-col items-center w-full h-full", className)} // Apply className here
+      role="grid"
+      aria-label={`Deep Desert Map ${mapDataForGrid.name}`}
+    >
       <div
-        className="grid w-full h-full"
+        className="grid w-full h-full" // This div controls the overall grid structure including labels
         style={{
-          gridTemplateColumns: 'minmax(2rem, auto) 1fr',
-          gridTemplateRows: 'minmax(2rem, auto) 1fr',
-          gap: '0.125rem',
+          gridTemplateColumns: '2.5rem 1fr', // Fixed width for row labels, rest for grid
+          gridTemplateRows: '2.5rem 1fr',    // Fixed height for col labels, rest for grid
+          gap: '0.125rem', // gap-px equivalent
         }}
-        role="grid"
-        aria-label={`Deep Desert Map ${mapDataForGrid.name}`}
       >
         <div /> {/* Top-left empty cell */}
+        
         {/* Column Headers (1-9) */}
-        <div className="grid grid-cols-9 gap-px">
+        <div className="grid grid-cols-9 gap-px h-full">
           {Array.from({ length: GRID_SIZE }).map((_, colIndex) => (
             <div
               key={`col-label-${colIndex}`}
               className={cn(
-                "flex items-center justify-center text-center text-sm md:text-base font-medium text-muted-foreground bg-card rounded-sm transition-colors p-1.5",
+                "flex items-center justify-center text-center text-sm font-medium text-muted-foreground bg-card rounded-sm transition-colors p-1 h-full", // Ensure full height of the 2.5rem track
                 hoveredCell.col === colIndex && "bg-accent text-accent-foreground"
               )}
             >
@@ -84,13 +89,14 @@ export function DeepDesertGrid({
             </div>
           ))}
         </div>
+
         {/* Row Headers (A-I) */}
-        <div className="grid grid-rows-9 gap-px">
+        <div className="grid grid-rows-9 gap-px w-full">
           {Array.from({ length: GRID_SIZE }).map((_, rowIndex) => (
             <div
               key={`row-label-${rowIndex}`}
               className={cn(
-                "flex items-center justify-center text-center text-sm md:text-base font-medium text-muted-foreground bg-card rounded-sm transition-colors p-1.5",
+                "flex items-center justify-center text-center text-sm font-medium text-muted-foreground bg-card rounded-sm transition-colors p-1 w-full", // Ensure full width of the 2.5rem track
                  hoveredCell.row === rowIndex && "bg-accent text-accent-foreground"
               )}
             >
@@ -98,7 +104,8 @@ export function DeepDesertGrid({
             </div>
           ))}
         </div>
-        {/* Grid Cells */}
+
+        {/* Grid Cells Area */}
         <div
           className="grid grid-cols-9 grid-rows-9 gap-px bg-border border border-border rounded-lg overflow-hidden shadow-xl"
         >

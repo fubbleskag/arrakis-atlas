@@ -11,7 +11,7 @@ import { MapDetailsPanel } from '@/components/map/MapDetailsPanel';
 import { useMap } from '@/contexts/MapContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AlertTriangle, MapPin, ChevronDown, ChevronRight } from 'lucide-react'; 
+import { AlertTriangle, MapPin, ChevronDown } from 'lucide-react'; 
 import { Button } from '@/components/ui/button';
 import { AuthButton } from '@/components/auth/AuthButton';
 import { MiniCellSelectorGrid } from '@/components/map/MiniCellSelectorGrid';
@@ -37,18 +37,13 @@ import {
   SidebarInset,
   SidebarMenu,
   SidebarMenuItem,
-  SidebarMenuButton,
+  // SidebarMenuButton, // Not used directly here, breadcrumbs are custom
   SidebarSeparator,
-  SidebarTrigger // If you want a toggle button
+  // SidebarTrigger // Not used directly here
 } from '@/components/ui/sidebar';
 
 
-// Approximate constants for layout calculations
-const PAGE_INSET_PADDING_VERTICAL = 48; // Sum of top/bottom padding inside SidebarInset (e.g. p-6 top + p-6 bottom)
-const PAGE_INSET_PADDING_HORIZONTAL = 48; // Sum of left/right padding inside SidebarInset (e.g. p-6 left + p-6 right)
-
-const SIDE_PANEL_WIDTH = 300; // Width of the right-hand details panel
-const SIDE_PANEL_GAP = 24;    // Gap between main content and side panel
+const SIDE_PANEL_WIDTH_CLASS = "w-[300px]"; // For Tailwind JIT
 
 function SidebarBreadcrumbs() {
   const { 
@@ -73,25 +68,31 @@ function SidebarBreadcrumbs() {
     label: string;
     onClick?: () => void;
     isCurrent: boolean;
-    isSelector?: 'map' | 'cell';
     content?: React.ReactNode;
   }> = [];
 
+  // 1. "Maps" root breadcrumb
   breadcrumbItems.push({
     key: 'mapsRoot',
     label: 'Maps',
-    onClick: () => selectMap(null), 
+    onClick: () => { selectMap(null); setFocusedCellCoordinates(null); },
     isCurrent: !currentMapData,
   });
 
+  // 2. Current Map breadcrumb (if a map is selected)
   if (currentMapData) {
     const mapSelectorContent = userMapList && userMapList.length > 1 ? (
       <Select
         value={currentMapId || ""}
-        onValueChange={(value) => { if (value && value !== currentMapId) { selectMap(value); }}}
+        onValueChange={(value) => { 
+          if (value && value !== currentMapId) { 
+            selectMap(value); 
+            // setFocusedCellCoordinates(null); // selectMap should handle this
+          }
+        }}
       >
         <SelectTrigger
-          className="p-0 h-auto text-sm font-semibold focus:ring-0 border-none shadow-none bg-transparent truncate w-full data-[placeholder]:text-foreground hover:text-primary/80"
+          className="p-0 h-auto text-sm font-semibold focus:ring-0 border-none shadow-none bg-transparent truncate w-full data-[placeholder]:text-foreground hover:text-primary/80 text-left justify-start"
           aria-label="Switch map"
         >
           <SelectValue placeholder={currentMapData.name} /> 
@@ -105,9 +106,16 @@ function SidebarBreadcrumbs() {
         </SelectContent>
       </Select>
     ) : (
-      <span className={cn("truncate w-full text-sm font-semibold", !!currentMapData && !focusedCellCoordinates ? "text-foreground" : "text-primary")}>
+      <Button
+        variant="link"
+        onClick={() => setFocusedCellCoordinates(null)} // Click map name to unfocus cell
+        className={cn(
+          "p-0 h-auto text-sm font-semibold truncate w-full text-left justify-start",
+          !!currentMapData && !focusedCellCoordinates ? "text-foreground" : "text-primary hover:text-primary/80"
+        )}
+      >
         {currentMapData.name}
-      </span>
+      </Button>
     );
 
     breadcrumbItems.push({
@@ -118,13 +126,14 @@ function SidebarBreadcrumbs() {
     });
   }
 
+  // 3. Focused Cell breadcrumb (if a cell is focused)
   if (currentMapData && focusedCellCoordinates) {
     const cellSelectorContent = (
       <Popover open={cellSelectorOpen} onOpenChange={setCellSelectorOpen}>
         <PopoverTrigger asChild>
           <Button
             variant="link"
-            className="p-0 h-auto text-sm font-semibold focus:ring-0 border-none shadow-none bg-transparent text-foreground hover:text-foreground/90 data-[placeholder]:text-foreground flex items-center w-full"
+            className="p-0 h-auto text-sm font-semibold focus:ring-0 border-none shadow-none bg-transparent text-foreground hover:text-foreground/90 data-[placeholder]:text-foreground flex items-center w-full text-left justify-start"
             aria-label="Switch cell"
           >
             {getCellCoordinateLabel(focusedCellCoordinates.rowIndex, focusedCellCoordinates.colIndex)} <ChevronDown className="ml-1 h-3 w-3 opacity-70 shrink-0" />
@@ -153,25 +162,22 @@ function SidebarBreadcrumbs() {
 
   return (
     <nav aria-label="Breadcrumb" className="px-2 py-1 w-full">
-      <ol className="flex items-center space-x-0.5 text-sm font-semibold w-full">
-        {breadcrumbItems.map((item, index) => (
-          <li key={item.key} className="flex items-center space-x-0.5 min-w-0"> {/* min-w-0 for truncation */}
-            {index > 0 && (
-              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-            )}
-            <div className="truncate"> {/* Added div for truncation */}
+      <ol className="flex flex-col items-start space-y-1.5 w-full">
+        {breadcrumbItems.map((item) => (
+          <li key={item.key} className="flex items-center w-full min-w-0">
+            <div className="truncate w-full">
               {item.content ? (
                 item.content
               ) : item.onClick && !item.isCurrent ? (
                 <Button
                   variant="link"
                   onClick={item.onClick}
-                  className={cn("p-0 h-auto text-sm font-semibold truncate", "text-primary hover:text-primary/80")}
+                  className={cn("p-0 h-auto text-sm font-semibold truncate w-full text-left justify-start", "text-primary hover:text-primary/80")}
                 >
                   {item.label}
                 </Button>
               ) : (
-                <span className={cn("truncate text-sm font-semibold", item.isCurrent ? "text-foreground" : "text-primary")}>
+                <span className={cn("truncate text-sm font-semibold block w-full text-left", item.isCurrent ? "text-foreground" : "text-primary")}>
                   {item.label}
                 </span>
               )}
@@ -222,82 +228,78 @@ function HomePageContent() {
   if (showMapManager) {
     return <MapManager />;
   }
-
-  // Calculate available dimensions within SidebarInset (which is flex-grow)
-  // Assuming SidebarInset has padding (e.g., p-6), those are constants.
-  // We use vh/vw for the full viewport and then account for fixed elements.
-  const dynamicCanvasHeight = `calc(100vh - ${PAGE_INSET_PADDING_VERTICAL}px)`; // Full viewport height minus inset padding
   
-  if (focusedCellCoordinates && currentMapData) {
-    const dynamicCanvasWidth = `calc(100% - ${SIDE_PANEL_WIDTH}px - ${SIDE_PANEL_GAP}px)`; // 100% of SidebarInset's width, minus panel
-    const canvasHolderDimension = `min(${dynamicCanvasHeight}, ${dynamicCanvasWidth})`;
-
+  // This is the main content area when a map OR a cell is selected
+  // It will contain the grid/canvas on the left (flex-grow) and a details panel on the right (fixed-width)
+  if (currentMapData) {
     return (
-      <div className="flex flex-row w-full h-full items-start justify-center gap-6 p-4 md:p-6"> {/* Ensure HomePageContent itself has padding */}
-        <div className="flex-grow flex items-center justify-center h-full">
-          <div style={{ width: canvasHolderDimension, height: canvasHolderDimension }} className="relative">
-            {(isLoadingMapData || !currentLocalGrid) && (
-              <Skeleton className="absolute inset-0 w-full h-full bg-card rounded-lg shadow-xl border border-border"/>
-            )}
-            {(!isLoadingMapData && currentLocalGrid) && (
-              <DetailedCellEditorCanvas
-                rowIndex={focusedCellCoordinates.rowIndex}
-                colIndex={focusedCellCoordinates.colIndex}
-                className="w-full h-full"
-              />
+      <div className="flex flex-row w-full h-full items-stretch justify-center gap-x-6 p-4 md:p-6">
+        {/* Left side: Grid or Detailed Cell Canvas (flex-grow, centers its square content) */}
+        <div className="flex-grow flex items-center justify-center h-full min-w-0">
+          <div className="aspect-square w-auto h-auto max-w-full max-h-full relative">
+            {focusedCellCoordinates && currentMapData ? (
+              // Detailed Cell View
+              <>
+                {(isLoadingMapData || !currentLocalGrid) && (
+                  <Skeleton className="absolute inset-0 w-full h-full bg-card rounded-lg shadow-xl border border-border"/>
+                )}
+                {(!isLoadingMapData && currentLocalGrid) && (
+                  <DetailedCellEditorCanvas
+                    rowIndex={focusedCellCoordinates.rowIndex}
+                    colIndex={focusedCellCoordinates.colIndex}
+                    className="w-full h-full"
+                  />
+                )}
+              </>
+            ) : (
+              // Grid View (currentMapData is true, focusedCellCoordinates is null)
+              <>
+                {(isLoadingMapData || (currentMapData && !currentLocalGrid)) && (
+                  <Skeleton className="absolute inset-0 w-full h-full bg-card rounded-lg shadow-xl border border-border" />
+                )}
+                {(!isLoadingMapData && currentMapData && currentLocalGrid) && (
+                  <DeepDesertGrid className="w-full h-full" />
+                )}
+                {(!isLoadingMapData && currentMapData && !currentLocalGrid && isAuthenticated) && (
+                  <div className="w-full h-full flex flex-col items-center justify-center text-center p-6 space-y-4 bg-card rounded-lg shadow-xl border border-destructive">
+                    <AlertTriangle className="h-16 w-16 text-destructive" />
+                    <h2 className="text-2xl font-semibold text-destructive-foreground">Map Data Error</h2>
+                    <p className="text-muted-foreground">
+                      Map data is unavailable or corrupted. This map may not exist or you might not have access.
+                    </p>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
-        <div className="w-[300px] flex-shrink-0 flex flex-col gap-4 sticky top-6"> {/* Ensure sticky top matches inset padding */}
-          <IconSourcePalette
-            rowIndex={focusedCellCoordinates.rowIndex}
-            colIndex={focusedCellCoordinates.colIndex}
-          />
-          {selectedPlacedIconId && currentLocalGrid && (
-            <MarkerEditorPanel
-              rowIndex={focusedCellCoordinates.rowIndex}
-              colIndex={focusedCellCoordinates.colIndex}
-            />
+
+        {/* Right side: Details Panel (fixed width, sticky) */}
+        <div className={cn(SIDE_PANEL_WIDTH_CLASS, "flex-shrink-0 flex flex-col gap-4 sticky top-6")}>
+          {focusedCellCoordinates && currentMapData ? (
+            // Panels for Cell View
+            <>
+              <IconSourcePalette
+                rowIndex={focusedCellCoordinates.rowIndex}
+                colIndex={focusedCellCoordinates.colIndex}
+              />
+              {selectedPlacedIconId && currentLocalGrid && (
+                <MarkerEditorPanel
+                  rowIndex={focusedCellCoordinates.rowIndex}
+                  colIndex={focusedCellCoordinates.colIndex}
+                />
+              )}
+            </>
+          ) : (
+            // Panel for Grid View
+            currentMapData && user && <MapDetailsPanel mapData={currentMapData} currentUser={user} />
           )}
         </div>
       </div>
     );
   }
-
-  if (currentMapData) {
-    const dynamicGridWidth = `calc(100% - ${SIDE_PANEL_WIDTH}px - ${SIDE_PANEL_GAP}px)`; // 100% of SidebarInset's width, minus panel
-    const gridHolderDimension = `min(${dynamicCanvasHeight}, ${dynamicGridWidth})`;
-
-    return (
-      <div className="flex flex-row w-full h-full items-start justify-center gap-6 p-4 md:p-6">
-        <div className="flex-grow flex items-center justify-center h-full">
-          <div style={{ width: gridHolderDimension, height: gridHolderDimension }} className="relative">
-            {(isLoadingMapData || (currentMapData && !currentLocalGrid)) && (
-              <Skeleton className="absolute inset-0 w-full h-full bg-card rounded-lg shadow-xl border border-border" />
-            )}
-            {(!isLoadingMapData && currentMapData && currentLocalGrid) && (
-              <DeepDesertGrid />
-            )}
-            {(!isLoadingMapData && currentMapData && !currentLocalGrid && isAuthenticated) && (
-              <div className="w-full h-full flex flex-col items-center justify-center text-center p-6 space-y-4 bg-card rounded-lg shadow-xl border border-destructive">
-                <AlertTriangle className="h-16 w-16 text-destructive" />
-                <h2 className="text-2xl font-semibold text-destructive-foreground">Map Data Error</h2>
-                <p className="text-muted-foreground">
-                  Map data is unavailable or corrupted. This map may not exist or you might not have access.
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-        {currentMapData && user && (
-          <div className="w-[300px] flex-shrink-0 flex flex-col gap-4 sticky top-6">
-            <MapDetailsPanel mapData={currentMapData} currentUser={user} />
-          </div>
-        )}
-      </div>
-    );
-  }
   
+  // Fallback for no map selected but authenticated (should ideally be handled by showMapManager)
   if (isAuthenticated && !isAuthLoading && !isLoadingMapList && !currentMapId) {
      return (
       <div className="flex flex-col items-center justify-center flex-grow p-6">
@@ -309,6 +311,7 @@ function HomePageContent() {
     );
   }
 
+  // General loading fallback
   return (
     <div className="flex flex-col items-center justify-center flex-grow p-6">
       <Skeleton className="h-12 w-1/2 mb-4" /> <Skeleton className="h-8 w-1/3 mb-8" /> <Skeleton className="w-full max-w-md h-64" />
@@ -319,26 +322,23 @@ function HomePageContent() {
 
 export default function Home() {
   return (
-    <div className="flex h-screen"> {/* Use h-screen for full viewport height */}
+    <div className="flex h-screen">
       <Sidebar className="border-r border-sidebar-border">
         <SidebarHeader className="p-2">
-          {/* <SidebarTrigger /> Optional toggle button */}
-          {/* You can add a logo or app title here if needed */}
         </SidebarHeader>
-        <SidebarContent className="p-0"> {/* Remove padding if breadcrumbs/menu handle it */}
+        <SidebarContent className="p-0">
           <SidebarMenu>
-            <SidebarMenuItem className="p-0"> {/* Remove padding for full-width custom content */}
+            <SidebarMenuItem className="p-0"> 
               <SidebarBreadcrumbs />
             </SidebarMenuItem>
           </SidebarMenu>
-          {/* Future sidebar navigation items can go here */}
         </SidebarContent>
         <SidebarSeparator />
         <SidebarFooter className="p-2">
           <AuthButton />
         </SidebarFooter>
       </Sidebar>
-      <SidebarInset className="flex-grow overflow-auto"> {/* flex-grow and overflow-auto are important */}
+      <SidebarInset className="flex-grow overflow-auto">
         <HomePageContent />
       </SidebarInset>
     </div>
