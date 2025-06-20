@@ -10,21 +10,23 @@ import { IconSourcePalette } from './IconSourcePalette';
 import { MarkerEditorPanel } from './MarkerEditorPanel';
 import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, MapPin } from 'lucide-react';
 
-// Constants for layout calculations (should match those in page.tsx for consistency if possible)
+
 const HEADER_HEIGHT = 65; 
 const FOOTER_HEIGHT = 33;
 const MAIN_SM_PY_TOTAL = 64; 
-const MAIN_SM_PX_TOTAL = 32;
+const MAIN_SM_PX_TOTAL = 32; 
+const PAGE_INTERNAL_PADDING_X = 48; 
+const PAGE_INTERNAL_PADDING_Y = 48;
 
-const PAGE_VERTICAL_OVERHEAD = HEADER_HEIGHT + FOOTER_HEIGHT + MAIN_SM_PY_TOTAL;
-const PAGE_HORIZONTAL_PADDING = MAIN_SM_PX_TOTAL;
+const PAGE_VERTICAL_OVERHEAD = HEADER_HEIGHT + FOOTER_HEIGHT + MAIN_SM_PY_TOTAL + PAGE_INTERNAL_PADDING_Y;
+const PAGE_HORIZONTAL_TOTAL_PADDING = MAIN_SM_PX_TOTAL + PAGE_INTERNAL_PADDING_X;
+
 
 const SIDE_PANEL_WIDTH = 300;
 const SIDE_PANEL_GAP = 24;
-const CELL_VIEW_ROW_INTERNAL_PADDING_X = 32; // from p-4 on the flex-row div
-const CELL_VIEW_ROW_INTERNAL_PADDING_Y = 32; // from p-4 on the flex-row div
+
 
 interface PublicMapViewProps {
   mapData: MapData | null; 
@@ -35,7 +37,7 @@ interface PublicMapViewProps {
 function PublicHeader({ mapName }: { mapName: string | undefined }) {
   return (
     <header className="py-4 px-6 border-b border-border">
-      <div className="container mx-auto flex justify-between items-center"> {/* Kept container for header content */}
+      <div className="container mx-auto flex justify-between items-center">
         <Link href="/" className="text-xl md:text-2xl font-semibold text-primary hover:text-primary/80 truncate">
           {mapName || "Map"} - Arrakis Atlas (Public View)
         </Link>
@@ -54,7 +56,7 @@ export function PublicMapView({ mapData: initialMapData, localGrid: initialLocal
   useEffect(() => {
     setMapData(initialMapData);
     setLocalGrid(initialLocalGrid);
-    setFocusedCellCoords(null); // Reset focus when map data changes
+    setFocusedCellCoords(null); 
     setSelectedIconId(null);
   }, [initialMapData, initialLocalGrid]);
 
@@ -96,29 +98,34 @@ export function PublicMapView({ mapData: initialMapData, localGrid: initialLocal
 
 
   if (focusedCellCoords && currentFocusedCellData) {
-    const canvasAvailableHeight = `calc(100vh - ${PAGE_VERTICAL_OVERHEAD}px - ${CELL_VIEW_ROW_INTERNAL_PADDING_Y}px)`;
-    const canvasAvailableWidth = `calc(100vw - ${PAGE_HORIZONTAL_PADDING}px - ${SIDE_PANEL_WIDTH}px - ${SIDE_PANEL_GAP}px - ${CELL_VIEW_ROW_INTERNAL_PADDING_X}px)`;
+    const canvasAvailableHeight = `calc(100vh - ${PAGE_VERTICAL_OVERHEAD}px)`;
+    const canvasAvailableWidth = `calc(100vw - ${PAGE_HORIZONTAL_TOTAL_PADDING}px - ${SIDE_PANEL_WIDTH}px - ${SIDE_PANEL_GAP}px)`;
     const canvasHolderDimension = `min(${canvasAvailableHeight}, ${canvasAvailableWidth})`;
 
     return (
       <div className="flex flex-col min-h-screen bg-background">
         <PublicHeader mapName={mapData.name} />
-        <main className="flex-grow px-0 sm:px-4 py-0 sm:py-8 flex flex-col">
-          <div className="flex flex-row w-full flex-grow gap-6 p-4 md:p-6 items-start justify-center">
-            <div
-              className="flex flex-col items-center justify-start"
-              style={{ width: canvasHolderDimension, height: canvasHolderDimension }}
-            >
-              <DetailedCellEditorCanvas
-                rowIndex={focusedCellCoords.rowIndex}
-                colIndex={focusedCellCoords.colIndex}
-                isEditorOverride={false} 
-                mapDataOverride={mapData}
-                cellDataOverride={currentFocusedCellData}
-                selectedIconIdOverride={selectedIconId}
-                onIconSelectOverride={handleIconSelect}
-                className="w-full h-full"
-              />
+        <main className="flex-grow px-0 sm:px-4 py-0 sm:py-8 flex flex-col items-center justify-start">
+          <div className="flex flex-row w-full max-w-full items-start gap-6 p-4 md:p-6"> {/* max-w-full ensures it uses available space */}
+            <div className="flex-grow flex items-center justify-center h-full">
+                <div
+                style={{
+                    width: canvasHolderDimension,
+                    height: canvasHolderDimension,
+                }}
+                className="relative"
+                >
+                <DetailedCellEditorCanvas
+                    rowIndex={focusedCellCoords.rowIndex}
+                    colIndex={focusedCellCoords.colIndex}
+                    isEditorOverride={false} 
+                    mapDataOverride={mapData}
+                    cellDataOverride={currentFocusedCellData}
+                    selectedIconIdOverride={selectedIconId}
+                    onIconSelectOverride={handleIconSelect}
+                    className="w-full h-full"
+                />
+                </div>
             </div>
             <div className="w-[300px] flex-shrink-0 flex flex-col gap-4 sticky top-6">
               <IconSourcePalette
@@ -151,13 +158,16 @@ export function PublicMapView({ mapData: initialMapData, localGrid: initialLocal
   }
 
   // Full grid view
-  const gridHolderDimension = `min(calc(100vh - ${PAGE_VERTICAL_OVERHEAD}px), calc(100vw - ${PAGE_HORIZONTAL_PADDING}px))`;
+  const gridAvailableHeight = `calc(100vh - ${PAGE_VERTICAL_OVERHEAD}px)`;
+  const gridAvailableWidth = `calc(100vw - ${PAGE_HORIZONTAL_TOTAL_PADDING}px)`;
+  const gridHolderDimension = `min(${gridAvailableHeight}, ${gridAvailableWidth})`;
+
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <PublicHeader mapName={mapData.name} />
-      <main className="flex-grow px-0 sm:px-4 py-0 sm:py-8 flex flex-col">
-        <div className="flex flex-col items-center justify-start flex-grow w-full py-4">
+      <main className="flex-grow px-0 sm:px-4 py-0 sm:py-8 flex flex-col items-center justify-start">
+        <div className="flex flex-col items-center justify-start w-full p-4 md:p-6"> {/* p-4/p-6 here */}
           <p className="text-sm text-muted-foreground mb-2">Public View-Only Mode. Click on a cell to view details.</p>
           <div style={{ width: gridHolderDimension, height: gridHolderDimension }}>
             <DeepDesertGrid
@@ -175,3 +185,4 @@ export function PublicMapView({ mapData: initialMapData, localGrid: initialLocal
     </div>
   );
 }
+
