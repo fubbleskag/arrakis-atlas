@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { PlusCircle, Loader2, MapPin, Settings2, Trash2, Copy, ExternalLink, UserPlus, UserX } from 'lucide-react';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
-import type { MapData } from '@/types';
+import type { MapData, UserProfile } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 import { Timestamp } from 'firebase/firestore'; 
@@ -32,6 +32,9 @@ export function MapManager() {
     regeneratePublicViewId,
     addEditorToMap,
     removeEditorFromMap,
+    editorProfiles, // New context state
+    isLoadingEditorProfiles, // New context state
+    fetchEditorProfiles, // New context function
   } = useMap();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -61,17 +64,23 @@ export function MapManager() {
       const freshMapDataFromList = userMapList.find(m => m.id === mapInDialogId);
 
       if (freshMapDataFromList) {
+        // Check if a deep comparison is needed or just specific fields
         if (JSON.stringify(selectedMapForSettings) !== JSON.stringify(freshMapDataFromList)) {
           setSelectedMapForSettings(freshMapDataFromList);
           if (settingsMapName !== freshMapDataFromList.name && document.activeElement?.id !== 'settingsMapNameInput') {
              setSettingsMapName(freshMapDataFromList.name);
           }
+          // If editors list changed, re-fetch profiles
+          if (JSON.stringify(selectedMapForSettings.editors) !== JSON.stringify(freshMapDataFromList.editors) && freshMapDataFromList.editors.length > 0) {
+            fetchEditorProfiles(freshMapDataFromList.editors);
+          }
         }
       } else {
+        // Map no longer in list, close dialog or handle
         setSelectedMapForSettings(null);
       }
     }
-  }, [userMapList, selectedMapForSettings, settingsMapName]);
+  }, [userMapList, selectedMapForSettings, settingsMapName, fetchEditorProfiles]);
 
 
   const handleCreateMap = async () => {
@@ -88,7 +97,10 @@ export function MapManager() {
   const openSettingsDialog = (map: MapData) => {
     setSelectedMapForSettings(map);
     setSettingsMapName(map.name);
-    setNewEditorUid(''); // Reset new editor input when dialog opens
+    setNewEditorUid(''); 
+    if (map.editors && map.editors.length > 0) {
+      fetchEditorProfiles(map.editors);
+    }
   };
 
   const handleUpdateNameSetting = async () => {
@@ -167,11 +179,6 @@ export function MapManager() {
     } else if (typeof dateValue === 'string') {
         date = parseISO(dateValue);
     } else {
-        // Fallback for a raw object that might come from Firestore before full hydration,
-        // though ideally `updatedAt` on MapData is always Timestamp or string.
-        // This might happen if serverTimestamp() hasn't resolved yet and you get a POJO.
-        // For this case, we'll treat it as 'Processing...' or 'N/A'.
-        // Alternatively, if `dateValue` might have `seconds` and `nanoseconds`:
         if (typeof dateValue === 'object' && 'seconds' in dateValue && 'nanoseconds' in dateValue) {
           try {
             date = new Timestamp((dateValue as any).seconds, (dateValue as any).nanoseconds).toDate();
@@ -183,7 +190,7 @@ export function MapManager() {
         }
     }
     return formatDistanceToNow(date, { addSuffix: true });
-};
+  };
 
 
   if (isLoadingMapList) {
@@ -261,13 +268,11 @@ export function MapManager() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="flex-grow">
-                  {/* Placeholder for map preview or stats if desired later */}
                 </CardContent>
                 <CardFooter className="flex-col sm:flex-row gap-2 pt-4 border-t">
                   <Button onClick={() => selectMap(map.id)} className="w-full sm:w-auto flex-grow">
                     View Map
                   </Button>
-                  {/* Settings button available to owners and editors, but content inside dialog checks for owner for specific actions */}
                    {(isMapOwner || map.editors?.includes(user?.uid || '')) && (
                     <div className="flex gap-2 w-full sm:w-auto">
                       <Dialog onOpenChange={(isOpen) => { if (!isOpen) setSelectedMapForSettings(null); }}>
@@ -312,14 +317,29 @@ export function MapManager() {
                                       </div>
                                       {selectedMapForSettings.editors && selectedMapForSettings.editors.length > 0 ? (
                                         <ul className="space-y-1 text-xs max-h-32 overflow-y-auto border rounded-md p-2 bg-muted/50">
-                                          {selectedMapForSettings.editors.map(editorId => (
-                                            <li key={editorId} className="flex justify-between items-center">
-                                              <span className="truncate" title={editorId}>{editorId}</span>
-                                              <Button variant="ghost" size="icon" onClick={() => handleRemoveEditor(editorId)} className="h-6 w-6" disabled={isManagingEditors || !isMapOwner}>
-                                                <UserX className="h-3 w-3 text-destructive"/>
-                                              </Button>
-                                            </li>
-                                          ))}
+                                          {selectedMapForSettings.editors.map(editorId => {
+                                            const profile = editorProfiles[editorId];
+                                            let displayContent;
+                                            if (typeof profile === 'undefined' && isLoadingEditorProfiles) {
+                                                displayContent = <><Loader2 className="h-3 w-3 animate-spin mr-1 inline-block" /> {editorId.substring(0,6)}...</>;
+                                            } else if (profile && profile.displayName) {
+                                                displayContent = profile.displayName;
+                                            } else if (profile && !profile.displayName) {
+                                                displayContent = `User (${editorId.substring(0,6)}...)`;
+                                            } else if (profile === null) {
+                                                displayContent = <span className="text-muted-foreground/70">{editorId.substring(0,6)}... (not found)</span>;
+                                            } else {
+                                                displayContent = editorId.substring(0,6) + '...';
+                                            }
+                                            return (
+                                              <li key={editorId} className="flex justify-between items-center">
+                                                <span className="truncate" title={editorId}>{displayContent}</span>
+                                                <Button variant="ghost" size="icon" onClick={() => handleRemoveEditor(editorId)} className="h-6 w-6" disabled={isManagingEditors || !isMapOwner}>
+                                                  <UserX className="h-3 w-3 text-destructive"/>
+                                                </Button>
+                                              </li>
+                                            );
+                                          })}
                                         </ul>
                                       ) : (
                                         <p className="text-xs text-muted-foreground">No other editors yet.</p>
@@ -397,7 +417,7 @@ export function MapManager() {
                                       </Button>
                                     </DialogClose>
                                   )}
-                                  {!isMapOwner && ( // If only editor, just a close button
+                                  {!isMapOwner && ( 
                                     <DialogClose asChild>
                                         <Button disabled={isUpdatingSettings || isManagingEditors}>Close</Button>
                                     </DialogClose>
@@ -406,7 +426,7 @@ export function MapManager() {
                           </DialogContent>
                           )}
                       </Dialog>
-                      {isMapOwner && ( // Delete button only for owner
+                      {isMapOwner && ( 
                         <Dialog>
                             <DialogTrigger asChild>
                                 <Button variant="destructive" size="icon" title="Delete Map">

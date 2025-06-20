@@ -3,7 +3,7 @@
 
 import type React from 'react';
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import type { LocalGridState, FirestoreGridState, IconType, MapData, FocusedCellCoordinates, PlacedIcon } from '@/types';
+import type { LocalGridState, FirestoreGridState, IconType, MapData, FocusedCellCoordinates, PlacedIcon, UserProfile } from '@/types';
 import { useAuth } from './AuthContext';
 import { db, storage } from '@/firebase/firebaseConfig';
 import {
@@ -19,6 +19,7 @@ import {
   Timestamp,
   updateDoc,
   getDocs,
+  getDoc, // Added getDoc
   arrayUnion,
   arrayRemove,
 } from 'firebase/firestore';
@@ -69,6 +70,10 @@ interface MapContextType {
 
   addEditorToMap: (mapId: string, editorUid: string) => Promise<void>;
   removeEditorFromMap: (mapId: string, editorUid: string) => Promise<void>;
+
+  editorProfiles: Record<string, UserProfile | null>;
+  isLoadingEditorProfiles: boolean;
+  fetchEditorProfiles: (editorUids: string[]) => Promise<void>;
 }
 
 const MapContext = createContext<MapContextType | undefined>(undefined);
@@ -87,6 +92,9 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isLoadingMapList, setIsLoadingMapList] = useState<boolean>(true);
   const [isLoadingMapData, setIsLoadingMapData] = useState<boolean>(false);
 
+  const [editorProfiles, setEditorProfiles] = useState<Record<string, UserProfile | null>>({});
+  const [isLoadingEditorProfiles, setIsLoadingEditorProfiles] = useState(false);
+
   const setFocusedCellCoordinates = useCallback((coordinates: FocusedCellCoordinates | null) => {
     _setFocusedCellCoordinates(coordinates);
     if (coordinates === null || (coordinates?.rowIndex !== focusedCellCoordinates?.rowIndex || coordinates?.colIndex !== focusedCellCoordinates?.colIndex)) {
@@ -98,6 +106,45 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     _setSelectedPlacedIconId(iconId);
   }, []);
 
+  const fetchEditorProfiles = useCallback(async (editorUids: string[]) => {
+    if (!editorUids || editorUids.length === 0) {
+      return;
+    }
+
+    const uidsToActuallyFetch = editorUids.filter(uid => typeof editorProfiles[uid] === 'undefined');
+
+    if (uidsToActuallyFetch.length === 0) {
+      return;
+    }
+
+    setIsLoadingEditorProfiles(true);
+    const newProfilesUpdate: Record<string, UserProfile | null> = {};
+    
+    try {
+      for (const uid of uidsToActuallyFetch) {
+        const userDocRef = doc(db, "users", uid);
+        const userDocSnap = await getDoc(userDocRef);
+        if (userDocSnap.exists()) {
+          const data = userDocSnap.data();
+          newProfilesUpdate[uid] = {
+            uid: uid,
+            email: data.email || null,
+            displayName: data.displayName || null,
+            // lastLogin is not strictly needed for this feature
+          };
+        } else {
+          newProfilesUpdate[uid] = null; // Mark as fetched but not found
+        }
+      }
+      setEditorProfiles(prevProfiles => ({ ...prevProfiles, ...newProfilesUpdate }));
+    } catch (error) {
+      console.error("Error fetching editor profiles:", error);
+      toast({ title: "Error", description: "Could not load some editor details.", variant: "destructive" });
+    } finally {
+      setIsLoadingEditorProfiles(false);
+    }
+  }, [toast, editorProfiles]);
+
 
   useEffect(() => {
     if (isAuthLoading || !user) {
@@ -107,6 +154,7 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setCurrentLocalGrid(null);
       setFocusedCellCoordinates(null);
       setSelectedPlacedIconId(null);
+      setEditorProfiles({});
       setIsLoadingMapList(user ? true : false);
       return;
     }
@@ -125,7 +173,7 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const combined = [...mapSources.owner, ...mapSources.editor];
       const uniqueMapsMap = new Map<string, MapData>();
       combined.forEach(map => {
-        if (map && map.id) { // Ensure map and map.id are defined
+        if (map && map.id) { 
           uniqueMapsMap.set(map.id, map);
         }
       });
@@ -160,9 +208,9 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.error("Error fetching shared maps:", error);
       toast({ 
         title: "Error Loading Shared Maps", 
-        description: "Could not load maps shared with you. This might be due to Firestore security rules or missing indexes. Check console for details.", 
+        description: "Could not load maps shared with you. This might be due to Firestore security rules or missing indexes. Check browser console for details.", 
         variant: "destructive",
-        duration: 10000 // Longer duration for this important message
+        duration: 10000 
       });
       if (!editorLoaded) editorLoaded = true; 
       if (ownerLoaded) setIsLoadingMapList(false); 
@@ -228,6 +276,7 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     setCurrentMapId(mapId);
     setFocusedCellCoordinates(null);
+    setEditorProfiles({}); // Clear editor profiles when map changes
   }, [currentMapId, focusedCellCoordinates, setFocusedCellCoordinates]);
 
   const createMap = useCallback(async (name: string): Promise<string | null> => {
@@ -240,7 +289,7 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newMapData: Omit<MapData, 'id'> = {
       name,
       ownerId: user.uid,
-      editors: [], // Initialize editors array
+      editors: [], 
       gridState: convertLocalToFirestoreGrid(initializeLocalGrid()),
       createdAt: now as Timestamp,
       updatedAt: now as Timestamp,
@@ -284,17 +333,15 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         throw new Error("Permission denied to update map");
     }
     
-    // Owner can update anything. Editors can only update gridState or specific fields.
     if (isEditor && !isOwner) {
-      const allowedEditorUpdates = ['gridState', 'updatedAt']; // Add other fields editors can modify if needed
+      const allowedEditorUpdates = ['gridState', 'updatedAt']; 
       for (const key in updates) {
-        if (!allowedEditorUpdates.includes(key) && key !== 'updatedAt' /* updatedAt is implicitly added */) {
+        if (!allowedEditorUpdates.includes(key) && key !== 'updatedAt') {
            toast({ title: "Permission Denied", description: `Editors cannot modify '${key}'.`, variant: "destructive" });
            throw new Error(`Editors cannot modify '${key}'`);
         }
       }
     }
-
 
     const mapDocRef = doc(db, "maps", mapId);
     try {
@@ -355,12 +402,13 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         editors: arrayUnion(editorUid),
         updatedAt: serverTimestamp()
       });
-      toast({ title: "Success", description: `User ${editorUid.substring(0,6)}... added as editor.` });
+      toast({ title: "Success", description: `User added as editor.` });
+      fetchEditorProfiles([editorUid]); // Fetch profile for newly added editor
     } catch (error: any) {
       console.error("Error adding editor:", error);
       toast({ title: "Error", description: `Failed to add editor: ${error.message}`, variant: "destructive" });
     }
-  }, [user, toast, userMapList, currentMapData]);
+  }, [user, toast, userMapList, currentMapData, fetchEditorProfiles]);
 
   const removeEditorFromMap = useCallback(async (mapId: string, editorUid: string) => {
     if (!user) {
@@ -383,7 +431,12 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         editors: arrayRemove(editorUid),
         updatedAt: serverTimestamp()
       });
-      toast({ title: "Success", description: `Editor ${editorUid.substring(0,6)}... removed.` });
+      toast({ title: "Success", description: `Editor removed.` });
+      setEditorProfiles(prev => {
+        const newProfiles = {...prev};
+        delete newProfiles[editorUid];
+        return newProfiles;
+      });
     } catch (error: any) {
       console.error("Error removing editor:", error);
       toast({ title: "Error", description: `Failed to remove editor: ${error.message}`, variant: "destructive" });
@@ -818,6 +871,9 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       regeneratePublicViewId,
       addEditorToMap,
       removeEditorFromMap,
+      editorProfiles,
+      isLoadingEditorProfiles,
+      fetchEditorProfiles,
     }}>
       {children}
     </MapContext.Provider>
