@@ -50,7 +50,7 @@ const PlacedIconVisual: React.FC<PlacedIconVisualProps> = ({
       className={cn(
         "absolute w-8 h-8",
         canEdit ? "cursor-pointer" : "cursor-default",
-        isSelected && canEdit && "ring-2 ring-primary ring-offset-2 ring-offset-background rounded-md z-[2]", // Keep rounded-md for selection ring visual clarity
+        isSelected && canEdit && "ring-2 ring-primary ring-offset-2 ring-offset-background rounded-md z-[2]", 
         !isSelected && "z-[1]"
       )}
       style={{
@@ -114,9 +114,11 @@ export function DetailedCellEditorCanvas({
 
   let canEditCanvas = false;
   if (isContextMode && context && user && mapData) {
-      canEditCanvas = mapData.ownerId === user.uid;
+      const isOwner = mapData.ownerId === user.uid;
+      const isEditor = mapData.editors && mapData.editors.includes(user.uid);
+      canEditCanvas = isOwner || isEditor;
   } else if (!isContextMode) {
-      canEditCanvas = !(isEditorOverride === false); // if isEditorOverride is explicitly false, can't edit
+      canEditCanvas = !(isEditorOverride === false);
   }
 
 
@@ -126,7 +128,7 @@ export function DetailedCellEditorCanvas({
   const isA6 = isRowA && colIndex === 5;
   const isA7 = isRowA && colIndex === 6;
 
-  const dynamicBorderClasses: string[] = ['border-[3px]']; // CHANGED from 'border'
+  const dynamicBorderClasses: string[] = ['border-[3px]']; 
 
   if (isRowA) {
     dynamicBorderClasses.push('border-emerald-600/75'); 
@@ -183,13 +185,13 @@ export function DetailedCellEditorCanvas({
     x = Math.max(0, Math.min(100, x));
     y = Math.max(0, Math.min(100, y));
 
-    if (action === "move" && isContextMode) { // move only in context mode
+    if (action === "move" && isContextMode) { 
       const placedIconIdToMove = e.dataTransfer.getData("placedIconId");
       if (placedIconIdToMove && updatePlacedIconPositionInCell && effectiveSetSelectedPlacedIconId) {
         updatePlacedIconPositionInCell(rowIndex, colIndex, placedIconIdToMove, x, y);
         effectiveSetSelectedPlacedIconId(placedIconIdToMove);
       }
-    } else if (action === "add" && isContextMode) { // add only in context mode
+    } else if (action === "add" && isContextMode) { 
       const iconTypeString = e.dataTransfer.getData("iconType");
       if (ICON_TYPES.includes(iconTypeString as IconType)) {
         const iconType = iconTypeString as IconType;
@@ -248,7 +250,7 @@ export function DetailedCellEditorCanvas({
           onClick={() => {
             if (effectiveSetSelectedPlacedIconId) effectiveSetSelectedPlacedIconId(icon.id);
           }}
-          draggable={canEditCanvas && isContextMode && selectedPlacedIconId !== icon.id} // Draggable only in context mode and if editable
+          draggable={canEditCanvas && isContextMode && selectedPlacedIconId !== icon.id} 
           onDragStart={ (canEditCanvas && isContextMode) ? (e: React.DragEvent<HTMLDivElement>) => handlePlacedIconDragStart(e, icon) : undefined}
         />
       ))}

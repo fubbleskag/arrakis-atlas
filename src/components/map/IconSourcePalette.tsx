@@ -25,7 +25,7 @@ interface IconSourcePaletteProps {
   rowIndex: number;
   colIndex: number;
   className?: string;
-  isReadOnlyOverride?: boolean; // True for public read-only view
+  isReadOnlyOverride?: boolean; 
   mapDataOverride?: MapData;
   cellDataOverride?: GridCellData;
   onCloseOverride?: () => void; 
@@ -45,7 +45,7 @@ export function IconSourcePalette({
 
   const context = isContextMode ? useMap() : null;
   const authData = isContextMode ? useAuth() : { user: null, isAuthenticated: false, isLoading: false };
-  const { toast } = useToast(); // Toast can be used in either mode
+  const { toast } = useToast(); 
 
   const { user, isAuthenticated } = authData;
 
@@ -74,9 +74,11 @@ export function IconSourcePalette({
 
   let canEdit = false;
   if (isContextMode && context && user && currentMapData) {
-    canEdit = currentMapData.ownerId === user.uid;
-  } else if (!isContextMode) { // Override mode
-    canEdit = !isReadOnlyOverride; // Should be false if isReadOnlyOverride is true
+    const isOwner = currentMapData.ownerId === user.uid;
+    const isEditor = currentMapData.editors && currentMapData.editors.includes(user.uid);
+    canEdit = isOwner || isEditor;
+  } else if (!isContextMode) { 
+    canEdit = !isReadOnlyOverride; 
   }
   
   const isLoading = isContextMode ? context?.isLoadingMapData ?? (authData.isLoading) : false;

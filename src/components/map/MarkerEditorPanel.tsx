@@ -22,11 +22,11 @@ interface MarkerEditorPanelProps {
   rowIndex: number;
   colIndex: number;
   className?: string;
-  isReadOnlyOverride?: boolean; // True for public read-only view
+  isReadOnlyOverride?: boolean; 
   mapDataOverride?: MapData;
   cellDataOverride?: GridCellData; 
   selectedIconIdOverride?: string | null;
-  onCloseOverride?: () => void; // To close/deselect in public view
+  onCloseOverride?: () => void; 
 }
 
 export function MarkerEditorPanel({ 
@@ -54,7 +54,7 @@ export function MarkerEditorPanel({
   let selectedIcon: PlacedIcon | undefined | null = null;
   if (isContextMode && context?.currentLocalGrid) {
     selectedIcon = context.currentLocalGrid[rowIndex]?.[colIndex]?.placedIcons.find(icon => icon.id === selectedPlacedIconId);
-  } else if (!isContextMode && cellDataOverride && selectedPlacedIconId) { // Override mode
+  } else if (!isContextMode && cellDataOverride && selectedPlacedIconId) { 
     selectedIcon = cellDataOverride.placedIcons.find(icon => icon.id === selectedPlacedIconId);
   }
 
@@ -74,18 +74,19 @@ export function MarkerEditorPanel({
     if (selectedIcon) {
       resetLocalState();
     } else if (selectedPlacedIconId && isContextMode && context?.setSelectedPlacedIconId) {
-      context.setSelectedPlacedIconId(null); // Deselect if icon disappears in context mode
+      context.setSelectedPlacedIconId(null); 
     } else if (selectedPlacedIconId && !isContextMode && onCloseOverride) {
-       // In override mode, if selectedIcon becomes null (e.g. parent deselects), parent handles panel visibility.
-       // No direct action usually needed here as parent controls this component's rendering via selectedIconIdOverride.
+       
     }
   }, [selectedIcon, selectedPlacedIconId, context, isContextMode, onCloseOverride, resetLocalState]);
 
   let canEdit = false;
   if (isContextMode && context && user && currentMapData) {
-    canEdit = currentMapData.ownerId === user.uid;
-  } else if (!isContextMode) { // Override mode
-    canEdit = !isReadOnlyOverride; // Should be false if isReadOnlyOverride is true
+    const isOwner = currentMapData.ownerId === user.uid;
+    const isEditor = currentMapData.editors && currentMapData.editors.includes(user.uid);
+    canEdit = isOwner || isEditor;
+  } else if (!isContextMode) { 
+    canEdit = !isReadOnlyOverride;
   }
   
   const isLoading = isContextMode ? context?.isLoadingMapData ?? (authData.isLoading) : false;
@@ -108,8 +109,8 @@ export function MarkerEditorPanel({
     );
   }
 
-  if (!selectedIcon || (!isContextMode && !mapDataOverride)) { // Ensure mapData for context checks even if icon exists
-    return null; // Or some placeholder if desired, but typically parent hides this panel
+  if (!selectedIcon || (!isContextMode && !mapDataOverride)) { 
+    return null; 
   }
 
   const IconConfig = ICON_CONFIG_MAP[selectedIcon.type];
@@ -171,7 +172,7 @@ export function MarkerEditorPanel({
     if (canEdit && selectedIcon && isContextMode && context?.removePlacedIconFromCell) {
       context.removePlacedIconFromCell(rowIndex, colIndex, selectedIcon.id);
       toast({ title: "Marker Deleted", description: `${IconConfig?.label || 'Marker'} removed.` });
-      // setSelectedPlacedIconId(null) will be handled by useEffect or parent
+      
     }
   };
 
@@ -179,7 +180,7 @@ export function MarkerEditorPanel({
     if (isContextMode && context?.setSelectedPlacedIconId) {
       context.setSelectedPlacedIconId(null);
     } else if (onCloseOverride) {
-      onCloseOverride(); // For public view to tell parent to deselect
+      onCloseOverride(); 
     }
   };
 
@@ -253,7 +254,7 @@ export function MarkerEditorPanel({
             />
           </div>
         </div>
-        {(!canEdit && !isContextMode) && ( // Show "view-only" if not editable AND in override mode
+        {(!canEdit && !isContextMode) && ( 
              <div className="text-xs flex items-center gap-1 text-muted-foreground pt-1">
                 <Info className="h-3 w-3" /> This marker is view-only.
             </div>

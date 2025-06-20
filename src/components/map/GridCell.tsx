@@ -49,7 +49,9 @@ export function GridCell({
 
   let canEditCell = false;
   if (!isReadOnly && isAuthenticated && user && currentMapData && context) {
-    canEditCell = currentMapData.ownerId === user.uid;
+    const isOwner = currentMapData.ownerId === user.uid;
+    const isEditor = currentMapData.editors && currentMapData.editors.includes(user.uid);
+    canEditCell = isOwner || isEditor;
   }
 
   const handleCellButtonClick = () => {
@@ -127,13 +129,14 @@ export function GridCell({
         (currentMapData || isReadOnly) && "cursor-pointer focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         (currentMapData || isReadOnly) && (hasContent ? 'hover:bg-accent/25' : 'hover:bg-accent/20'),
         !isReadOnly && !canEditCell && currentMapData && !hasContent && "bg-muted/30",
-        !isReadOnly && !canEditCell && currentMapData && hasContent && "opacity-80",
+        !isReadOnly && !canEditCell && currentMapData && hasContent && "opacity-80", // Editor can see content but not interact directly on grid
         !isReadOnly && (!currentMapData || !context?.setFocusedCellCoordinates) && "cursor-not-allowed opacity-50",
-        isRowA && "border border-emerald-600/75",
-        isA3 && "border-r-destructive",
-        isA4 && "border-l-destructive",
-        isA6 && "border-r-destructive",
-        isA7 && "border-l-destructive"
+        "border", // Base border for all cells
+        isRowA ? 'border-emerald-600/75' : 'border-border', // Default border or Row A green border
+        isA3 && "!border-r-destructive", // Red right border for A3, ! to override green
+        isA4 && "!border-l-destructive", // Red left border for A4, ! to override green
+        isA6 && "!border-r-destructive", // Red right border for A6, ! to override green
+        isA7 && "!border-l-destructive"  // Red left border for A7, ! to override green
       )}
     >
       {!canEditCell && currentMapData && isEmptyCellVisuals && !hasNotes && !isReadOnly && (
