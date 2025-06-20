@@ -17,6 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 import { Timestamp } from 'firebase/firestore'; 
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 
 export function MapManager() {
@@ -301,12 +302,18 @@ export function MapManager() {
                   </Button>
                    {(isMapOwner || map.editors?.includes(user?.uid || '')) && (
                     <div className="flex gap-2 w-full sm:w-auto">
-                      <Dialog onOpenChange={(isOpen) => { if (!isOpen) setSelectedMapForSettings(null); }}>
-                          <DialogTrigger asChild>
-                              <Button variant="outline" size="icon" title="Settings" onClick={() => openSettingsDialog(map)}>
-                                  <Settings2 className="h-4 w-4" />
-                              </Button>
-                          </DialogTrigger>
+                     <TooltipProvider>
+                        <Dialog onOpenChange={(isOpen) => { if (!isOpen) setSelectedMapForSettings(null); }}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <DialogTrigger asChild>
+                                  <Button variant="outline" size="icon" onClick={() => openSettingsDialog(map)}>
+                                      <Settings2 className="h-4 w-4" />
+                                  </Button>
+                              </DialogTrigger>
+                            </TooltipTrigger>
+                            <TooltipContent><p>Settings</p></TooltipContent>
+                          </Tooltip>
                           {selectedMapForSettings && selectedMapForSettings.id === map.id && (
                           <DialogContent className="sm:max-w-md">
                               <DialogHeader>
@@ -492,14 +499,21 @@ export function MapManager() {
                               </DialogFooter>
                           </DialogContent>
                           )}
-                      </Dialog>
+                        </Dialog>
+                      </TooltipProvider>
                       {isMapOwner && ( 
-                        <Dialog>
-                            <DialogTrigger asChild>
-                                <Button variant="destructive" size="icon" title="Delete Map">
-                                    <Trash2 className="h-4 w-4" />
-                                </Button>
-                            </DialogTrigger>
+                        <TooltipProvider>
+                          <Dialog>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                  <DialogTrigger asChild>
+                                      <Button variant="destructive" size="icon">
+                                          <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                  </DialogTrigger>
+                              </TooltipTrigger>
+                              <TooltipContent><p>Delete Map</p></TooltipContent>
+                            </Tooltip>
                             <DialogContent>
                                 <DialogHeader><DialogTitle>Delete Map: {map.name}</DialogTitle></DialogHeader>
                                 <DialogDescription>Are you sure you want to delete this map? This action cannot be undone.</DialogDescription>
@@ -508,7 +522,8 @@ export function MapManager() {
                                     <Button variant="destructive" onClick={() => deleteMap(map.id)}>Delete</Button>
                                 </DialogFooter>
                             </DialogContent>
-                        </Dialog>
+                          </Dialog>
+                        </TooltipProvider>
                       )}
                     </div>
                   )}
