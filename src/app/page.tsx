@@ -58,53 +58,57 @@ function HomePageContent() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  // Effect for initializing state from URL parameters
+  // Effect #1: Sync URL 'mapId' to context (selectMap)
   useEffect(() => {
-    if (isAuthLoading || isLoadingMapList) return; // Wait for auth and initial map list load
+    if (isAuthLoading || isLoadingMapList) return; // Essential guards
 
     const urlMapId = searchParams.get('mapId');
-    const urlCellParam = searchParams.get('cell');
-    const parsedUrlCellCoords = parseCellParam(urlCellParam);
 
     if (urlMapId) {
-      if (userMapList.some(map => map.id === urlMapId) || !userMapList.length) { // Allow selection if list empty (still loading or no maps)
-        if (ctxMapId !== urlMapId) {
+      // URL has a mapId specified
+      if (ctxMapId !== urlMapId) { // Context is out of sync or not yet loaded
+        // Attempt to select map if it's in the user's list OR if the list is empty (e.g., direct link, new user)
+        if (userMapList.some(map => map.id === urlMapId) || userMapList.length === 0) {
           selectMap(urlMapId);
+        } else { // urlMapId is invalid (not in the loaded list of user's maps)
+          router.replace(pathname, { scroll: false }); // Clear invalid mapId from URL
+          selectMap(null); // Ensure context also reflects no map selected
         }
-        // Cell coordinates will be set by the next effect if map selection is successful and cell param exists
-      } else if (userMapList.length > 0 && !userMapList.some(map => map.id === urlMapId)) {
-        // Map in URL not found in user's list, clear URL params
-        router.replace(pathname, { scroll: false });
       }
+      // If ctxMapId === urlMapId, they are in sync regarding the map, do nothing here.
     } else {
-      // No mapId in URL, ensure context reflects this unless a map is already selected (e.g. by user interaction)
-      if (ctxMapId !== null && !isLoadingMapData) { // isLoadingMapData check prevents clearing if navigating to map
-         // This case is tricky: if user navigates to map manager, URL clears.
-         // If map gets deselected due to error, URL also needs to clear.
-         // The URL update effect below should handle pushing new state to URL.
+      // URL does not have a mapId (e.g., user navigated to '/')
+      if (ctxMapId !== null) { // But context still thinks a map is selected
+        selectMap(null); // Sync context to reflect no map selected
       }
+      // If ctxMapId is also null, they are in sync (map manager view), do nothing.
     }
-  }, [isAuthLoading, isLoadingMapList, userMapList, searchParams, selectMap, ctxMapId, router, pathname, isLoadingMapData]);
+  }, [isAuthLoading, isLoadingMapList, userMapList, searchParams, ctxMapId, selectMap, router, pathname]);
 
 
-  // Effect for setting cell coordinates from URL after map is confirmed selected
-   useEffect(() => {
+  // Effect #2: Sync URL 'cell' to context (setFocusedCellCoordinates)
+  useEffect(() => {
     const urlMapId = searchParams.get('mapId');
     const urlCellParam = searchParams.get('cell');
-    const parsedUrlCellCoords = parseCellParam(urlCellParam);
+    const parsedUrlCellCoords = parseCellParam(urlCellParam); // Will be null if param missing/invalid
 
-    if (ctxMapId && ctxMapId === urlMapId && parsedUrlCellCoords) {
+    if (ctxMapId && ctxMapId === urlMapId) {
+      // Map context matches the mapId in the URL (or both are null for mapId, though cell needs mapId)
+      // Sync cell coordinates if they differ between URL and context
       if (!areCellCoordsEqual(parsedUrlCellCoords, ctxCellCoords)) {
         setFocusedCellCoordinates(parsedUrlCellCoords);
       }
-    } else if (ctxMapId && ctxMapId === urlMapId && !parsedUrlCellCoords && ctxCellCoords !== null) {
-      // Map is selected, cell param is missing/invalid, but context has cell focus
-      setFocusedCellCoordinates(null);
+    } else {
+      // Map context does NOT match URL mapId (or one of them is null, or mapId missing from URL)
+      // If context has a cell focus, it's now out of sync with the map selection, so clear it.
+      if (ctxCellCoords !== null) {
+        setFocusedCellCoordinates(null);
+      }
     }
   }, [ctxMapId, searchParams, ctxCellCoords, setFocusedCellCoordinates]);
 
 
-  // Effect for updating URL when context state changes
+  // Effect #3: Sync context state (mapId, cellCoords) to URL
   useEffect(() => {
     const currentQuery = new URLSearchParams(searchParams.toString());
     const newQuery = new URLSearchParams();
@@ -113,11 +117,11 @@ function HomePageContent() {
       newQuery.set('mapId', ctxMapId);
     }
     const stringifiedCellCoords = stringifyCellCoords(ctxCellCoords);
-    if (stringifiedCellCoords && ctxMapId) { // cell only makes sense if mapId is also present
+    if (stringifiedCellCoords && ctxMapId) { // Cell param only makes sense if mapId is also present
       newQuery.set('cell', stringifiedCellCoords);
     }
 
-    // Only push if the query string has actually changed
+    // Only push to history if the generated query string is different from the current one
     if (currentQuery.toString() !== newQuery.toString()) {
       const newUrl = newQuery.toString() ? `${pathname}?${newQuery.toString()}` : pathname;
       router.push(newUrl, { scroll: false });
