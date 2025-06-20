@@ -286,14 +286,16 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => unsubscribe();
   }, [currentMapId, user, toast, setFocusedCellCoordinates, setSelectedPlacedIconId, isAuthLoading]);
 
-  const selectMap = useCallback((mapId: string | null) => {
-    setCurrentMapId(mapId);
-    setFocusedCellCoordinates(null);
-    setSelectedPlacedIconId(null);
-    if (mapId !== null) {
-      setEditorProfiles({});
+  const selectMap = useCallback((newMapId: string | null) => {
+    if (currentMapId !== newMapId) {
+        setCurrentMapId(newMapId);
+        _setFocusedCellCoordinates(null);
+        _setSelectedPlacedIconId(null);
+        if (newMapId !== null) {
+            setEditorProfiles({});
+        }
     }
-  }, [setFocusedCellCoordinates, setSelectedPlacedIconId]);
+  }, [currentMapId]);
 
 
   const createMap = useCallback(async (name: string): Promise<string | null> => {
@@ -991,3 +993,4 @@ export const useMap = (): MapContextType => {
   }
   return context;
 };
+

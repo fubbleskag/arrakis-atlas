@@ -12,10 +12,10 @@ import { MapDetailsPanel } from '@/components/map/MapDetailsPanel';
 import { useMap } from '@/contexts/MapContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, MapPin } from 'lucide-react'; // Added MapPin
 import { useSearchParams, useRouter } from 'next/navigation';
 import type { FocusedCellCoordinates } from '@/types';
-
+import { Button } from '@/components/ui/button'; // Added Button
 
 const HEADER_HEIGHT = 65; 
 const FOOTER_HEIGHT = 33; 
@@ -36,7 +36,7 @@ function parseCellCoords(cellStr: string | null): FocusedCellCoordinates | null 
   if (parts.length === 2) {
     const r = parseInt(parts[0], 10);
     const c = parseInt(parts[1], 10);
-    if (!isNaN(r) && !isNaN(c) && r >= 0 && c >= 0) { // Add basic validation
+    if (!isNaN(r) && !isNaN(c) && r >= 0 && c >= 0) {
       return { rowIndex: r, colIndex: c };
     }
   }
@@ -72,25 +72,16 @@ function HomePageContent() {
   useEffect(() => {
     const urlMapId = searchParams.get('mapId');
 
-    if (isLoadingMapList && !urlMapId) return; // Wait if loading and no mapId in URL
-
     if (urlMapId) {
-        if (ctxMapId !== urlMapId) {
-            const mapExistsInList = userMapList.some(m => m.id === urlMapId);
-            if (mapExistsInList || userMapList.length === 0 || isLoadingMapList) {
-                 // Select if exists, or if list is empty (initial load), or if still loading (optimistic)
-                selectMap(urlMapId);
-            } else if (!isLoadingMapList && !mapExistsInList) { // List loaded, map not found
-                selectMap(null); // This will trigger Effect 3 to clear URL
-            }
-        }
+      if (ctxMapId !== urlMapId) {
+        selectMap(urlMapId);
+      }
     } else { // No mapId in URL
-        if (ctxMapId !== null) {
-            selectMap(null);
-        }
+      if (ctxMapId !== null) {
+        selectMap(null);
+      }
     }
-  }, [searchParams, selectMap, ctxMapId, userMapList, isLoadingMapList]);
-
+  }, [searchParams, ctxMapId, selectMap]);
 
   // Effect 2: Sync URL cell to Context focusedCellCoordinates
   useEffect(() => {
@@ -99,22 +90,14 @@ function HomePageContent() {
     const parsedUrlCellCoords = parseCellCoords(urlCellStr);
 
     if (ctxMapId && urlMapId === ctxMapId) { // Map ID in context matches URL
-        const currentCtxCellStr = stringifyCellCoords(ctxCellCoords);
-        if (urlCellStr !== currentCtxCellStr) {
-            setFocusedCellCoordinates(parsedUrlCellCoords);
-        }
-    } else if (!urlMapId && !ctxMapId) { // Both are null (map manager view)
-        if (ctxCellCoords !== null) {
-            setFocusedCellCoordinates(null);
-        }
-    } else if (urlMapId && ctxMapId !== urlMapId) { // Map ID mismatch (likely Effect 1 is handling map change)
-        if (ctxCellCoords !== null) { // Clear cell focus if it's for the wrong map
-            setFocusedCellCoordinates(null);
-        }
-    } else if (!urlMapId && ctxMapId) { // URL cleared mapId, but context still has one (e.g. navigating to manager)
-         if (ctxCellCoords !== null) {
-            setFocusedCellCoordinates(null);
-        }
+      const currentCtxCellStr = stringifyCellCoords(ctxCellCoords);
+      if (urlCellStr !== currentCtxCellStr) { // Cell string differs
+        setFocusedCellCoordinates(parsedUrlCellCoords);
+      }
+    } else { // Map IDs don't match, or URL has no mapId, or context has no mapId
+      if (ctxCellCoords !== null) { // If context has a cell focus, clear it
+        setFocusedCellCoordinates(null);
+      }
     }
   }, [searchParams, ctxMapId, ctxCellCoords, setFocusedCellCoordinates]);
 
@@ -131,7 +114,6 @@ function HomePageContent() {
       }
     }
     
-    // Only push if the query string differs
     if (currentQuery.toString() !== newQuery.toString()) {
       router.push(newQuery.toString() ? `?${newQuery.toString()}` : '/', { scroll: false });
     }
@@ -173,8 +155,8 @@ function HomePageContent() {
 
     return (
       <div className="flex flex-col items-center justify-start flex-grow w-full p-4 md:p-6">
-        <div className="flex flex-row w-full items-start gap-6">
-            <div className="flex-grow flex items-center justify-center h-full">
+        <div className="flex flex-row w-full items-start justify-center gap-6"> {/* Added justify-center */}
+            <div className="flex-shrink-0 flex items-center justify-center h-full"> {/* Added flex-shrink-0 */}
             <div
                 style={{
                 width: canvasHolderDimension,
@@ -220,8 +202,8 @@ function HomePageContent() {
 
     return (
       <div className="flex flex-col items-center justify-start flex-grow w-full p-4 md:p-6">
-        <div className="flex flex-row w-full items-start gap-6">
-            <div className="flex-grow flex items-center justify-center h-full"> 
+        <div className="flex flex-row w-full items-start justify-center gap-6"> {/* Added justify-center */}
+            <div className="flex-shrink-0 flex items-center justify-center h-full">  {/* Added flex-shrink-0 */}
             <div
                 style={{
                 width: gridHolderDimension,
