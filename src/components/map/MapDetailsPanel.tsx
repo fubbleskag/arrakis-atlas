@@ -8,11 +8,22 @@ import type { User } from 'firebase/auth';
 import { useMap } from '@/contexts/MapContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Button } from '@/components/ui/button'; // Added Button
+import { Button } from '@/components/ui/button';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { Timestamp } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
-import { Users, Clock, Crown, Loader2, X as XIcon } from 'lucide-react'; // Added XIcon
+import { Users, Clock, Crown, Loader2, X as XIcon, RotateCcw } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface MapDetailsPanelProps {
   mapData: MapData;
@@ -21,7 +32,14 @@ interface MapDetailsPanelProps {
 }
 
 export function MapDetailsPanel({ mapData, currentUser, className }: MapDetailsPanelProps) {
-  const { editorProfiles, isLoadingEditorProfiles, fetchEditorProfiles, selectMap } = useMap();
+  const {
+    editorProfiles,
+    isLoadingEditorProfiles,
+    fetchEditorProfiles,
+    selectMap,
+    resetCurrentMapGrid,
+    isLoadingMapData
+  } = useMap();
 
   useEffect(() => {
     const uidsInPanel = [mapData.ownerId, ...(mapData.editors || [])];
@@ -81,6 +99,7 @@ export function MapDetailsPanel({ mapData, currentUser, className }: MapDetailsP
     return nameA.localeCompare(nameB);
   });
 
+  const isCurrentUserOwner = mapData.ownerId === currentUser.uid;
 
   return (
     <Card className={cn("w-full shadow-lg border-border bg-card", className)}>
@@ -147,8 +166,38 @@ export function MapDetailsPanel({ mapData, currentUser, className }: MapDetailsP
           </h3>
           <p className="text-foreground">{getFormattedDate(mapData.updatedAt)}</p>
         </div>
+
+        {isCurrentUserOwner && (
+          <>
+            <Separator />
+            <div>
+              <h3 className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center">
+                 MAP ACTIONS
+              </h3>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" size="sm" className="w-full" disabled={isLoadingMapData}>
+                    <RotateCcw className="mr-2 h-4 w-4" /> Invoke Coriolis Storm
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Invoke a Coriolis Storm?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This action cannot be undone. This will permanently reset the grid for the current map
+                      (&quot;{mapData?.name || 'Unnamed Map'}&quot;), clearing all placed icons and notes.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={resetCurrentMapGrid}>Continue</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          </>
+        )}
       </CardContent>
     </Card>
   );
 }
-
