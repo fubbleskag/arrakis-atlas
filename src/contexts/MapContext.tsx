@@ -147,9 +147,9 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       updateCombinedList();
     }, (error) => { 
       console.error("Error fetching owner maps:", error);
-      toast({ title: "Error", description: "Could not load your owned maps.", variant: "destructive" });
-      if (!ownerLoaded) ownerLoaded = true; // Mark as loaded to potentially unblock loading state
-      if (editorLoaded) setIsLoadingMapList(false); // If other source is loaded, stop global loading
+      toast({ title: "Error Loading Owned Maps", description: "Could not load your owned maps. Check console for details.", variant: "destructive" });
+      if (!ownerLoaded) ownerLoaded = true; 
+      if (editorLoaded) setIsLoadingMapList(false); 
     });
 
     const unsubEditor = onSnapshot(qEditor, (snapshot) => {
@@ -158,9 +158,14 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       updateCombinedList();
     }, (error) => { 
       console.error("Error fetching shared maps:", error);
-      toast({ title: "Error", description: "Could not load maps shared with you.", variant: "destructive" });
-      if (!editorLoaded) editorLoaded = true; // Mark as loaded
-      if (ownerLoaded) setIsLoadingMapList(false); // If other source is loaded, stop global loading
+      toast({ 
+        title: "Error Loading Shared Maps", 
+        description: "Could not load maps shared with you. This might be due to Firestore security rules or missing indexes. Check console for details.", 
+        variant: "destructive",
+        duration: 10000 // Longer duration for this important message
+      });
+      if (!editorLoaded) editorLoaded = true; 
+      if (ownerLoaded) setIsLoadingMapList(false); 
     });
     
     return () => { unsubOwner(); unsubEditor(); };
@@ -263,7 +268,7 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         toast({ title: "Error", description: "Authentication required to update map.", variant: "destructive" });
         throw new Error("Authentication required");
     }
-    // Find map from combined list or currentMapData for up-to-date editor list
+    
     const mapToUpdate = userMapList.find(m => m.id === mapId) || (currentMapData?.id === mapId ? currentMapData : null);
 
     if (!mapToUpdate) {
@@ -274,18 +279,22 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const isOwner = mapToUpdate.ownerId === user.uid;
     const isEditor = mapToUpdate.editors && mapToUpdate.editors.includes(user.uid);
     
-    // Allow update if owner or editor (editors can update gridState, owners can update more)
-    // Specific field restrictions for editors should be handled by Firestore rules.
-    // Client-side checks here are primarily for quick feedback and UI control.
     if (!isOwner && !isEditor) {
         toast({ title: "Permission Denied", description: "You do not have permission to update this map.", variant: "destructive" });
         throw new Error("Permission denied to update map");
     }
+    
+    // Owner can update anything. Editors can only update gridState or specific fields.
+    if (isEditor && !isOwner) {
+      const allowedEditorUpdates = ['gridState', 'updatedAt']; // Add other fields editors can modify if needed
+      for (const key in updates) {
+        if (!allowedEditorUpdates.includes(key) && key !== 'updatedAt' /* updatedAt is implicitly added */) {
+           toast({ title: "Permission Denied", description: `Editors cannot modify '${key}'.`, variant: "destructive" });
+           throw new Error(`Editors cannot modify '${key}'`);
+        }
+      }
+    }
 
-    // If an editor is trying to modify fields other than gridState (or other permitted fields), block it client-side.
-    // This example allows editors to modify any field passed in `updates` if they are in the `editors` list.
-    // Firestore rules are the ultimate arbiter.
-    // For managing 'editors' array, only owner should be allowed. This is handled in addEditor/removeEditor.
 
     const mapDocRef = doc(db, "maps", mapId);
     try {
