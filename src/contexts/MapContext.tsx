@@ -112,7 +112,7 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const fetchEditorProfiles = useCallback(async (editorUids: string[]) => {
     if (!editorUids || editorUids.length === 0) {
-      setEditorProfiles(prev => ({...prev})); // Ensure state update if list is empty
+      setEditorProfiles(prev => ({...prev})); 
       return;
     }
 
@@ -905,19 +905,17 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       if (mapData.ownerId === user.uid) {
         toast({ title: "Already Owner", description: "You are the owner of this map.", variant: "default" });
-        return true; // Technically success as they have access
+        return true;
       }
       if (mapData.editors && mapData.editors.includes(user.uid)) {
         toast({ title: "Already Editor", description: "You are already an editor for this map.", variant: "default" });
-        return true; // Success
+        return true;
       }
       if (mapData.collaboratorShareId !== providedShareId || !mapData.collaboratorShareId) {
         toast({ title: "Invite Error", description: "This invite link is invalid or has expired.", variant: "destructive" });
         return false;
       }
 
-      // If all checks pass, attempt to add user to editors list
-      // This relies on Firestore security rules allowing this specific update.
       await updateDoc(mapDocRef, {
         editors: arrayUnion(user.uid),
         updatedAt: serverTimestamp(),
@@ -928,7 +926,12 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (error: any) {
       console.error("Error claiming editor invite:", error);
       if (error.code === 'permission-denied') {
-        toast({ title: "Permission Denied", description: "Could not join map. This may be due to Firestore security rules.", variant: "destructive" });
+        toast({
+          title: "Permission Denied to Join",
+          description: "Could not join the map. This usually means the invite link is invalid, has expired, or there's an issue with map permissions (security rules). Please verify the link or contact the map owner.",
+          variant: "destructive",
+          duration: 10000 
+        });
       } else {
         toast({ title: "Invite Error", description: `Failed to join map: ${error.message}`, variant: "destructive" });
       }
