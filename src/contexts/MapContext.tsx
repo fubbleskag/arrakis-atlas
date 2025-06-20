@@ -239,8 +239,9 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setCurrentMapData(null);
       setCurrentLocalGrid(null);
       setIsLoadingMapData(false);
-      setFocusedCellCoordinates(null);
-      setSelectedPlacedIconId(null);
+      // Do not clear focusedCellCoordinates or selectedPlacedIconId here,
+      // as they might be set by URL params before map data fully loads
+      // or if map selection fails. The page component will manage URL sync.
       return;
     }
 
@@ -256,18 +257,23 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           setCurrentMapData(mapData);
           setCurrentLocalGrid(convertFirestoreToLocalGrid(mapData.gridState));
         } else {
-          toast({ title: "Access Denied", description: "You do not have permission to view this map.", variant: "destructive" });
-          setCurrentMapData(null);
-          setCurrentLocalGrid(null);
-          setCurrentMapId(null);
-          setFocusedCellCoordinates(null);
-          setSelectedPlacedIconId(null);
+          // User might not be authenticated yet, or doesn't have access
+          // If user is null (still loading auth) but mapId is from URL, wait.
+          // If user is loaded and still no access, then deny.
+          if(user || !isAuthLoading) { 
+            toast({ title: "Access Denied", description: "You do not have permission to view this map.", variant: "destructive" });
+            setCurrentMapData(null);
+            setCurrentLocalGrid(null);
+            setCurrentMapId(null); // This will trigger URL update via page.tsx
+            setFocusedCellCoordinates(null);
+            setSelectedPlacedIconId(null);
+          }
         }
       } else {
         toast({ title: "Error", description: `Map with ID ${currentMapId} not found. Selecting no map.`, variant: "destructive" });
         setCurrentMapData(null);
         setCurrentLocalGrid(null);
-        setCurrentMapId(null);
+        setCurrentMapId(null); // This will trigger URL update
         setFocusedCellCoordinates(null);
         setSelectedPlacedIconId(null);
       }
@@ -275,23 +281,32 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, (error) => {
       console.error(`Error fetching map ${currentMapId}:`, error);
       toast({ title: "Error", description: "Could not load selected map data.", variant: "destructive" });
+      setCurrentMapData(null); // Clear map data on error
+      setCurrentLocalGrid(null);
+      setCurrentMapId(null); // This will trigger URL update
       setIsLoadingMapData(false);
     });
 
     return () => unsubscribe();
-  }, [currentMapId, user, toast, setFocusedCellCoordinates, setSelectedPlacedIconId]);
+  }, [currentMapId, user, toast, setFocusedCellCoordinates, setSelectedPlacedIconId, isAuthLoading]);
 
   const selectMap = useCallback((mapId: string | null) => {
     if (mapId === currentMapId && mapId !== null) {
-       if (focusedCellCoordinates) {
-        setFocusedCellCoordinates(null);
-       }
-       return;
+      // If clicking the same map (e.g. in breadcrumb to unfocus cell)
+      setFocusedCellCoordinates(null); // This will also clear selectedPlacedIconId
+      // URL update will be handled by page.tsx based on focusedCellCoordinates becoming null
+      return;
     }
+
+    // If mapId is different or changing to null
     setCurrentMapId(mapId);
-    setFocusedCellCoordinates(null);
-    setEditorProfiles({}); 
-  }, [currentMapId, focusedCellCoordinates, setFocusedCellCoordinates]);
+    setFocusedCellCoordinates(null); 
+    setSelectedPlacedIconId(null);
+    if (mapId !== null) {
+      setEditorProfiles({}); 
+    }
+    // URL update will be handled by page.tsx based on currentMapId changing
+  }, [currentMapId, setFocusedCellCoordinates, setSelectedPlacedIconId]);
 
   const createMap = useCallback(async (name: string): Promise<string | null> => {
     if (!user) {
@@ -315,7 +330,11 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       const docRef = await addDoc(collection(db, "maps"), newMapData);
       toast({ title: "Success", description: `Map "${name}" created.` });
-      selectMap(docRef.id);
+      // selectMap will be called by page.tsx if it detects a new map and no mapId in URL,
+      // or if the creation logic redirects/updates URL to include the new mapId.
+      // For now, just return ID. If page.tsx needs to react, it will.
+      // Or, we can call selectMap here, and page.tsx will sync URL. Let's do that.
+      selectMap(docRef.id); 
       return docRef.id;
     } catch (error: any) {
       console.error("Error creating map:", error);
@@ -925,16 +944,16 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     } catch (error: any) {
       console.error("Error claiming editor invite:", error);
+      let detailedMessage = `Failed to join map: ${error.message}`;
       if (error.code === 'permission-denied') {
-        toast({
-          title: "Permission Denied to Join",
-          description: "Could not join the map. This usually means the invite link is invalid, has expired, or there's an issue with map permissions (security rules). Please verify the link or contact the map owner.",
-          variant: "destructive",
-          duration: 10000 
-        });
-      } else {
-        toast({ title: "Invite Error", description: `Failed to join map: ${error.message}`, variant: "destructive" });
+        detailedMessage = "Could not join the map. This usually means the invite link is invalid, has expired, or there's an issue with map permissions (security rules). Please verify the link or contact the map owner.";
       }
+      toast({
+        title: "Invite Error",
+        description: detailedMessage,
+        variant: "destructive",
+        duration: error.code === 'permission-denied' ? 10000 : 5000
+      });
       return false;
     }
   }, [user, toast]);
@@ -988,4 +1007,3 @@ export const useMap = (): MapContextType => {
   }
   return context;
 };
-
