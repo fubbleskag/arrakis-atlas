@@ -4,6 +4,7 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from '@/contexts/AuthContext';
 import { MapProvider } from '@/contexts/MapContext';
+import { SidebarProvider } from '@/components/ui/sidebar'; // Import SidebarProvider
 
 export const metadata: Metadata = {
   title: 'Arrakis Atlas',
@@ -22,12 +23,12 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
       </head>
-      <body className="font-body antialiased min-h-screen flex flex-col">
+      <body className="font-body antialiased bg-background text-foreground">
         <AuthProvider>
           <MapProvider>
-            <main className="flex-grow px-0 sm:px-4 py-0 sm:py-8 flex flex-col">
+            <SidebarProvider>
               {children}
-            </main>
+            </SidebarProvider>
             <Toaster />
           </MapProvider>
         </AuthProvider>

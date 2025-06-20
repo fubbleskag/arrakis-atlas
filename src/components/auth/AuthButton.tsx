@@ -13,11 +13,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useToast } from "@/hooks/use-toast"; // Import useToast
+import { useToast } from "@/hooks/use-toast";
 
 export function AuthButton() {
   const { user, isAuthenticated, isLoading, login, logout } = useAuth();
-  const { toast } = useToast(); // Initialize toast
+  const { toast } = useToast();
 
   const handleCopyUid = () => {
     if (user?.uid) {
@@ -33,7 +33,7 @@ export function AuthButton() {
 
   if (isLoading) {
     return (
-      <Button variant="outline" size="sm" disabled>
+      <Button variant="outline" size="sm" disabled className="w-full justify-start text-left">
         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
         Loading...
       </Button>
@@ -44,16 +44,17 @@ export function AuthButton() {
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-            <Avatar className="h-9 w-9">
+          <Button variant="ghost" className="w-full justify-start text-left px-2 h-10">
+            <Avatar className="h-8 w-8 mr-2">
               <AvatarImage src={user.photoURL || undefined} alt={user.displayName || user.email || "User"} />
               <AvatarFallback>
                 {user.displayName ? user.displayName.charAt(0).toUpperCase() : <UserCircle2 className="h-5 w-5" />}
               </AvatarFallback>
             </Avatar>
+            <span className="truncate text-sm">{user.displayName || user.email || "User Profile"}</span>
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-64" align="end" forceMount> {/* Increased width for UID */}
+        <DropdownMenuContent className="w-64" side="top" align="start" forceMount>
           <DropdownMenuLabel className="font-normal">
             <div className="flex flex-col space-y-1">
               <p className="text-sm font-medium leading-none">
@@ -93,7 +94,7 @@ export function AuthButton() {
   }
 
   return (
-    <Button onClick={login} variant="outline" size="sm" disabled={isLoading}>
+    <Button onClick={login} variant="outline" size="sm" disabled={isLoading} className="w-full justify-start text-left">
       {isLoading ? (
         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
       ) : (
