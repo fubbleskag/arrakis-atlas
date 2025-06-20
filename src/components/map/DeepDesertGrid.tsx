@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import type { LocalGridState, MapData } from '@/types';
 import { cn } from '@/lib/utils';
-import { GRID_SIZE } from '@/lib/mapUtils'; 
+import { GRID_SIZE } from '@/lib/mapUtils';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface DeepDesertGridProps {
@@ -28,14 +28,13 @@ interface DeepDesertGridProps {
   initialMapData?: MapData;
   isReadOnly?: boolean;
   onCellClick?: (rowIndex: number, colIndex: number) => void;
-  // gridWidthStyle prop is effectively replaced by parent sizing
 }
 
-export function DeepDesertGrid({ 
-  initialGridState, 
-  initialMapData, 
+export function DeepDesertGrid({
+  initialGridState,
+  initialMapData,
   isReadOnly = false,
-  onCellClick 
+  onCellClick
 }: DeepDesertGridProps) {
   const context = !isReadOnly ? useMap() : null;
   const { user, isAuthenticated } = !isReadOnly ? useAuth() : { user: null, isAuthenticated: false };
@@ -43,22 +42,20 @@ export function DeepDesertGrid({
   const currentLocalGrid = isReadOnly ? initialGridState : context?.currentLocalGrid;
   const currentMapData = isReadOnly ? initialMapData : context?.currentMapData;
   const isLoadingMapData = !isReadOnly && (context?.isLoadingMapData ?? true);
-  
+
   const resetCurrentMapGrid = context?.resetCurrentMapGrid;
 
   const [hoveredCell, setHoveredCell] = useState<{row: number | null, col: number | null}>({ row: null, col: null });
 
   if ((!isReadOnly && isLoadingMapData && !currentLocalGrid) || (!isReadOnly && !currentMapData)) {
-    // Show a full-size skeleton if context data is loading and grid isn't ready
     return (
       <div className="w-full h-full flex flex-col items-center justify-center bg-card rounded-lg shadow-xl border border-border">
         <Skeleton className="w-full h-full" />
       </div>
     );
   }
-  
+
   if (isReadOnly && (!initialGridState || !initialMapData)) {
-     // Show a full-size skeleton if initial data for read-only mode is not provided
     return (
       <div className="w-full h-full flex flex-col items-center justify-center bg-card rounded-lg shadow-xl border border-border">
         <Skeleton className="w-full h-full" />
@@ -70,7 +67,6 @@ export function DeepDesertGrid({
   const mapDataForGrid: MapData | null = isReadOnly ? initialMapData : currentMapData;
 
   if (!gridToRender || !mapDataForGrid) {
-     // Fallback if data is still unexpectedly null
     return (
       <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground">
         Loading map grid...
@@ -78,34 +74,32 @@ export function DeepDesertGrid({
     );
   }
 
-
   let canResetMap = false;
   if (!isReadOnly && isAuthenticated && user && mapDataForGrid && context) {
     canResetMap = mapDataForGrid.ownerId === user.uid;
   }
-  
+
   return (
-    // This root div should fill its parent which is sized by page.tsx or PublicMapView.tsx
     <div className="flex flex-col items-center space-y-2 w-full h-full">
       <div
-        className="grid w-full h-full" // Grid structure takes full width/height of its direct parent
+        className="grid w-full h-full"
         style={{
-          gridTemplateColumns: 'auto 1fr', // col for row labels, col for cells
-          gridTemplateRows: 'auto 1fr',    // row for col labels, row for cells
-          gap: '0.25rem', // Small gap between labels and grid
+          gridTemplateColumns: 'minmax(2rem, auto) 1fr', // Adjusted for label sizing
+          gridTemplateRows: 'minmax(2rem, auto) 1fr',    // Adjusted for label sizing
+          gap: '0.125rem', // Smaller gap
         }}
         role="grid"
         aria-label={`Deep Desert Map ${mapDataForGrid.name}`}
       >
         <div /> {/* Top-left empty cell */}
         {/* Column Headers (1-9) */}
-        <div className="grid grid-cols-9 gap-px justify-items-stretch"> {/* Use justify-items-stretch */}
+        <div className="grid grid-cols-9 gap-px">
           {Array.from({ length: GRID_SIZE }).map((_, colIndex) => (
             <div
               key={`col-label-${colIndex}`}
               className={cn(
-                "flex items-center justify-center text-center text-xs sm:text-sm font-medium text-muted-foreground aspect-square bg-card rounded-sm transition-colors p-1",
-                hoveredCell.col === colIndex && "bg-accent text-accent-foreground" 
+                "flex items-center justify-center text-center text-sm md:text-base font-medium text-muted-foreground bg-card rounded-sm transition-colors p-1.5", // Increased padding & font
+                hoveredCell.col === colIndex && "bg-accent text-accent-foreground"
               )}
             >
               {colIndex + 1}
@@ -113,12 +107,12 @@ export function DeepDesertGrid({
           ))}
         </div>
         {/* Row Headers (A-I) */}
-        <div className="grid grid-rows-9 gap-px items-stretch"> {/* Use items-stretch */}
+        <div className="grid grid-rows-9 gap-px">
           {Array.from({ length: GRID_SIZE }).map((_, rowIndex) => (
             <div
               key={`row-label-${rowIndex}`}
               className={cn(
-                "flex items-center justify-center text-center text-xs sm:text-sm font-medium text-muted-foreground aspect-square bg-card rounded-sm transition-colors p-1",
+                "flex items-center justify-center text-center text-sm md:text-base font-medium text-muted-foreground bg-card rounded-sm transition-colors p-1.5", // Increased padding & font
                  hoveredCell.row === rowIndex && "bg-accent text-accent-foreground"
               )}
             >
@@ -139,9 +133,9 @@ export function DeepDesertGrid({
                 onMouseEnterCell={() => setHoveredCell({ row: rIndex, col: cIndex })}
                 onMouseLeaveCell={() => setHoveredCell({ row: null, col: null })}
                 isReadOnly={isReadOnly}
-                cellData={isReadOnly ? cellData : undefined} 
+                cellData={isReadOnly ? cellData : undefined}
                 mapData={isReadOnly ? mapDataForGrid : undefined}
-                onCellClick={isReadOnly ? onCellClick : undefined} 
+                onCellClick={isReadOnly ? onCellClick : undefined}
               />
             ))
           )}
