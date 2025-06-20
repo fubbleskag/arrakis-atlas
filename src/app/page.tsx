@@ -11,7 +11,7 @@ import { MapDetailsPanel } from '@/components/map/MapDetailsPanel';
 import { useMap } from '@/contexts/MapContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AlertTriangle, MapPin, ChevronDown } from 'lucide-react'; 
+import { AlertTriangle, MapPin, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AuthButton } from '@/components/auth/AuthButton';
 import { MiniCellSelectorGrid } from '@/components/map/MiniCellSelectorGrid';
@@ -37,29 +37,27 @@ import {
   SidebarInset,
   SidebarMenu,
   SidebarMenuItem,
-  // SidebarMenuButton, // Not used directly here, breadcrumbs are custom
   SidebarSeparator,
-  // SidebarTrigger // Not used directly here
 } from '@/components/ui/sidebar';
 
 
-const SIDE_PANEL_WIDTH_CLASS = "w-[300px]"; // For Tailwind JIT
+const SIDE_PANEL_WIDTH_CLASS = "w-[300px]";
 
 function SidebarBreadcrumbs() {
-  const { 
-    currentMapData, 
-    selectMap, 
-    focusedCellCoordinates, 
+  const {
+    currentMapData,
+    selectMap,
+    focusedCellCoordinates,
     setFocusedCellCoordinates,
     userMapList,
-    currentMapId 
+    currentMapId
   } = useMap();
 
   const [cellSelectorOpen, setCellSelectorOpen] = React.useState(false);
 
   const getCellCoordinateLabel = (rowIndex: number, colIndex: number): string => {
-    const rowLetter = String.fromCharCode(65 + (GRID_SIZE - 1 - rowIndex)); 
-    const colNumber = colIndex + 1; 
+    const rowLetter = String.fromCharCode(65 + (GRID_SIZE - 1 - rowIndex));
+    const colNumber = colIndex + 1;
     return `${rowLetter}-${colNumber}`;
   };
 
@@ -69,25 +67,24 @@ function SidebarBreadcrumbs() {
     onClick?: () => void;
     isCurrent: boolean;
     content?: React.ReactNode;
+    level: number; // 0 for root, 1 for map, 2 for cell
   }> = [];
 
-  // 1. "Maps" root breadcrumb
   breadcrumbItems.push({
     key: 'mapsRoot',
     label: 'Maps',
     onClick: () => { selectMap(null); setFocusedCellCoordinates(null); },
     isCurrent: !currentMapData,
+    level: 0,
   });
 
-  // 2. Current Map breadcrumb (if a map is selected)
   if (currentMapData) {
     const mapSelectorContent = userMapList && userMapList.length > 1 ? (
       <Select
         value={currentMapId || ""}
-        onValueChange={(value) => { 
-          if (value && value !== currentMapId) { 
-            selectMap(value); 
-            // setFocusedCellCoordinates(null); // selectMap should handle this
+        onValueChange={(value) => {
+          if (value && value !== currentMapId) {
+            selectMap(value);
           }
         }}
       >
@@ -95,7 +92,7 @@ function SidebarBreadcrumbs() {
           className="p-0 h-auto text-sm font-semibold focus:ring-0 border-none shadow-none bg-transparent truncate w-full data-[placeholder]:text-foreground hover:text-primary/80 text-left justify-start"
           aria-label="Switch map"
         >
-          <SelectValue placeholder={currentMapData.name} /> 
+          <SelectValue placeholder={currentMapData.name} />
         </SelectTrigger>
         <SelectContent>
           {userMapList.map((map) => (
@@ -108,7 +105,7 @@ function SidebarBreadcrumbs() {
     ) : (
       <Button
         variant="link"
-        onClick={() => setFocusedCellCoordinates(null)} // Click map name to unfocus cell
+        onClick={() => setFocusedCellCoordinates(null)}
         className={cn(
           "p-0 h-auto text-sm font-semibold truncate w-full text-left justify-start",
           !!currentMapData && !focusedCellCoordinates ? "text-foreground" : "text-primary hover:text-primary/80"
@@ -120,13 +117,13 @@ function SidebarBreadcrumbs() {
 
     breadcrumbItems.push({
       key: 'map',
-      label: currentMapData.name, // Fallback label
+      label: currentMapData.name,
       content: mapSelectorContent,
       isCurrent: !!currentMapData && !focusedCellCoordinates,
+      level: 1,
     });
   }
 
-  // 3. Focused Cell breadcrumb (if a cell is focused)
   if (currentMapData && focusedCellCoordinates) {
     const cellSelectorContent = (
       <Popover open={cellSelectorOpen} onOpenChange={setCellSelectorOpen}>
@@ -154,17 +151,22 @@ function SidebarBreadcrumbs() {
     );
     breadcrumbItems.push({
       key: 'cell',
-      label: getCellCoordinateLabel(focusedCellCoordinates.rowIndex, focusedCellCoordinates.colIndex), // Fallback
+      label: getCellCoordinateLabel(focusedCellCoordinates.rowIndex, focusedCellCoordinates.colIndex),
       content: cellSelectorContent,
       isCurrent: !!focusedCellCoordinates,
+      level: 2,
     });
   }
 
   return (
     <nav aria-label="Breadcrumb" className="px-2 py-1 w-full">
-      <ol className="flex flex-col items-start space-y-1.5 w-full">
+      <ol className="flex flex-col items-start space-y-1 w-full">
         {breadcrumbItems.map((item) => (
-          <li key={item.key} className="flex items-center w-full min-w-0">
+          <li key={item.key} className={cn(
+            "flex items-center w-full min-w-0",
+            item.level === 1 && "pl-3", // Indent map name
+            item.level === 2 && "pl-6"  // Indent cell name
+          )}>
             <div className="truncate w-full">
               {item.content ? (
                 item.content
@@ -172,12 +174,18 @@ function SidebarBreadcrumbs() {
                 <Button
                   variant="link"
                   onClick={item.onClick}
-                  className={cn("p-0 h-auto text-sm font-semibold truncate w-full text-left justify-start", "text-primary hover:text-primary/80")}
+                  className={cn(
+                    "p-0 h-auto text-sm font-semibold truncate w-full text-left justify-start",
+                    item.isCurrent ? "text-foreground cursor-default" : "text-primary hover:text-primary/80"
+                  )}
                 >
                   {item.label}
                 </Button>
               ) : (
-                <span className={cn("truncate text-sm font-semibold block w-full text-left", item.isCurrent ? "text-foreground" : "text-primary")}>
+                <span className={cn(
+                  "truncate text-sm font-semibold block w-full text-left",
+                  item.isCurrent ? "text-foreground" : "text-primary"
+                )}>
                   {item.label}
                 </span>
               )}
@@ -214,7 +222,7 @@ function HomePageContent() {
       </div>
     );
   }
-  
+
   if (!isAuthenticated && !isAuthLoading) {
     return (
       <div className="flex flex-col items-center justify-center text-center p-6 space-y-4 flex-grow">
@@ -228,17 +236,13 @@ function HomePageContent() {
   if (showMapManager) {
     return <MapManager />;
   }
-  
-  // This is the main content area when a map OR a cell is selected
-  // It will contain the grid/canvas on the left (flex-grow) and a details panel on the right (fixed-width)
+
   if (currentMapData) {
     return (
-      <div className="flex flex-row w-full h-full items-stretch justify-center gap-x-6 p-4 md:p-6">
-        {/* Left side: Grid or Detailed Cell Canvas (flex-grow, centers its square content) */}
+      <div className="flex flex-row w-full h-full items-stretch justify-start gap-x-6 p-4 md:p-6">
         <div className="flex-grow flex items-center justify-center h-full min-w-0">
           <div className="aspect-square w-auto h-auto max-w-full max-h-full relative">
             {focusedCellCoordinates && currentMapData ? (
-              // Detailed Cell View
               <>
                 {(isLoadingMapData || !currentLocalGrid) && (
                   <Skeleton className="absolute inset-0 w-full h-full bg-card rounded-lg shadow-xl border border-border"/>
@@ -252,7 +256,6 @@ function HomePageContent() {
                 )}
               </>
             ) : (
-              // Grid View (currentMapData is true, focusedCellCoordinates is null)
               <>
                 {(isLoadingMapData || (currentMapData && !currentLocalGrid)) && (
                   <Skeleton className="absolute inset-0 w-full h-full bg-card rounded-lg shadow-xl border border-border" />
@@ -274,10 +277,8 @@ function HomePageContent() {
           </div>
         </div>
 
-        {/* Right side: Details Panel (fixed width, sticky) */}
         <div className={cn(SIDE_PANEL_WIDTH_CLASS, "flex-shrink-0 flex flex-col gap-4 sticky top-6")}>
           {focusedCellCoordinates && currentMapData ? (
-            // Panels for Cell View
             <>
               <IconSourcePalette
                 rowIndex={focusedCellCoordinates.rowIndex}
@@ -291,15 +292,13 @@ function HomePageContent() {
               )}
             </>
           ) : (
-            // Panel for Grid View
             currentMapData && user && <MapDetailsPanel mapData={currentMapData} currentUser={user} />
           )}
         </div>
       </div>
     );
   }
-  
-  // Fallback for no map selected but authenticated (should ideally be handled by showMapManager)
+
   if (isAuthenticated && !isAuthLoading && !isLoadingMapList && !currentMapId) {
      return (
       <div className="flex flex-col items-center justify-center flex-grow p-6">
@@ -311,7 +310,6 @@ function HomePageContent() {
     );
   }
 
-  // General loading fallback
   return (
     <div className="flex flex-col items-center justify-center flex-grow p-6">
       <Skeleton className="h-12 w-1/2 mb-4" /> <Skeleton className="h-8 w-1/3 mb-8" /> <Skeleton className="w-full max-w-md h-64" />
@@ -328,7 +326,7 @@ export default function Home() {
         </SidebarHeader>
         <SidebarContent className="p-0">
           <SidebarMenu>
-            <SidebarMenuItem className="p-0"> 
+            <SidebarMenuItem className="p-0">
               <SidebarBreadcrumbs />
             </SidebarMenuItem>
           </SidebarMenu>

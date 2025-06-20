@@ -28,7 +28,7 @@ interface DetailedCellEditorCanvasProps {
 interface PlacedIconVisualProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'onClick'> {
   iconData: PlacedIcon;
   isSelected: boolean;
-  canEdit: boolean; 
+  canEdit: boolean;
   onClick: () => void;
 }
 
@@ -50,7 +50,7 @@ const PlacedIconVisual: React.FC<PlacedIconVisualProps> = ({
       className={cn(
         "absolute w-8 h-8",
         canEdit ? "cursor-pointer" : "cursor-default",
-        isSelected && canEdit && "ring-2 ring-primary ring-offset-2 ring-offset-background rounded-md z-[2]", 
+        isSelected && canEdit && "ring-2 ring-primary ring-offset-2 ring-offset-background rounded-md z-[2]",
         !isSelected && "z-[1]"
       )}
       style={{
@@ -81,10 +81,10 @@ const PlacedIconVisual: React.FC<PlacedIconVisualProps> = ({
 };
 
 
-export function DetailedCellEditorCanvas({ 
-  rowIndex, 
-  colIndex, 
-  className, 
+export function DetailedCellEditorCanvas({
+  rowIndex,
+  colIndex,
+  className,
   isEditorOverride,
   mapDataOverride,
   cellDataOverride,
@@ -102,14 +102,14 @@ export function DetailedCellEditorCanvas({
   const mapData = isContextMode ? context?.currentMapData : mapDataOverride;
   const grid = isContextMode ? context?.currentLocalGrid : null;
   const cellData = isContextMode ? grid?.[rowIndex]?.[colIndex] : cellDataOverride;
-  
+
   const isLoading = isContextMode ? context?.isLoadingMapData ?? false : false;
 
   const selectedPlacedIconId = isContextMode ? context?.selectedPlacedIconId : selectedIconIdOverride;
-  
+
   const effectiveSetSelectedPlacedIconId = !isContextMode ? onIconSelectOverride : context?.setSelectedPlacedIconId;
-  
-  const addPlacedIconToCell = context?.addPlacedIconToCell; 
+
+  const addPlacedIconToCell = context?.addPlacedIconToCell;
   const updatePlacedIconPositionInCell = context?.updatePlacedIconPositionInCell;
 
   let canEditCanvas = false;
@@ -128,23 +128,23 @@ export function DetailedCellEditorCanvas({
   const isA6 = isRowA && colIndex === 5;
   const isA7 = isRowA && colIndex === 6;
 
-  const dynamicBorderClasses: string[] = ['border-[3px]']; 
+  const dynamicBorderClasses: string[] = ['border-[3px]'];
 
   if (isRowA) {
-    dynamicBorderClasses.push('border-emerald-600/75'); 
-    if (isA3) dynamicBorderClasses.push('!border-r-destructive'); 
-    else if (isA4) dynamicBorderClasses.push('!border-l-destructive'); 
+    dynamicBorderClasses.push('border-emerald-600/75');
+    if (isA3) dynamicBorderClasses.push('!border-r-destructive');
+    else if (isA4) dynamicBorderClasses.push('!border-l-destructive');
     else if (isA6) dynamicBorderClasses.push('!border-r-destructive');
     else if (isA7) dynamicBorderClasses.push('!border-l-destructive');
   } else {
-    dynamicBorderClasses.push('border-border'); 
+    dynamicBorderClasses.push('border-border');
   }
 
 
   if (isLoading || !mapData) {
     return (
       <div className={cn(
-        "relative w-full aspect-square bg-card shadow-xl flex items-center justify-center border border-border", 
+        "relative w-full h-full bg-card shadow-xl flex items-center justify-center border border-border", // ensure h-full
         className
       )}>
         <Skeleton className="w-full h-full" />
@@ -155,7 +155,7 @@ export function DetailedCellEditorCanvas({
   if (!cellData) {
     return (
       <div className={cn(
-        "relative w-full aspect-square bg-destructive/10 shadow-xl flex flex-col items-center justify-center p-4 text-center border border-destructive", 
+        "relative w-full h-full bg-destructive/10 shadow-xl flex flex-col items-center justify-center p-4 text-center border border-destructive", // ensure h-full
         className
       )}>
         <AlertTriangle className="h-10 w-10 text-destructive mb-2" />
@@ -175,7 +175,7 @@ export function DetailedCellEditorCanvas({
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    if (!canEditCanvas || !canvasRef.current || (!addPlacedIconToCell && !updatePlacedIconPositionInCell)) return; 
+    if (!canEditCanvas || !canvasRef.current || (!addPlacedIconToCell && !updatePlacedIconPositionInCell)) return;
 
     const action = e.dataTransfer.getData("action");
     const canvasRect = canvasRef.current.getBoundingClientRect();
@@ -185,13 +185,13 @@ export function DetailedCellEditorCanvas({
     x = Math.max(0, Math.min(100, x));
     y = Math.max(0, Math.min(100, y));
 
-    if (action === "move" && isContextMode) { 
+    if (action === "move" && isContextMode) {
       const placedIconIdToMove = e.dataTransfer.getData("placedIconId");
       if (placedIconIdToMove && updatePlacedIconPositionInCell && effectiveSetSelectedPlacedIconId) {
         updatePlacedIconPositionInCell(rowIndex, colIndex, placedIconIdToMove, x, y);
         effectiveSetSelectedPlacedIconId(placedIconIdToMove);
       }
-    } else if (action === "add" && isContextMode) { 
+    } else if (action === "add" && isContextMode) {
       const iconTypeString = e.dataTransfer.getData("iconType");
       if (ICON_TYPES.includes(iconTypeString as IconType)) {
         const iconType = iconTypeString as IconType;
@@ -222,9 +222,9 @@ export function DetailedCellEditorCanvas({
     <div
       ref={canvasRef}
       className={cn(
-        "relative overflow-hidden w-full aspect-square bg-background shadow-xl", 
-        dynamicBorderClasses, 
-        className 
+        "relative overflow-hidden w-full h-full bg-background shadow-xl", // Removed aspect-square
+        dynamicBorderClasses,
+        className
       )}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
@@ -250,7 +250,7 @@ export function DetailedCellEditorCanvas({
           onClick={() => {
             if (effectiveSetSelectedPlacedIconId) effectiveSetSelectedPlacedIconId(icon.id);
           }}
-          draggable={canEditCanvas && isContextMode && selectedPlacedIconId !== icon.id} 
+          draggable={canEditCanvas && isContextMode && selectedPlacedIconId !== icon.id}
           onDragStart={ (canEditCanvas && isContextMode) ? (e: React.DragEvent<HTMLDivElement>) => handlePlacedIconDragStart(e, icon) : undefined}
         />
       ))}
