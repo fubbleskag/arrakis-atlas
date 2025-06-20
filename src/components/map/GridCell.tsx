@@ -1,3 +1,4 @@
+
 "use client";
 
 import type React from 'react';
@@ -9,7 +10,7 @@ import { cn } from '@/lib/utils';
 import { Lock, ZoomIn } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { GRID_SIZE } from '@/lib/mapUtils';
-import Image from 'next/image'; // Import next/image
+import Image from 'next/image';
 
 interface GridCellProps {
   rowIndex: number;
@@ -118,9 +119,13 @@ export function GridCell({
   const isA6 = isRowA && colIndex === 5;
   const isA7 = isRowA && colIndex === 6;
 
-  let buttonBgClass = 'bg-card';
-  if (!hasBackgroundImage && hasContent) {
+  let buttonBgClass = '';
+  if (hasBackgroundImage) {
+    // No specific background class for the button itself, as image covers it
+  } else if (hasContent) {
     buttonBgClass = 'bg-accent/15';
+  } else {
+    buttonBgClass = 'bg-[#dfbe9c]'; // Custom background for empty, no-image cells
   }
 
   let hoverBgClass = '';
@@ -159,8 +164,9 @@ export function GridCell({
           alt={`${cellCoordinate} background`}
           layout="fill"
           objectFit="cover"
-          className="absolute inset-0 z-0 pointer-events-none"
+          className="absolute inset-0 z-0 pointer-events-none blur-xs" // Added blur-xs
           data-ai-hint="map texture"
+          priority={rowIndex < 3 && colIndex < 3} // Prioritize loading for early cells
         />
       )}
 
@@ -174,7 +180,7 @@ export function GridCell({
             const IconComponent = item.IconComponent;
             return (
               <div key={item.key} className="flex items-center justify-center overflow-hidden" title={item.label}>
-                <IconComponent className={cn("w-[60%] h-[60%]", 'text-primary')} />
+                <IconComponent className={cn("w-[60%] h-[60%]", hasBackgroundImage ? 'text-primary-foreground drop-shadow-sm' : 'text-primary')} />
               </div>
             );
           })}
@@ -190,12 +196,13 @@ export function GridCell({
     </button>
   );
 
-  if (hasNotes && !hasBackgroundImage) { // Only show tooltip if no background image, or adjust tooltip to be more prominent
+  // Only show tooltip if no background image or if notes are particularly important over background
+  if (hasNotes && (!hasBackgroundImage || (hasBackgroundImage && finalDisplayItems.length === 0))) { 
     return (
       <TooltipProvider delayDuration={300}>
         <Tooltip>
           <TooltipTrigger asChild>{cellButton}</TooltipTrigger>
-          <TooltipContent side="bottom" align="start" className="max-w-xs p-2 whitespace-pre-wrap">
+          <TooltipContent side="bottom" align="start" className="max-w-xs p-2 whitespace-pre-wrap bg-popover text-popover-foreground">
             <p className="text-sm">{cellData.notes}</p>
           </TooltipContent>
         </Tooltip>
