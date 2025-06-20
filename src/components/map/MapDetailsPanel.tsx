@@ -25,8 +25,18 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogClose,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'; // Added AlertDialog imports
 import { useToast } from '@/hooks/use-toast';
 
 
@@ -447,7 +457,7 @@ export function MapDetailsPanel({ mapData, currentUser, className }: MapDetailsP
                                             onClick={handleDialogRegeneratePublicViewId}
                                             disabled={isUpdatingSettingsDialog || !isCurrentUserOwner}
                                         >
-                                            {isUpdatingSettingsDialog && mapData.publicViewId ? <Loader2 className="mr-2 h-3 w-3 animate-spin"/> : <RefreshCw className="h-3 w-3" />}
+                                            {isUpdatingSettingsDialog && mapData.publicViewId ? <Loader2 className="mr-2 h-3 w-3 animate-spin"/> : <RefreshCw className="mr-2 h-3 w-3" />}
                                             Regenerate
                                         </Button>
                                         </div>
