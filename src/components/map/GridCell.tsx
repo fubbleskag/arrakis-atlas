@@ -105,7 +105,7 @@ export function GridCell({
     ariaLabelContent += `Contains ${iconLabels}. `;
   }
   if (hasNotes) {
-    ariaLabelContent += `Notes present. `;
+    ariaLabelContent += `Notes present: ${cellData.notes}. `;
   }
   if (isEmptyCellVisuals && !hasNotes && !hasBackgroundImage) {
     ariaLabelContent += 'Empty. ';
@@ -122,15 +122,19 @@ export function GridCell({
   let buttonBgClass = '';
   if (hasBackgroundImage) {
     // No specific background class for the button itself, as image covers it
-  } else if (hasContent) {
+  } else if (hasContent && !hasNotes) { // has icons but no notes, and no background image
     buttonBgClass = 'bg-accent/15';
-  } else {
+  } else if (hasContent && hasNotes) { // has icons and notes, no background image
+    buttonBgClass = 'bg-accent/15'; // Could also be different if notes should indicate a diff base color
+  } else if (!hasContent && hasNotes) { // only notes, no icons, no background image
+    buttonBgClass = 'bg-accent/10'; // Slightly different hue for note-only cells
+  } else { // no content, no notes, no background image
     buttonBgClass = 'bg-[#dfbe9c]'; // Custom background for empty, no-image cells
   }
-
+  
   let hoverBgClass = '';
   if (!hasBackgroundImage) {
-    hoverBgClass = hasContent ? 'hover:bg-accent/25' : 'hover:bg-accent/20';
+     hoverBgClass = (hasContent || hasNotes) ? 'hover:bg-accent/25' : 'hover:bg-accent/20';
   }
 
 
@@ -164,9 +168,9 @@ export function GridCell({
           alt={`${cellCoordinate} background`}
           layout="fill"
           objectFit="cover"
-          className="absolute inset-0 z-0 pointer-events-none blur-xs" // Added blur-xs
+          className="absolute inset-0 z-0 pointer-events-none blur-xs"
           data-ai-hint="map texture"
-          priority={rowIndex < 3 && colIndex < 3} // Prioritize loading for early cells
+          priority={rowIndex < 3 && colIndex < 3} 
         />
       )}
 
@@ -175,12 +179,12 @@ export function GridCell({
       )}
 
       {hasIcons && (
-        <div className="grid grid-cols-3 grid-rows-3 gap-px h-[calc(100%-4px)] w-[calc(100%-4px)] p-px relative z-10"> {/* Ensure icons are above background */}
+        <div className="grid grid-cols-3 grid-rows-3 gap-px h-[calc(100%-4px)] w-[calc(100%-4px)] p-px relative z-10">
           {finalDisplayItems.map((item) => {
             const IconComponent = item.IconComponent;
             return (
               <div key={item.key} className="flex items-center justify-center overflow-hidden" title={item.label}>
-                <IconComponent className={cn("w-[60%] h-[60%]", hasBackgroundImage ? 'text-primary-foreground drop-shadow-sm' : 'text-primary')} />
+                <IconComponent className={cn("w-[60%] h-[60%]", hasBackgroundImage ? 'text-primary-foreground drop-shadow-[0_1px_1px_rgba(0,0,0,0.7)]' : 'text-primary')} />
               </div>
             );
           })}
@@ -188,7 +192,7 @@ export function GridCell({
       )}
 
       {(currentMapData || (isReadOnly && onCellClick)) && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20"> {/* Ensure zoom icon is on top */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
               <ZoomIn className="h-2/5 w-2/5 text-foreground opacity-10 group-hover:opacity-30 transition-opacity duration-150" />
           </div>
       )}
@@ -196,8 +200,7 @@ export function GridCell({
     </button>
   );
 
-  // Only show tooltip if no background image or if notes are particularly important over background
-  if (hasNotes && (!hasBackgroundImage || (hasBackgroundImage && finalDisplayItems.length === 0))) { 
+  if (hasNotes) { 
     return (
       <TooltipProvider delayDuration={300}>
         <Tooltip>
