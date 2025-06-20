@@ -1,7 +1,6 @@
 
 "use client";
 
-import { useEffect } from 'react';
 import { AppHeader } from '@/components/AppHeader';
 import { DeepDesertGrid } from '@/components/map/DeepDesertGrid';
 import { MapManager } from '@/components/map/MapManager';
@@ -12,10 +11,8 @@ import { MapDetailsPanel } from '@/components/map/MapDetailsPanel';
 import { useMap } from '@/contexts/MapContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AlertTriangle, MapPin } from 'lucide-react'; // Added MapPin
-import { useSearchParams, useRouter } from 'next/navigation';
-import type { FocusedCellCoordinates } from '@/types';
-import { Button } from '@/components/ui/button'; // Added Button
+import { AlertTriangle, MapPin } from 'lucide-react'; 
+import { Button } from '@/components/ui/button';
 
 const HEADER_HEIGHT = 65; 
 const FOOTER_HEIGHT = 33; 
@@ -30,98 +27,23 @@ const TOTAL_HORIZONTAL_PAGE_PADDING = LAYOUT_MAIN_SM_PX + CONTENT_CONTAINER_MD_P
 const SIDE_PANEL_WIDTH = 300;
 const SIDE_PANEL_GAP = 24;
 
-function parseCellCoords(cellStr: string | null): FocusedCellCoordinates | null {
-  if (!cellStr) return null;
-  const parts = cellStr.split('-');
-  if (parts.length === 2) {
-    const r = parseInt(parts[0], 10);
-    const c = parseInt(parts[1], 10);
-    if (!isNaN(r) && !isNaN(c) && r >= 0 && c >= 0) {
-      return { rowIndex: r, colIndex: c };
-    }
-  }
-  return null;
-}
-
-function stringifyCellCoords(coords: FocusedCellCoordinates | null): string | null {
-  if (!coords) return null;
-  return `${coords.rowIndex}-${coords.colIndex}`;
-}
-
 
 function HomePageContent() {
   const { user, isAuthenticated, isLoading: isAuthLoading } = useAuth();
-  const mapContext = useMap();
   const {
-    currentMapId: ctxMapId,
+    currentMapId,
     currentMapData,
     currentLocalGrid,
     isLoadingMapData,
-    focusedCellCoordinates: ctxCellCoords,
-    setFocusedCellCoordinates,
+    focusedCellCoordinates,
     selectMap,
     selectedPlacedIconId,
     userMapList,
     isLoadingMapList
-  } = mapContext;
+  } = useMap();
 
-  const router = useRouter();
-  const searchParams = useSearchParams();
-
-  // Effect 1: Sync URL mapId to Context currentMapId
-  useEffect(() => {
-    const urlMapId = searchParams.get('mapId');
-
-    if (urlMapId) {
-      if (ctxMapId !== urlMapId) {
-        selectMap(urlMapId);
-      }
-    } else { // No mapId in URL
-      if (ctxMapId !== null) {
-        selectMap(null);
-      }
-    }
-  }, [searchParams, ctxMapId, selectMap]);
-
-  // Effect 2: Sync URL cell to Context focusedCellCoordinates
-  useEffect(() => {
-    const urlMapId = searchParams.get('mapId');
-    const urlCellStr = searchParams.get('cell');
-    const parsedUrlCellCoords = parseCellCoords(urlCellStr);
-
-    if (ctxMapId && urlMapId === ctxMapId) { // Map ID in context matches URL
-      const currentCtxCellStr = stringifyCellCoords(ctxCellCoords);
-      if (urlCellStr !== currentCtxCellStr) { // Cell string differs
-        setFocusedCellCoordinates(parsedUrlCellCoords);
-      }
-    } else { // Map IDs don't match, or URL has no mapId, or context has no mapId
-      if (ctxCellCoords !== null) { // If context has a cell focus, clear it
-        setFocusedCellCoordinates(null);
-      }
-    }
-  }, [searchParams, ctxMapId, ctxCellCoords, setFocusedCellCoordinates]);
-
-  // Effect 3: Sync Context to URL
-  useEffect(() => {
-    const currentQuery = new URLSearchParams(searchParams.toString());
-    const newQuery = new URLSearchParams();
-
-    if (ctxMapId) {
-      newQuery.set('mapId', ctxMapId);
-      const cellStr = stringifyCellCoords(ctxCellCoords);
-      if (cellStr) {
-        newQuery.set('cell', cellStr);
-      }
-    }
-    
-    if (currentQuery.toString() !== newQuery.toString()) {
-      router.push(newQuery.toString() ? `?${newQuery.toString()}` : '/', { scroll: false });
-    }
-  }, [ctxMapId, ctxCellCoords, router, searchParams]);
-
-
-  const overallLoading = isAuthLoading || isLoadingMapList || (ctxMapId && isLoadingMapData && !currentMapData);
-  const showMapManager = !ctxMapId && !isLoadingMapList && isAuthenticated && !isAuthLoading;
+  const overallLoading = isAuthLoading || isLoadingMapList || (currentMapId && isLoadingMapData && !currentMapData);
+  const showMapManager = !currentMapId && !isLoadingMapList && isAuthenticated && !isAuthLoading;
 
 
   if (overallLoading && !currentMapData && (!userMapList || userMapList.length === 0) && !showMapManager) {
@@ -148,15 +70,15 @@ function HomePageContent() {
 
 
   // Focused Cell View
-  if (ctxCellCoords && currentMapData) {
+  if (focusedCellCoordinates && currentMapData) {
     const dynamicCanvasHeight = `calc(100vh - ${TOTAL_VERTICAL_PAGE_OVERHEAD}px)`;
     const dynamicCanvasWidth = `calc(100vw - ${TOTAL_HORIZONTAL_PAGE_PADDING}px - ${SIDE_PANEL_WIDTH}px - ${SIDE_PANEL_GAP}px)`;
     const canvasHolderDimension = `min(${dynamicCanvasHeight}, ${dynamicCanvasWidth})`;
 
     return (
       <div className="flex flex-col items-center justify-start flex-grow w-full p-4 md:p-6">
-        <div className="flex flex-row w-full items-start justify-center gap-6"> {/* Added justify-center */}
-            <div className="flex-shrink-0 flex items-center justify-center h-full"> {/* Added flex-shrink-0 */}
+        <div className="flex flex-row w-full items-start justify-center gap-6">
+            <div className="flex-shrink-0 flex items-center justify-center h-full">
             <div
                 style={{
                 width: canvasHolderDimension,
@@ -169,8 +91,8 @@ function HomePageContent() {
                 )}
                 {(!isLoadingMapData && currentLocalGrid) && (
                 <DetailedCellEditorCanvas
-                    rowIndex={ctxCellCoords.rowIndex}
-                    colIndex={ctxCellCoords.colIndex}
+                    rowIndex={focusedCellCoordinates.rowIndex}
+                    colIndex={focusedCellCoordinates.colIndex}
                     className="w-full h-full"
                 />
                 )}
@@ -179,13 +101,13 @@ function HomePageContent() {
 
             <div className="w-[300px] flex-shrink-0 flex flex-col gap-4 sticky top-6">
             <IconSourcePalette
-                rowIndex={ctxCellCoords.rowIndex}
-                colIndex={ctxCellCoords.colIndex}
+                rowIndex={focusedCellCoordinates.rowIndex}
+                colIndex={focusedCellCoordinates.colIndex}
             />
             {selectedPlacedIconId && currentLocalGrid && (
                 <MarkerEditorPanel
-                rowIndex={ctxCellCoords.rowIndex}
-                colIndex={ctxCellCoords.colIndex}
+                rowIndex={focusedCellCoordinates.rowIndex}
+                colIndex={focusedCellCoordinates.colIndex}
                 />
             )}
             </div>
@@ -202,8 +124,8 @@ function HomePageContent() {
 
     return (
       <div className="flex flex-col items-center justify-start flex-grow w-full p-4 md:p-6">
-        <div className="flex flex-row w-full items-start justify-center gap-6"> {/* Added justify-center */}
-            <div className="flex-shrink-0 flex items-center justify-center h-full">  {/* Added flex-shrink-0 */}
+        <div className="flex flex-row w-full items-start justify-center gap-6">
+            <div className="flex-shrink-0 flex items-center justify-center h-full">
             <div
                 style={{
                 width: gridHolderDimension,
@@ -239,7 +161,7 @@ function HomePageContent() {
   }
   
   // Fallback loading skeleton or message if authenticated but no map and not in map manager
-  if (isAuthenticated && !isAuthLoading && !isLoadingMapList && !ctxMapId) {
+  if (isAuthenticated && !isAuthLoading && !isLoadingMapList && !currentMapId) {
      return (
       <div className="flex flex-col items-center justify-center flex-grow p-8">
         <MapPin className="h-12 w-12 text-primary mb-4" />
