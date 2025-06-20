@@ -12,6 +12,23 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertTriangle } from 'lucide-react';
 
+// Approximate heights/widths for layout calculations
+const HEADER_HEIGHT = 65; // px, approx AppHeader height + border
+const FOOTER_HEIGHT = 33; // px, approx footer height + border
+const MAIN_SM_PY_TOTAL = 64; // px, from sm:py-8 on main in layout.tsx (32px top + 32px bottom)
+const MAIN_SM_PX_TOTAL = 32; // px, from sm:px-4 on main in layout.tsx (16px left + 16px right)
+
+// For screens smaller than 'sm', these layout paddings are 0. We'll use a simplified overhead.
+// This value aims to be a general buffer for vertical space taken by header, footer, and main container's vertical padding.
+const PAGE_VERTICAL_OVERHEAD = HEADER_HEIGHT + FOOTER_HEIGHT + (MAIN_SM_PY_TOTAL / 2); // Using half of sm padding as a general compromise
+const PAGE_HORIZONTAL_PADDING = MAIN_SM_PX_TOTAL / 2; // Using half of sm padding
+
+const SIDE_PANEL_WIDTH = 300; // px
+const SIDE_PANEL_GAP = 24; // px
+const CELL_VIEW_ROW_INTERNAL_PADDING_X = 32; // px, from p-4 on the flex-row div for cell view
+const CELL_VIEW_ROW_INTERNAL_PADDING_Y = 32; // px, from p-4 on the flex-row div for cell view
+
+
 function HomePageContent() {
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
   const {
@@ -26,10 +43,7 @@ function HomePageContent() {
 
   const overallLoading = isAuthLoading || isLoadingMapList || (currentMapData && isLoadingMapData);
 
-  const baseGridDisplayWidth = `min(calc(100vh - 250px), calc(100vw - 32px))`;
-  const maxGridDisplayWidth = '800px';
-
-  if (overallLoading && !focusedCellCoordinates) {
+  if (overallLoading && !focusedCellCoordinates && (!userMapList || userMapList.length === 0)) {
     return (
       <div className="flex flex-col items-center justify-center flex-grow p-8">
         <Skeleton className="h-12 w-1/2 mb-4" />
@@ -56,18 +70,23 @@ function HomePageContent() {
   }
 
   if (focusedCellCoordinates && currentMapData) {
+    // Calculate dimensions for DetailedCellEditorCanvas
+    const canvasAvailableHeight = `calc(100vh - ${PAGE_VERTICAL_OVERHEAD}px - ${CELL_VIEW_ROW_INTERNAL_PADDING_Y}px)`;
+    const canvasAvailableWidth = `calc(100vw - ${PAGE_HORIZONTAL_PADDING}px - ${SIDE_PANEL_WIDTH}px - ${SIDE_PANEL_GAP}px - ${CELL_VIEW_ROW_INTERNAL_PADDING_X}px)`;
+    const canvasHolderDimension = `min(${canvasAvailableHeight}, ${canvasAvailableWidth})`;
+
     return (
-      <div className="flex flex-row w-full flex-grow gap-6 p-4 md:p-6 items-start">
+      <div className="flex flex-row w-full flex-grow gap-6 p-4 md:p-6 items-start justify-center">
         <div
           className="flex flex-col items-center justify-start"
           style={{
-            width: baseGridDisplayWidth,
-            maxWidth: maxGridDisplayWidth,
+            width: canvasHolderDimension,
+            height: canvasHolderDimension, // Maintain square ratio for the holder
            }}
         >
            {(isLoadingMapData || !currentLocalGrid) && (
              <div
-               className="w-full aspect-square bg-card rounded-lg shadow-xl flex items-center justify-center border border-border"
+               className="w-full h-full bg-card rounded-lg shadow-xl flex items-center justify-center border border-border"
              >
                 <Skeleton className="w-full h-full"/>
              </div>
@@ -76,11 +95,12 @@ function HomePageContent() {
              <DetailedCellEditorCanvas
                 rowIndex={focusedCellCoordinates.rowIndex}
                 colIndex={focusedCellCoordinates.colIndex}
+                className="w-full h-full" // Canvas fills its holder
              />
            )}
         </div>
 
-        <div className="w-[300px] flex-shrink-0 flex flex-col gap-4">
+        <div className="w-[300px] flex-shrink-0 flex flex-col gap-4 sticky top-6"> {/* Made side panels sticky */}
           <IconSourcePalette
             rowIndex={focusedCellCoordinates.rowIndex}
             colIndex={focusedCellCoordinates.colIndex}
@@ -97,60 +117,38 @@ function HomePageContent() {
   }
 
   if (currentMapData) {
+    // Calculate dimensions for DeepDesertGrid holder
+    const gridHolderDimension = `min(calc(100vh - ${PAGE_VERTICAL_OVERHEAD}px), calc(100vw - ${PAGE_HORIZONTAL_PADDING}px))`;
+
     return (
-      <div className="flex flex-row w-full flex-grow gap-6 p-4 md:p-6">
-        <div className="flex-grow flex flex-col items-center justify-start">
-          {(isLoadingMapData && currentMapData) && ( // Skeleton for grid while map data loads
-            <div className="flex flex-col items-center space-y-4 w-full p-4">
-              <Skeleton className="h-10 w-full max-w-lg mb-4" />
-              <div
-                className="grid"
-                style={{
-                  gridTemplateColumns: 'auto 1fr',
-                  gridTemplateRows: 'auto 1fr',
-                  gap: '0.25rem',
-                  width: baseGridDisplayWidth,
-                  maxWidth: maxGridDisplayWidth,
-                }}
-              >
-                <div />
-                <div className="grid grid-cols-9 gap-px justify-items-center">
-                  {Array.from({ length: 9 }).map((_, i) => (
-                    <Skeleton key={`sk-col-${i}`} className="h-8 aspect-square" />
-                  ))}
-                </div>
-                <div className="grid grid-rows-9 gap-px items-center">
-                  {Array.from({ length: 9 }).map((_, i) => (
-                    <Skeleton key={`sk-row-${i}`} className="w-8 aspect-square" />
-                  ))}
-                </div>
-                <div className="grid grid-cols-9 gap-px bg-border border border-border rounded-lg overflow-hidden shadow-xl aspect-square">
-                  {Array.from({ length: 81 }).map((_, i) => (
-                    <Skeleton key={`sk-cell-${i}`} className="aspect-square w-full h-full" />
-                  ))}
-                </div>
-              </div>
-              <Skeleton className="h-10 w-40 mt-4" />
+      <div className="flex flex-col items-center justify-start flex-grow w-full py-4"> {/* Added py-4 for spacing */}
+        {(isLoadingMapData && currentMapData) && ( 
+          <div className="flex flex-col items-center space-y-4 w-full p-4">
+            <Skeleton className="h-10 w-full max-w-lg mb-4" />
+            <div style={{width: gridHolderDimension, height: gridHolderDimension}} className="flex items-center justify-center">
+              <Skeleton className="w-full h-full" />
             </div>
-          )}
-          {(!isLoadingMapData && currentMapData && currentLocalGrid) && ( // Actual grid when data is ready
-            <DeepDesertGrid />
-          )}
-           {(!isLoadingMapData && currentMapData && !currentLocalGrid && isAuthenticated) && ( // Error case: Map selected, but no grid data
-              <div className="flex flex-col items-center justify-center text-center p-8 space-y-4 flex-grow">
-                  <AlertTriangle className="h-16 w-16 text-destructive" />
-                  <h2 className="text-2xl font-semibold text-destructive-foreground">Error</h2>
-                  <p className="text-muted-foreground">
-                  Map data is unavailable. This map may not exist or you might not have access.
-                  </p>
-              </div>
-          )}
-        </div>
+            <Skeleton className="h-10 w-40 mt-4" />
+          </div>
+        )}
+        {(!isLoadingMapData && currentMapData && currentLocalGrid) && ( 
+          <div style={{ width: gridHolderDimension, height: gridHolderDimension }}>
+            <DeepDesertGrid /> {/* DeepDesertGrid will be w-full h-full of this div */}
+          </div>
+        )}
+         {(!isLoadingMapData && currentMapData && !currentLocalGrid && isAuthenticated) && ( 
+            <div className="flex flex-col items-center justify-center text-center p-8 space-y-4 flex-grow">
+                <AlertTriangle className="h-16 w-16 text-destructive" />
+                <h2 className="text-2xl font-semibold text-destructive-foreground">Error</h2>
+                <p className="text-muted-foreground">
+                Map data is unavailable. This map may not exist or you might not have access.
+                </p>
+            </div>
+        )}
       </div>
     );
   }
 
-  // Fallback loading state if none of the above conditions are met
   return (
     <div className="flex flex-col items-center justify-center flex-grow p-8">
       <Skeleton className="h-12 w-1/2 mb-4" />
@@ -165,9 +163,8 @@ export default function Home() {
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <AppHeader />
-      <main className="flex-grow container mx-auto px-0 sm:px-4 py-0 sm:py-8 flex flex-col">
-        <HomePageContent />
-      </main>
+      {/* HomePageContent is now a direct child of main, no extra container div needed here */}
+      <HomePageContent />
       <footer className="py-4 text-center text-xs text-muted-foreground border-t border-border">
         Arrakis Atlas - Deep Desert Mapping Tool
       </footer>

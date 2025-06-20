@@ -18,15 +18,17 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import type { LocalGridState, MapData, FocusedCellCoordinates as FocusedCellCoordinatesType } from '@/types';
+import type { LocalGridState, MapData } from '@/types';
 import { cn } from '@/lib/utils';
 import { GRID_SIZE } from '@/lib/mapUtils'; 
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface DeepDesertGridProps {
   initialGridState?: LocalGridState;
   initialMapData?: MapData;
   isReadOnly?: boolean;
-  onCellClick?: (rowIndex: number, colIndex: number) => void; // New prop for public view
+  onCellClick?: (rowIndex: number, colIndex: number) => void;
+  // gridWidthStyle prop is effectively replaced by parent sizing
 }
 
 export function DeepDesertGrid({ 
@@ -43,78 +45,90 @@ export function DeepDesertGrid({
   const isLoadingMapData = !isReadOnly && (context?.isLoadingMapData ?? true);
   
   const resetCurrentMapGrid = context?.resetCurrentMapGrid;
-  // Use focusedCellCoordinates from context if available (authenticated view), otherwise null (public view manages its own)
-  const focusedCellCoordinatesFromContext = context?.focusedCellCoordinates;
-
 
   const [hoveredCell, setHoveredCell] = useState<{row: number | null, col: number | null}>({ row: null, col: null });
 
-  if ((!isReadOnly && isLoadingMapData) || !currentLocalGrid || !currentMapData) {
-    return <div>Loading map grid...</div>;
-  }
-
-  const gridToRender: LocalGridState = currentLocalGrid;
-
-  let canResetMap = false;
-  if (!isReadOnly && isAuthenticated && user && currentMapData && context) {
-    canResetMap = currentMapData.ownerId === user.uid;
+  if ((!isReadOnly && isLoadingMapData && !currentLocalGrid) || (!isReadOnly && !currentMapData)) {
+    // Show a full-size skeleton if context data is loading and grid isn't ready
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center bg-card rounded-lg shadow-xl border border-border">
+        <Skeleton className="w-full h-full" />
+      </div>
+    );
   }
   
-  // Determine effective focused cell coordinates based on context or if it's read-only (public view)
-  // For public view, the parent (`PublicMapView`) handles focus, so this component doesn't need to track it for layout.
-  // For authenticated view, `focusedCellCoordinatesFromContext` is used.
-  const sidebarVisible = !isReadOnly && !!focusedCellCoordinatesFromContext;
+  if (isReadOnly && (!initialGridState || !initialMapData)) {
+     // Show a full-size skeleton if initial data for read-only mode is not provided
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center bg-card rounded-lg shadow-xl border border-border">
+        <Skeleton className="w-full h-full" />
+      </div>
+    );
+  }
 
-  const sidebarWidth = 300;
-  const gapWidth = 24; // 1.5rem
-  const gridWidthStyle = sidebarVisible
-    ? `min(calc(100vh - 250px - ${sidebarWidth}px - ${gapWidth}px), calc(100vw - 32px - ${sidebarWidth}px - ${gapWidth}px))`
-    : `min(calc(100vh - 250px), calc(100vw - 32px))`;
+  const gridToRender: LocalGridState | null = isReadOnly ? initialGridState : currentLocalGrid;
+  const mapDataForGrid: MapData | null = isReadOnly ? initialMapData : currentMapData;
+
+  if (!gridToRender || !mapDataForGrid) {
+     // Fallback if data is still unexpectedly null
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground">
+        Loading map grid...
+      </div>
+    );
+  }
 
 
+  let canResetMap = false;
+  if (!isReadOnly && isAuthenticated && user && mapDataForGrid && context) {
+    canResetMap = mapDataForGrid.ownerId === user.uid;
+  }
+  
   return (
-    <div className="flex flex-col items-center space-y-4 w-full">
+    // This root div should fill its parent which is sized by page.tsx or PublicMapView.tsx
+    <div className="flex flex-col items-center space-y-2 w-full h-full">
       <div
-        className="grid"
+        className="grid w-full h-full" // Grid structure takes full width/height of its direct parent
         style={{
-          gridTemplateColumns: 'auto 1fr',
-          gridTemplateRows: 'auto 1fr',
-          gap: '0.25rem',
-          width: gridWidthStyle,
-          maxWidth: '800px',
+          gridTemplateColumns: 'auto 1fr', // col for row labels, col for cells
+          gridTemplateRows: 'auto 1fr',    // row for col labels, row for cells
+          gap: '0.25rem', // Small gap between labels and grid
         }}
+        role="grid"
+        aria-label={`Deep Desert Map ${mapDataForGrid.name}`}
       >
-        <div />
-        <div className="grid grid-cols-9 gap-px justify-items-center">
+        <div /> {/* Top-left empty cell */}
+        {/* Column Headers (1-9) */}
+        <div className="grid grid-cols-9 gap-px justify-items-stretch"> {/* Use justify-items-stretch */}
           {Array.from({ length: GRID_SIZE }).map((_, colIndex) => (
             <div
               key={`col-label-${colIndex}`}
               className={cn(
-                "flex items-center justify-center text-center h-8 text-sm font-medium text-muted-foreground aspect-square bg-card rounded-sm transition-colors",
-                hoveredCell.col === colIndex && "bg-accent text-accent-foreground" // Hover always active
+                "flex items-center justify-center text-center text-xs sm:text-sm font-medium text-muted-foreground aspect-square bg-card rounded-sm transition-colors p-1",
+                hoveredCell.col === colIndex && "bg-accent text-accent-foreground" 
               )}
             >
               {colIndex + 1}
             </div>
           ))}
         </div>
-        <div className="grid grid-rows-9 gap-px items-center">
+        {/* Row Headers (A-I) */}
+        <div className="grid grid-rows-9 gap-px items-stretch"> {/* Use items-stretch */}
           {Array.from({ length: GRID_SIZE }).map((_, rowIndex) => (
             <div
               key={`row-label-${rowIndex}`}
               className={cn(
-                "flex items-center justify-center text-center w-8 text-sm font-medium text-muted-foreground aspect-square bg-card rounded-sm transition-colors",
-                 hoveredCell.row === rowIndex && "bg-accent text-accent-foreground" // Hover always active
+                "flex items-center justify-center text-center text-xs sm:text-sm font-medium text-muted-foreground aspect-square bg-card rounded-sm transition-colors p-1",
+                 hoveredCell.row === rowIndex && "bg-accent text-accent-foreground"
               )}
             >
               {String.fromCharCode(65 + (GRID_SIZE - 1 - rowIndex))}
             </div>
           ))}
         </div>
+        {/* Grid Cells */}
         <div
-          className="grid grid-cols-9 gap-px bg-border border border-border rounded-lg overflow-hidden shadow-xl aspect-square"
-          role="grid"
-          aria-label="Deep Desert Map"
+          className="grid grid-cols-9 grid-rows-9 gap-px bg-border border border-border rounded-lg overflow-hidden shadow-xl"
         >
           {gridToRender.map((row, rIndex) =>
             row.map((cellData, cIndex) => (
@@ -126,8 +140,8 @@ export function DeepDesertGrid({
                 onMouseLeaveCell={() => setHoveredCell({ row: null, col: null })}
                 isReadOnly={isReadOnly}
                 cellData={isReadOnly ? cellData : undefined} 
-                mapData={isReadOnly ? currentMapData : undefined}
-                onCellClick={isReadOnly ? onCellClick : undefined} // Pass onCellClick for read-only mode
+                mapData={isReadOnly ? mapDataForGrid : undefined}
+                onCellClick={isReadOnly ? onCellClick : undefined} 
               />
             ))
           )}
@@ -146,7 +160,7 @@ export function DeepDesertGrid({
               <AlertDialogTitle>Invoke a Coriolis Storm?</AlertDialogTitle>
               <AlertDialogDescription>
                 This action cannot be undone. This will permanently reset the grid for the current map
-                (&quot;{currentMapData?.name || 'Unnamed Map'}&quot;), clearing all placed icons and notes.
+                (&quot;{mapDataForGrid?.name || 'Unnamed Map'}&quot;), clearing all placed icons and notes.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -159,5 +173,3 @@ export function DeepDesertGrid({
     </div>
   );
 }
-
-    

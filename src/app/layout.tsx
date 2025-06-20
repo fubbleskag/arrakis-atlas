@@ -25,7 +25,9 @@ export default function RootLayout({
       <body className="font-body antialiased min-h-screen flex flex-col">
         <AuthProvider>
           <MapProvider>
-            {children}
+            <main className="flex-grow px-0 sm:px-4 py-0 sm:py-8 flex flex-col">
+              {children}
+            </main>
             <Toaster />
           </MapProvider>
         </AuthProvider>
