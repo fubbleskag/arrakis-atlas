@@ -39,6 +39,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 
 interface MapDetailsPanelProps {
@@ -287,21 +288,29 @@ export function MapDetailsPanel({ mapData, currentUser, className }: MapDetailsP
               <h3 className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center">
                  MAP ACTIONS
               </h3>
-              <div className="flex flex-col sm:flex-row gap-2">
-                <Dialog open={isSettingsDialogOpen} onOpenChange={(isOpen) => {
-                    setIsSettingsDialogOpen(isOpen);
-                    if (isOpen) {
-                        setLocalSettingsMapName(mapData.name); 
-                        setLocalNewEditorUid(''); 
-                        const editorIds = mapData.editors || [];
-                        if (editorIds.length > 0) fetchEditorProfiles(editorIds);
-                    }
-                }}>
-                    <DialogTrigger asChild>
-                        <Button variant="outline" size="sm" className="flex-1" disabled={isContextLoadingMapData}>
-                            <Settings2 className="mr-2 h-4 w-4" /> Settings
-                        </Button>
-                    </DialogTrigger>
+              <div className="flex flex-row gap-2">
+                <TooltipProvider>
+                  <Dialog open={isSettingsDialogOpen} onOpenChange={(isOpen) => {
+                      setIsSettingsDialogOpen(isOpen);
+                      if (isOpen) {
+                          setLocalSettingsMapName(mapData.name); 
+                          setLocalNewEditorUid(''); 
+                          const editorIds = mapData.editors || [];
+                          if (editorIds.length > 0) fetchEditorProfiles(editorIds);
+                      }
+                  }}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <DialogTrigger asChild>
+                            <Button variant="outline" size="icon" disabled={isContextLoadingMapData}>
+                                <Settings2 className="h-4 w-4" />
+                            </Button>
+                        </DialogTrigger>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Map Settings</p>
+                      </TooltipContent>
+                    </Tooltip>
                     <DialogContent className="sm:max-w-md">
                         <DialogHeader>
                             <DialogTitle>Map Settings: {mapData.name}</DialogTitle>
@@ -484,48 +493,66 @@ export function MapDetailsPanel({ mapData, currentUser, className }: MapDetailsP
                             {!isCurrentUserOwner && <Button onClick={() => setIsSettingsDialogOpen(false)} disabled={isUpdatingSettingsDialog}>Close</Button>}
                         </DialogFooter>
                     </DialogContent>
-                </Dialog>
+                  </Dialog>
+                </TooltipProvider>
+                
+                <TooltipProvider>
+                  <AlertDialog>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="outline" size="icon" disabled={isContextLoadingMapData}>
+                            <RotateCcw className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Coriolis Storm (Reset Grid)</p>
+                      </TooltipContent>
+                    </Tooltip>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Invoke a Coriolis Storm?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This action will permanently reset the grid for &quot;{mapData?.name || 'Unnamed Map'}&quot;, clearing all placed icons and notes. This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={resetCurrentMapGrid}>Continue</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </TooltipProvider>
 
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="outline" size="sm" className="flex-1" disabled={isContextLoadingMapData}>
-                      <RotateCcw className="mr-2 h-4 w-4" /> Coriolis Storm
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Invoke a Coriolis Storm?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This action will permanently reset the grid for &quot;{mapData?.name || 'Unnamed Map'}&quot;, clearing all placed icons and notes. This action cannot be undone.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={resetCurrentMapGrid}>Continue</AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="destructive" size="sm" className="flex-1" disabled={isContextLoadingMapData}>
-                      <Trash2 className="mr-2 h-4 w-4" /> Delete Map
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Delete Map: {mapData.name}?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This action cannot be undone. This will permanently delete the map &quot;{mapData?.name || 'Unnamed Map'}&quot; and all its data.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => deleteMap(mapData.id)}>Delete</AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-
+                <TooltipProvider>
+                  <AlertDialog>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="destructive" size="icon" disabled={isContextLoadingMapData}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Delete Map</p>
+                      </TooltipContent>
+                    </Tooltip>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Map: {mapData.name}?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This action cannot be undone. This will permanently delete the map &quot;{mapData?.name || 'Unnamed Map'}&quot; and all its data.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => deleteMap(mapData.id)}>Delete</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </TooltipProvider>
               </div>
             </div>
           </>
@@ -534,3 +561,4 @@ export function MapDetailsPanel({ mapData, currentUser, className }: MapDetailsP
     </Card>
   );
 }
+
