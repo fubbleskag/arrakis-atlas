@@ -6,12 +6,13 @@ import { useEffect } from 'react';
 import type { MapData, UserProfile } from '@/types';
 import type { User } from 'firebase/auth';
 import { useMap } from '@/contexts/MapContext';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { Button } from '@/components/ui/button'; // Added Button
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { Timestamp } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
-import { Users, Clock, Crown, Loader2 } from 'lucide-react'; 
+import { Users, Clock, Crown, Loader2, X as XIcon } from 'lucide-react'; // Added XIcon
 
 interface MapDetailsPanelProps {
   mapData: MapData;
@@ -20,7 +21,7 @@ interface MapDetailsPanelProps {
 }
 
 export function MapDetailsPanel({ mapData, currentUser, className }: MapDetailsPanelProps) {
-  const { editorProfiles, isLoadingEditorProfiles, fetchEditorProfiles } = useMap();
+  const { editorProfiles, isLoadingEditorProfiles, fetchEditorProfiles, selectMap } = useMap();
 
   useEffect(() => {
     const uidsInPanel = [mapData.ownerId, ...(mapData.editors || [])];
@@ -54,7 +55,6 @@ export function MapDetailsPanel({ mapData, currentUser, className }: MapDetailsP
 
   const allCollaborators: Array<{ uid: string; profile?: UserProfile | null; isOwner: boolean; isLoading: boolean }> = [];
   
-  // Add owner
   allCollaborators.push({
     uid: mapData.ownerId,
     profile: editorProfiles[mapData.ownerId],
@@ -62,7 +62,6 @@ export function MapDetailsPanel({ mapData, currentUser, className }: MapDetailsP
     isLoading: typeof editorProfiles[mapData.ownerId] === 'undefined' && isLoadingEditorProfiles,
   });
 
-  // Add editors, ensuring they are not the owner
   (mapData.editors || []).forEach(editorUid => {
     if (editorUid !== mapData.ownerId) {
       allCollaborators.push({
@@ -74,7 +73,6 @@ export function MapDetailsPanel({ mapData, currentUser, className }: MapDetailsP
     }
   });
   
-  // Sort by owner first, then by display name or UID
   allCollaborators.sort((a, b) => {
     if (a.isOwner && !b.isOwner) return -1;
     if (!a.isOwner && b.isOwner) return 1;
@@ -86,13 +84,19 @@ export function MapDetailsPanel({ mapData, currentUser, className }: MapDetailsP
 
   return (
     <Card className={cn("w-full shadow-lg border-border bg-card", className)}>
-      <CardHeader className="p-3 md:p-4">
-        <CardTitle className="text-base font-semibold leading-none text-foreground">
-          Map Information
+      <CardHeader className="p-3 md:p-4 flex flex-row justify-between items-center">
+        <CardTitle className="text-base font-semibold leading-none text-foreground truncate">
+          Details for {mapData.name}
         </CardTitle>
-        <CardDescription className="text-xs">
-          Overview of the current map.
-        </CardDescription>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => selectMap(null)}
+          aria-label="Close map details and return to map manager"
+          className="h-7 w-7 text-muted-foreground hover:text-foreground"
+        >
+          <XIcon className="h-4 w-4" />
+        </Button>
       </CardHeader>
       <CardContent className="p-3 md:p-4 space-y-3 text-sm">
         <div>
@@ -152,4 +156,3 @@ export function MapDetailsPanel({ mapData, currentUser, className }: MapDetailsP
     </Card>
   );
 }
-
