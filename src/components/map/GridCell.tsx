@@ -1,4 +1,3 @@
-
 "use client";
 
 import type React from 'react';
@@ -10,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { Lock, ZoomIn } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { GRID_SIZE } from '@/lib/mapUtils';
+import Image from 'next/image'; // Import next/image
 
 interface GridCellProps {
   rowIndex: number;
@@ -70,6 +70,7 @@ export function GridCell({
   const hasIcons = cellData.placedIcons.length > 0;
   const hasNotes = cellData.notes && cellData.notes.trim() !== '';
   const hasContent = hasIcons || hasNotes;
+  const hasBackgroundImage = !!cellData.backgroundImageUrl;
 
   const uniqueIconTypesInCell: IconType[] = [];
   if (hasIcons) {
@@ -90,9 +91,12 @@ export function GridCell({
     })
     .filter(item => item !== null) as { key: string; IconComponent: React.FC<any>; label: string }[];
 
-  const isEmptyCellVisuals = finalDisplayItems.length === 0;
+  const isEmptyCellVisuals = finalDisplayItems.length === 0 && !hasBackgroundImage;
 
   let ariaLabelContent = `Grid cell ${cellCoordinate}. `;
+  if (hasBackgroundImage) {
+    ariaLabelContent += `Has custom background. `;
+  }
   if (hasIcons) {
     const iconLabels = finalDisplayItems
       .map(item => item.label)
@@ -102,7 +106,7 @@ export function GridCell({
   if (hasNotes) {
     ariaLabelContent += `Notes present. `;
   }
-  if (isEmptyCellVisuals && !hasNotes) {
+  if (isEmptyCellVisuals && !hasNotes && !hasBackgroundImage) {
     ariaLabelContent += 'Empty. ';
   }
 
@@ -114,6 +118,16 @@ export function GridCell({
   const isA6 = isRowA && colIndex === 5;
   const isA7 = isRowA && colIndex === 6;
 
+  let buttonBgClass = 'bg-card';
+  if (!hasBackgroundImage && hasContent) {
+    buttonBgClass = 'bg-accent/15';
+  }
+
+  let hoverBgClass = '';
+  if (!hasBackgroundImage) {
+    hoverBgClass = hasContent ? 'hover:bg-accent/25' : 'hover:bg-accent/20';
+  }
+
 
   const cellButton = (
     <button
@@ -124,27 +138,38 @@ export function GridCell({
       onMouseEnter={onMouseEnterCell}
       onMouseLeave={onMouseLeaveCell}
       className={cn(
-        "aspect-square flex items-center justify-center p-0.5 relative group transition-all duration-150 ease-in-out focus:outline-none",
-        hasContent ? 'bg-accent/15' : 'bg-card',
+        "aspect-square flex items-center justify-center p-0.5 relative group transition-all duration-150 ease-in-out focus:outline-none overflow-hidden",
+        buttonBgClass,
+        hoverBgClass,
         (currentMapData || isReadOnly) && "cursor-pointer focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-        (currentMapData || isReadOnly) && (hasContent ? 'hover:bg-accent/25' : 'hover:bg-accent/20'),
-        !isReadOnly && !canEditCell && currentMapData && !hasContent && "bg-muted/30",
-        !isReadOnly && !canEditCell && currentMapData && hasContent && "opacity-80", // Editor can see content but not interact directly on grid
+        !isReadOnly && !canEditCell && currentMapData && !hasContent && !hasBackgroundImage && "bg-muted/30",
+        !isReadOnly && !canEditCell && currentMapData && (hasContent || hasBackgroundImage) && "opacity-80",
         !isReadOnly && (!currentMapData || !context?.setFocusedCellCoordinates) && "cursor-not-allowed opacity-50",
-        "border", // Base border for all cells
-        isRowA ? 'border-emerald-600/75' : 'border-border', // Default border or Row A green border
-        isA3 && "!border-r-destructive", // Red right border for A3, ! to override green
-        isA4 && "!border-l-destructive", // Red left border for A4, ! to override green
-        isA6 && "!border-r-destructive", // Red right border for A6, ! to override green
-        isA7 && "!border-l-destructive"  // Red left border for A7, ! to override green
+        "border", 
+        isRowA ? 'border-emerald-600/75' : 'border-border',
+        isA3 && "!border-r-destructive",
+        isA4 && "!border-l-destructive",
+        isA6 && "!border-r-destructive",
+        isA7 && "!border-l-destructive"
       )}
     >
-      {!canEditCell && currentMapData && isEmptyCellVisuals && !hasNotes && !isReadOnly && (
-         <Lock className="h-1/2 w-1/2 text-muted-foreground/50 absolute inset-0 m-auto" />
+      {hasBackgroundImage && cellData.backgroundImageUrl && (
+        <Image
+          src={cellData.backgroundImageUrl}
+          alt={`${cellCoordinate} background`}
+          layout="fill"
+          objectFit="cover"
+          className="absolute inset-0 z-0 pointer-events-none"
+          data-ai-hint="map texture"
+        />
+      )}
+
+      {!canEditCell && currentMapData && isEmptyCellVisuals && !hasNotes && !hasBackgroundImage && !isReadOnly && (
+         <Lock className="h-1/2 w-1/2 text-muted-foreground/50 absolute inset-0 m-auto z-10" />
       )}
 
       {hasIcons && (
-        <div className="grid grid-cols-3 grid-rows-3 gap-px h-[calc(100%-4px)] w-[calc(100%-4px)] p-px">
+        <div className="grid grid-cols-3 grid-rows-3 gap-px h-[calc(100%-4px)] w-[calc(100%-4px)] p-px relative z-10"> {/* Ensure icons are above background */}
           {finalDisplayItems.map((item) => {
             const IconComponent = item.IconComponent;
             return (
@@ -157,7 +182,7 @@ export function GridCell({
       )}
 
       {(currentMapData || (isReadOnly && onCellClick)) && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20"> {/* Ensure zoom icon is on top */}
               <ZoomIn className="h-2/5 w-2/5 text-foreground opacity-10 group-hover:opacity-30 transition-opacity duration-150" />
           </div>
       )}
@@ -165,7 +190,7 @@ export function GridCell({
     </button>
   );
 
-  if (hasNotes) {
+  if (hasNotes && !hasBackgroundImage) { // Only show tooltip if no background image, or adjust tooltip to be more prominent
     return (
       <TooltipProvider delayDuration={300}>
         <Tooltip>
@@ -180,3 +205,4 @@ export function GridCell({
 
   return cellButton;
 }
+
