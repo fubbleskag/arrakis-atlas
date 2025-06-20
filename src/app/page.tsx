@@ -7,8 +7,7 @@ import { MapManager } from '@/components/map/MapManager';
 import { IconSourcePalette } from '@/components/map/IconSourcePalette';
 import { DetailedCellEditorCanvas } from '@/components/map/DetailedCellEditorCanvas';
 import { MarkerEditorPanel } from '@/components/map/MarkerEditorPanel'; 
-import { AuthProvider } from '@/contexts/AuthContext';
-import { MapProvider, useMap } from '@/contexts/MapContext';
+import { useMap } from '@/contexts/MapContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertTriangle } from 'lucide-react';
@@ -78,7 +77,6 @@ function HomePageContent() {
              <DetailedCellEditorCanvas
                 rowIndex={focusedCellCoordinates.rowIndex}
                 colIndex={focusedCellCoordinates.colIndex}
-                // className is now optional for additional styling, core visuals are internal
              />
            )}
         </div>
@@ -154,20 +152,14 @@ function HomePageContent() {
 
 export default function Home() {
   return (
-    <AuthProvider>
-      <MapProvider>
-        <div className="flex flex-col min-h-screen bg-background">
-          <AppHeader />
-          <main className="flex-grow container mx-auto px-0 sm:px-4 py-0 sm:py-8 flex flex-col">
-            <HomePageContent />
-          </main>
-          <footer className="py-4 text-center text-xs text-muted-foreground border-t border-border">
-            Arrakis Atlas - Deep Desert Mapping Tool
-          </footer>
-        </div>
-      </MapProvider>
-    </AuthProvider>
+    <div className="flex flex-col min-h-screen bg-background">
+      <AppHeader />
+      <main className="flex-grow container mx-auto px-0 sm:px-4 py-0 sm:py-8 flex flex-col">
+        <HomePageContent />
+      </main>
+      <footer className="py-4 text-center text-xs text-muted-foreground border-t border-border">
+        Arrakis Atlas - Deep Desert Mapping Tool
+      </footer>
+    </div>
   );
 }
-
-    

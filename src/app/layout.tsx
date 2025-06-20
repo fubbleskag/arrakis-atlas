@@ -2,6 +2,8 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
+import { AuthProvider } from '@/contexts/AuthContext';
+import { MapProvider } from '@/contexts/MapContext';
 
 export const metadata: Metadata = {
   title: 'Arrakis Atlas',
@@ -21,8 +23,12 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
       </head>
       <body className="font-body antialiased min-h-screen flex flex-col">
-        {children}
-        <Toaster />
+        <AuthProvider>
+          <MapProvider>
+            {children}
+            <Toaster />
+          </MapProvider>
+        </AuthProvider>
       </body>
     </html>
   );
