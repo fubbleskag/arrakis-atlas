@@ -164,8 +164,8 @@ function SidebarBreadcrumbs() {
         {breadcrumbItems.map((item) => (
           <li key={item.key} className={cn(
             "flex items-center w-full min-w-0",
-            item.level === 1 && "pl-3", // Indent map name
-            item.level === 2 && "pl-6"  // Indent cell name
+            item.level === 1 && "pl-3",
+            item.level === 2 && "pl-6"
           )}>
             <div className="truncate w-full">
               {item.content ? (
@@ -241,7 +241,7 @@ function HomePageContent() {
     return (
       <div className="flex flex-row w-full h-full items-stretch justify-start gap-x-6 p-4 md:p-6">
         <div className="flex-grow flex items-center justify-center h-full min-w-0">
-          <div className="aspect-square w-auto h-auto max-w-full max-h-full relative">
+          <div className="aspect-square h-full w-auto max-w-full relative">
             {focusedCellCoordinates && currentMapData ? (
               <>
                 {(isLoadingMapData || !currentLocalGrid) && (
@@ -342,3 +342,4 @@ export default function Home() {
     </div>
   );
 }
+
