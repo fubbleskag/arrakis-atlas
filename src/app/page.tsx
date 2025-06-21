@@ -85,9 +85,12 @@ function HomePageContent() {
   if (!isAuthenticated && !isAuthLoading) {
     return (
       <div className="flex flex-col items-center justify-center text-center p-6 space-y-4 flex-grow">
-        <AlertTriangle className="h-16 w-16 text-primary" />
-        <h2 className="text-2xl font-semibold">Authentication Required</h2>
-        <p className="text-muted-foreground"> Please log in to create, view, and interact with Arrakis Atlas maps. </p>
+        <LayoutGrid className="h-16 w-16 text-primary" />
+        <h2 className="text-2xl font-semibold">Welcome to Arrakis Atlas</h2>
+        <p className="text-muted-foreground max-w-md">
+          The collaborative mapping tool for Dune: Awakening. Plan your expeditions, mark resources, and share your discoveries with your guild.
+        </p>
+        <p className="text-muted-foreground">Please log in to get started.</p>
       </div>
     );
   }
