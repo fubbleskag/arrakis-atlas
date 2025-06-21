@@ -219,7 +219,6 @@ export function MapManager() {
     return formatDistanceToNow(date, { addSuffix: true });
   };
 
-
   if (isLoadingMapList) {
     return (
       <div className="flex flex-col items-center justify-center flex-grow p-8">
@@ -227,6 +226,261 @@ export function MapManager() {
         <p className="text-muted-foreground">Loading your maps...</p>
       </div>
     );
+  }
+
+  const ownedMaps = userMapList.filter(map => user && map.ownerId === user.uid);
+  const sharedMaps = userMapList.filter(map => user && map.ownerId !== user.uid);
+
+  const renderMapCard = (map: MapData) => {
+    const isMapOwner = user && map.ownerId === user.uid;
+    const mapRole = isMapOwner ? "Owner" : (map.editors?.includes(user?.uid || '') ? "Editor" : "Viewer (indirectly)");
+    return (
+      <Card key={map.id} className="flex flex-col">
+        <CardHeader>
+          <div className="flex justify-between items-start">
+            <CardTitle className="text-xl group-hover:text-primary transition-colors mb-1">{map.name}</CardTitle>
+          </div>
+          <CardDescription>
+            Role: {mapRole} <br/>
+            Last updated {getFormattedDate(map.updatedAt)}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex-grow">
+        </CardContent>
+        <CardFooter className="flex-col sm:flex-row gap-2 pt-4 border-t">
+          <Button onClick={() => selectMap(map.id)} className="w-full sm:w-auto flex-grow">
+            View Map
+          </Button>
+            {(isMapOwner || map.editors?.includes(user?.uid || '')) && (
+            <div className="flex gap-2 w-full sm:w-auto">
+              <TooltipProvider>
+                <Dialog onOpenChange={(isOpen) => { if (!isOpen) setSelectedMapForSettings(null); }}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <DialogTrigger asChild>
+                          <Button variant="outline" size="icon" onClick={() => openSettingsDialog(map)}>
+                              <Settings2 className="h-4 w-4" />
+                          </Button>
+                      </DialogTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent><p>Settings</p></TooltipContent>
+                  </Tooltip>
+                  {selectedMapForSettings && selectedMapForSettings.id === map.id && (
+                  <DialogContent className="sm:max-w-md">
+                      <DialogHeader>
+                          <DialogTitle>Map Settings: {selectedMapForSettings.name}</DialogTitle>
+                          <DialogDescription>Manage your map&apos;s details and sharing options.</DialogDescription>
+                      </DialogHeader>
+                      <ScrollArea className="max-h-[calc(100vh-200px)]">
+                        <div className="space-y-4 p-1 pr-4">
+                          {isMapOwner && (
+                            <>
+                              <div>
+                                  <Label htmlFor="settingsMapNameInput" className="text-sm font-medium">Map Name</Label>
+                                  <Input id="settingsMapNameInput" value={settingsMapName} onChange={e => setSettingsMapName(e.target.value)} className="mt-1" disabled={isUpdatingSettings || !isMapOwner} />
+                              </div>
+                              <Separator />
+                            </>
+                          )}
+                          
+                          {isMapOwner && (
+                            <div>
+                              <h4 className="text-sm font-medium mb-2">Editors (UID)</h4>
+                              <div className="flex items-center gap-2 mb-2">
+                                <Input 
+                                  id="newEditorUidInput" 
+                                  placeholder="Enter User ID to add" 
+                                  value={newEditorUid} 
+                                  onChange={e => setNewEditorUid(e.target.value)} 
+                                  className="flex-grow"
+                                  disabled={isManagingEditors || !isMapOwner}
+                                />
+                                <Button onClick={handleAddEditor} size="sm" disabled={isManagingEditors || !newEditorUid.trim() || !isMapOwner}>
+                                  {isManagingEditors ? <Loader2 className="h-4 w-4 animate-spin"/> : <UserPlus className="h-4 w-4"/>}
+                                </Button>
+                              </div>
+                              {selectedMapForSettings.editors && selectedMapForSettings.editors.length > 0 ? (
+                                <ul className="space-y-1 text-xs max-h-32 overflow-y-auto border rounded-md p-2 bg-muted/50">
+                                  {selectedMapForSettings.editors.map(editorId => {
+                                    const profile = editorProfiles[editorId];
+                                    let displayContent;
+                                    if (typeof profile === 'undefined' && isLoadingEditorProfiles) {
+                                        displayContent = <><Loader2 className="h-3 w-3 animate-spin mr-1 inline-block" /> {editorId.substring(0,6)}...</>;
+                                    } else if (profile && profile.displayName) {
+                                        displayContent = profile.displayName;
+                                    } else if (profile && !profile.displayName) {
+                                        displayContent = `User (${editorId.substring(0,6)}...)`;
+                                    } else if (profile === null) {
+                                        displayContent = <span className="text-muted-foreground/70">{editorId.substring(0,6)}... (not found)</span>;
+                                    } else {
+                                        displayContent = editorId.substring(0,6) + '...';
+                                    }
+                                    return (
+                                      <li key={editorId} className="flex justify-between items-center">
+                                        <span className="truncate" title={editorId}>{displayContent}</span>
+                                        <Button variant="ghost" size="icon" onClick={() => handleRemoveEditor(editorId)} className="h-6 w-6" disabled={isManagingEditors || !isMapOwner}>
+                                          <UserX className="h-3 w-3 text-destructive"/>
+                                        </Button>
+                                      </li>
+                                    );
+                                  })}
+                                </ul>
+                              ) : (
+                                <p className="text-xs text-muted-foreground">No other editors yet.</p>
+                              )}
+                              <Separator className="my-4" />
+                            </div>
+                          )}
+
+                          {isMapOwner && (
+                            <div>
+                              <h4 className="text-sm font-medium mb-2">Editor Invite Link</h4>
+                              {selectedMapForSettings.collaboratorShareId && publicLinkBase ? (
+                                <div className="space-y-2">
+                                    <p className="text-xs text-muted-foreground break-all">
+                                        Share this invite link: <br />
+                                        <a
+                                          href={`${publicLinkBase}/join/${selectedMapForSettings.collaboratorShareId}`}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="text-primary hover:underline"
+                                        >
+                                          {`${publicLinkBase}/join/${selectedMapForSettings.collaboratorShareId}`}
+                                          <ExternalLink className="inline-block h-3 w-3 ml-1"/>
+                                        </a>
+                                    </p>
+                                    <div className="flex flex-wrap gap-2">
+                                        <Button variant="outline" size="sm" onClick={() => copyToClipboard(`${publicLinkBase}/join/${selectedMapForSettings.collaboratorShareId}`, "Invite link copied!")} disabled={isUpdatingSettings} >
+                                            <Copy className="mr-2 h-3 w-3" /> Copy Invite
+                                        </Button>
+                                        <Button variant="outline" size="sm" onClick={() => handleRegenerateCollaboratorShareId(map.id)} disabled={isUpdatingSettings} >
+                                            <RefreshCw className="mr-2 h-3 w-3" /> Regenerate
+                                        </Button>
+                                        <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => handleDisableCollaboratorShareId(map.id)} disabled={isUpdatingSettings} >
+                                            <XCircle className="mr-2 h-3 w-3" /> Disable
+                                        </Button>
+                                    </div>
+                                </div>
+                              ) : (
+                                <div className="space-y-2">
+                                    <p className="text-xs text-muted-foreground">No active invite link. Generate one to allow others to join as editors.</p>
+                                    <Button variant="default" size="sm" onClick={() => handleRegenerateCollaboratorShareId(map.id)} disabled={isUpdatingSettings} >
+                                        <LinkIcon className="mr-2 h-3 w-3" /> Generate Invite Link
+                                    </Button>
+                                </div>
+                              )}
+                              <Separator className="my-4" />
+                            </div>
+                          )}
+
+                          {isMapOwner && (
+                            <div>
+                              <h4 className="text-sm font-medium mb-2">Public View-Only Link</h4>
+                              <div className="flex items-center space-x-2 mb-2">
+                                <Switch
+                                  id={`public-view-switch-${map.id}`}
+                                  checked={selectedMapForSettings.isPublicViewable} 
+                                  onCheckedChange={(checked) => handleTogglePublicView(map.id, checked)}
+                                  disabled={isUpdatingSettings || !isMapOwner}
+                                />
+                                <Label htmlFor={`public-view-switch-${map.id}`}>
+                                  {selectedMapForSettings.isPublicViewable ? "Public Link Enabled" : "Public Link Disabled"}
+                                </Label>
+                              </div>
+                              {selectedMapForSettings.isPublicViewable && selectedMapForSettings.publicViewId && publicLinkBase && (
+                                <div className="space-y-2">
+                                  <p className="text-xs text-muted-foreground break-all">
+                                    Share this link for view-only access: <br />
+                                    <a
+                                      href={`${publicLinkBase}/view/map/${selectedMapForSettings.publicViewId}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-primary hover:underline"
+                                    >
+                                      {`${publicLinkBase}/view/map/${selectedMapForSettings.publicViewId}`}
+                                      <ExternalLink className="inline-block h-3 w-3 ml-1"/>
+                                    </a>
+                                  </p>
+                                  <div className="flex gap-2">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => copyToClipboard(`${publicLinkBase}/view/map/${selectedMapForSettings.publicViewId}`)}
+                                      disabled={isUpdatingSettings || !publicLinkBase || !isMapOwner}
+                                    >
+                                      <Copy className="mr-2 h-3 w-3" /> Copy Link
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleRegeneratePublicViewId(map.id)}
+                                      disabled={isUpdatingSettings || !isMapOwner}
+                                    >
+                                      {isUpdatingSettings && selectedMapForSettings.publicViewId ? <Loader2 className="mr-2 h-3 w-3 animate-spin"/> : <RefreshCw className="h-3 w-3" />}
+                                      Regenerate
+                                    </Button>
+                                  </div>
+                                </div>
+                              )}
+                              {!selectedMapForSettings.isPublicViewable && (
+                                <p className="text-xs text-muted-foreground">Enable the switch to generate and share a public view-only link.</p>
+                              )}
+                            </div>
+                          )}
+
+                          {!isMapOwner && (
+                            <p className="text-sm text-muted-foreground">You are an editor for this map. Some settings can only be managed by the owner.</p>
+                          )}
+                        </div>
+                      </ScrollArea>
+                      <DialogFooter className="mt-4">
+                          <DialogClose asChild><Button variant="ghost" onClick={() => setSelectedMapForSettings(null)} disabled={isUpdatingSettings || isManagingEditors}>Cancel</Button></DialogClose>
+                          {isMapOwner && (
+                            <DialogClose asChild>
+                              <Button onClick={handleUpdateNameSetting} disabled={isUpdatingSettings || isManagingEditors || !settingsMapName.trim() || !isMapOwner}>
+                                {(isUpdatingSettings || isManagingEditors) && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>} Save & Close
+                              </Button>
+                            </DialogClose>
+                          )}
+                          {!isMapOwner && ( 
+                            <DialogClose asChild>
+                                <Button disabled={isUpdatingSettings || isManagingEditors}>Close</Button>
+                            </DialogClose>
+                          )}
+                      </DialogFooter>
+                  </DialogContent>
+                  )}
+                </Dialog>
+              </TooltipProvider>
+              {isMapOwner && ( 
+                <TooltipProvider>
+                  <Dialog>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                          <DialogTrigger asChild>
+                              <Button variant="destructive" size="icon">
+                                  <Trash2 className="h-4 w-4" />
+                              </Button>
+                          </DialogTrigger>
+                      </TooltipTrigger>
+                      <TooltipContent><p>Delete Map</p></TooltipContent>
+                    </Tooltip>
+                    <DialogContent>
+                        <DialogHeader><DialogTitle>Delete Map: {map.name}</DialogTitle></DialogHeader>
+                        <DialogDescription>Are you sure you want to delete this map? This action cannot be undone.</DialogDescription>
+                        <DialogFooter>
+                            <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
+                            <Button variant="destructive" onClick={() => deleteMap(map.id)}>Delete</Button>
+                        </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </TooltipProvider>
+              )}
+            </div>
+          )}
+        </CardFooter>
+      </Card>
+    )
   }
 
   return (
@@ -279,261 +533,33 @@ export function MapManager() {
           </CardHeader>
         </Card>
       ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {userMapList.map((map) => {
-            const isMapOwner = user && map.ownerId === user.uid;
-            const mapRole = isMapOwner ? "Owner" : (map.editors?.includes(user?.uid || '') ? "Editor" : "Viewer (indirectly)");
-            return (
-              <Card key={map.id} className="flex flex-col">
+        <div className="space-y-12">
+          <section>
+            <h3 className="text-2xl font-semibold text-primary/80 mb-6">Your Maps</h3>
+            {ownedMaps.length > 0 ? (
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {ownedMaps.map(renderMapCard)}
+              </div>
+            ) : (
+               <Card className="text-center py-8">
                 <CardHeader>
-                  <div className="flex justify-between items-start">
-                    <CardTitle className="text-xl group-hover:text-primary transition-colors mb-1">{map.name}</CardTitle>
-                  </div>
-                  <CardDescription>
-                    Role: {mapRole} <br/>
-                    Last updated {getFormattedDate(map.updatedAt)}
-                  </CardDescription>
+                  <CardTitle className="text-base font-normal text-muted-foreground">You haven&apos;t created any maps yet.</CardTitle>
+                  <CardDescription>Click &quot;Create New Map&quot; to begin.</CardDescription>
                 </CardHeader>
-                <CardContent className="flex-grow">
-                </CardContent>
-                <CardFooter className="flex-col sm:flex-row gap-2 pt-4 border-t">
-                  <Button onClick={() => selectMap(map.id)} className="w-full sm:w-auto flex-grow">
-                    View Map
-                  </Button>
-                   {(isMapOwner || map.editors?.includes(user?.uid || '')) && (
-                    <div className="flex gap-2 w-full sm:w-auto">
-                     <TooltipProvider>
-                        <Dialog onOpenChange={(isOpen) => { if (!isOpen) setSelectedMapForSettings(null); }}>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <DialogTrigger asChild>
-                                  <Button variant="outline" size="icon" onClick={() => openSettingsDialog(map)}>
-                                      <Settings2 className="h-4 w-4" />
-                                  </Button>
-                              </DialogTrigger>
-                            </TooltipTrigger>
-                            <TooltipContent><p>Settings</p></TooltipContent>
-                          </Tooltip>
-                          {selectedMapForSettings && selectedMapForSettings.id === map.id && (
-                          <DialogContent className="sm:max-w-md">
-                              <DialogHeader>
-                                  <DialogTitle>Map Settings: {selectedMapForSettings.name}</DialogTitle>
-                                  <DialogDescription>Manage your map&apos;s details and sharing options.</DialogDescription>
-                              </DialogHeader>
-                              <ScrollArea className="max-h-[calc(100vh-200px)]">
-                                <div className="space-y-4 p-1 pr-4">
-                                  {isMapOwner && (
-                                    <>
-                                      <div>
-                                          <Label htmlFor="settingsMapNameInput" className="text-sm font-medium">Map Name</Label>
-                                          <Input id="settingsMapNameInput" value={settingsMapName} onChange={e => setSettingsMapName(e.target.value)} className="mt-1" disabled={isUpdatingSettings || !isMapOwner} />
-                                      </div>
-                                      <Separator />
-                                    </>
-                                  )}
-                                  
-                                  {isMapOwner && (
-                                    <div>
-                                      <h4 className="text-sm font-medium mb-2">Editors (UID)</h4>
-                                      <div className="flex items-center gap-2 mb-2">
-                                        <Input 
-                                          id="newEditorUidInput" 
-                                          placeholder="Enter User ID to add" 
-                                          value={newEditorUid} 
-                                          onChange={e => setNewEditorUid(e.target.value)} 
-                                          className="flex-grow"
-                                          disabled={isManagingEditors || !isMapOwner}
-                                        />
-                                        <Button onClick={handleAddEditor} size="sm" disabled={isManagingEditors || !newEditorUid.trim() || !isMapOwner}>
-                                          {isManagingEditors ? <Loader2 className="h-4 w-4 animate-spin"/> : <UserPlus className="h-4 w-4"/>}
-                                        </Button>
-                                      </div>
-                                      {selectedMapForSettings.editors && selectedMapForSettings.editors.length > 0 ? (
-                                        <ul className="space-y-1 text-xs max-h-32 overflow-y-auto border rounded-md p-2 bg-muted/50">
-                                          {selectedMapForSettings.editors.map(editorId => {
-                                            const profile = editorProfiles[editorId];
-                                            let displayContent;
-                                            if (typeof profile === 'undefined' && isLoadingEditorProfiles) {
-                                                displayContent = <><Loader2 className="h-3 w-3 animate-spin mr-1 inline-block" /> {editorId.substring(0,6)}...</>;
-                                            } else if (profile && profile.displayName) {
-                                                displayContent = profile.displayName;
-                                            } else if (profile && !profile.displayName) {
-                                                displayContent = `User (${editorId.substring(0,6)}...)`;
-                                            } else if (profile === null) {
-                                                displayContent = <span className="text-muted-foreground/70">{editorId.substring(0,6)}... (not found)</span>;
-                                            } else {
-                                                displayContent = editorId.substring(0,6) + '...';
-                                            }
-                                            return (
-                                              <li key={editorId} className="flex justify-between items-center">
-                                                <span className="truncate" title={editorId}>{displayContent}</span>
-                                                <Button variant="ghost" size="icon" onClick={() => handleRemoveEditor(editorId)} className="h-6 w-6" disabled={isManagingEditors || !isMapOwner}>
-                                                  <UserX className="h-3 w-3 text-destructive"/>
-                                                </Button>
-                                              </li>
-                                            );
-                                          })}
-                                        </ul>
-                                      ) : (
-                                        <p className="text-xs text-muted-foreground">No other editors yet.</p>
-                                      )}
-                                      <Separator className="my-4" />
-                                    </div>
-                                  )}
-
-                                  {isMapOwner && (
-                                    <div>
-                                      <h4 className="text-sm font-medium mb-2">Editor Invite Link</h4>
-                                      {selectedMapForSettings.collaboratorShareId && publicLinkBase ? (
-                                        <div className="space-y-2">
-                                            <p className="text-xs text-muted-foreground break-all">
-                                                Share this invite link: <br />
-                                                <a
-                                                  href={`${publicLinkBase}/join/${selectedMapForSettings.collaboratorShareId}`}
-                                                  target="_blank"
-                                                  rel="noopener noreferrer"
-                                                  className="text-primary hover:underline"
-                                                >
-                                                  {`${publicLinkBase}/join/${selectedMapForSettings.collaboratorShareId}`}
-                                                  <ExternalLink className="inline-block h-3 w-3 ml-1"/>
-                                                </a>
-                                            </p>
-                                            <div className="flex flex-wrap gap-2">
-                                                <Button variant="outline" size="sm" onClick={() => copyToClipboard(`${publicLinkBase}/join/${selectedMapForSettings.collaboratorShareId}`, "Invite link copied!")} disabled={isUpdatingSettings} >
-                                                    <Copy className="mr-2 h-3 w-3" /> Copy Invite
-                                                </Button>
-                                                <Button variant="outline" size="sm" onClick={() => handleRegenerateCollaboratorShareId(map.id)} disabled={isUpdatingSettings} >
-                                                    <RefreshCw className="mr-2 h-3 w-3" /> Regenerate
-                                                </Button>
-                                                <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => handleDisableCollaboratorShareId(map.id)} disabled={isUpdatingSettings} >
-                                                    <XCircle className="mr-2 h-3 w-3" /> Disable
-                                                </Button>
-                                            </div>
-                                        </div>
-                                      ) : (
-                                        <div className="space-y-2">
-                                            <p className="text-xs text-muted-foreground">No active invite link. Generate one to allow others to join as editors.</p>
-                                            <Button variant="default" size="sm" onClick={() => handleRegenerateCollaboratorShareId(map.id)} disabled={isUpdatingSettings} >
-                                                <LinkIcon className="mr-2 h-3 w-3" /> Generate Invite Link
-                                            </Button>
-                                        </div>
-                                      )}
-                                      <Separator className="my-4" />
-                                    </div>
-                                  )}
-
-                                  {isMapOwner && (
-                                    <div>
-                                      <h4 className="text-sm font-medium mb-2">Public View-Only Link</h4>
-                                      <div className="flex items-center space-x-2 mb-2">
-                                        <Switch
-                                          id={`public-view-switch-${map.id}`}
-                                          checked={selectedMapForSettings.isPublicViewable} 
-                                          onCheckedChange={(checked) => handleTogglePublicView(map.id, checked)}
-                                          disabled={isUpdatingSettings || !isMapOwner}
-                                        />
-                                        <Label htmlFor={`public-view-switch-${map.id}`}>
-                                          {selectedMapForSettings.isPublicViewable ? "Public Link Enabled" : "Public Link Disabled"}
-                                        </Label>
-                                      </div>
-                                      {selectedMapForSettings.isPublicViewable && selectedMapForSettings.publicViewId && publicLinkBase && (
-                                        <div className="space-y-2">
-                                          <p className="text-xs text-muted-foreground break-all">
-                                            Share this link for view-only access: <br />
-                                            <a
-                                              href={`${publicLinkBase}/view/map/${selectedMapForSettings.publicViewId}`}
-                                              target="_blank"
-                                              rel="noopener noreferrer"
-                                              className="text-primary hover:underline"
-                                            >
-                                              {`${publicLinkBase}/view/map/${selectedMapForSettings.publicViewId}`}
-                                              <ExternalLink className="inline-block h-3 w-3 ml-1"/>
-                                            </a>
-                                          </p>
-                                          <div className="flex gap-2">
-                                            <Button
-                                              variant="outline"
-                                              size="sm"
-                                              onClick={() => copyToClipboard(`${publicLinkBase}/view/map/${selectedMapForSettings.publicViewId}`)}
-                                              disabled={isUpdatingSettings || !publicLinkBase || !isMapOwner}
-                                            >
-                                              <Copy className="mr-2 h-3 w-3" /> Copy Link
-                                            </Button>
-                                            <Button
-                                              variant="outline"
-                                              size="sm"
-                                              onClick={() => handleRegeneratePublicViewId(map.id)}
-                                              disabled={isUpdatingSettings || !isMapOwner}
-                                            >
-                                              {isUpdatingSettings && selectedMapForSettings.publicViewId ? <Loader2 className="mr-2 h-3 w-3 animate-spin"/> : <RefreshCw className="h-3 w-3" />}
-                                              Regenerate
-                                            </Button>
-                                          </div>
-                                        </div>
-                                      )}
-                                      {!selectedMapForSettings.isPublicViewable && (
-                                        <p className="text-xs text-muted-foreground">Enable the switch to generate and share a public view-only link.</p>
-                                      )}
-                                    </div>
-                                  )}
-
-                                  {!isMapOwner && (
-                                    <p className="text-sm text-muted-foreground">You are an editor for this map. Some settings can only be managed by the owner.</p>
-                                  )}
-                                </div>
-                              </ScrollArea>
-                              <DialogFooter className="mt-4">
-                                  <DialogClose asChild><Button variant="ghost" onClick={() => setSelectedMapForSettings(null)} disabled={isUpdatingSettings || isManagingEditors}>Cancel</Button></DialogClose>
-                                  {isMapOwner && (
-                                    <DialogClose asChild>
-                                      <Button onClick={handleUpdateNameSetting} disabled={isUpdatingSettings || isManagingEditors || !settingsMapName.trim() || !isMapOwner}>
-                                        {(isUpdatingSettings || isManagingEditors) && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>} Save & Close
-                                      </Button>
-                                    </DialogClose>
-                                  )}
-                                  {!isMapOwner && ( 
-                                    <DialogClose asChild>
-                                        <Button disabled={isUpdatingSettings || isManagingEditors}>Close</Button>
-                                    </DialogClose>
-                                  )}
-                              </DialogFooter>
-                          </DialogContent>
-                          )}
-                        </Dialog>
-                      </TooltipProvider>
-                      {isMapOwner && ( 
-                        <TooltipProvider>
-                          <Dialog>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                  <DialogTrigger asChild>
-                                      <Button variant="destructive" size="icon">
-                                          <Trash2 className="h-4 w-4" />
-                                      </Button>
-                                  </DialogTrigger>
-                              </TooltipTrigger>
-                              <TooltipContent><p>Delete Map</p></TooltipContent>
-                            </Tooltip>
-                            <DialogContent>
-                                <DialogHeader><DialogTitle>Delete Map: {map.name}</DialogTitle></DialogHeader>
-                                <DialogDescription>Are you sure you want to delete this map? This action cannot be undone.</DialogDescription>
-                                <DialogFooter>
-                                    <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
-                                    <Button variant="destructive" onClick={() => deleteMap(map.id)}>Delete</Button>
-                                </DialogFooter>
-                            </DialogContent>
-                          </Dialog>
-                        </TooltipProvider>
-                      )}
-                    </div>
-                  )}
-                </CardFooter>
               </Card>
-            )
-          })}
+            )}
+          </section>
+
+          {sharedMaps.length > 0 && (
+            <section>
+              <h3 className="text-2xl font-semibold text-primary/80 mb-6">Shared With You</h3>
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {sharedMaps.map(renderMapCard)}
+              </div>
+            </section>
+          )}
         </div>
       )}
     </div>
   );
 }
-
