@@ -29,7 +29,7 @@ Built with modern web technologies, this application provides a seamless and res
 
 ### June 20, 2024
 - Increased overall grid and individual cell sizes for better usability.
-- Enhanced sharing functionality for both public and collaborator links.
+- Enhanced sharing functionality for both public view-only and collaborator invite links.
 
 ### June 19, 2024
 - Streamlined UI by converting action buttons to icon-only buttons with tooltips.
@@ -48,6 +48,18 @@ Built with modern web technologies, this application provides a seamless and res
 - **UI Components**: [ShadCN UI](https://ui.shadcn.com/)
 - **Styling**: [Tailwind CSS](https://tailwindcss.com/)
 - **Generative AI**: [Google AI & Genkit](https://firebase.google.com/docs/genkit) (for future AI features)
+
+## Future Features / To-Do List
+- [ ] Allow users to mark maps as favorites and view them in a dedicated section.
+- [ ] Allow editors to remove themselves from a map they've been invited to.
+- [ ] Note which editor last updated a map.
+- [ ] Implement a detailed change log for maps with editor attribution.
+- [ ] Optimize uploaded background images for grid usage (compression, resizing).
+- [ ] Add new markers for "Control Points".
+- [ ] Add new markers for "House Representatives".
+- [ ] Allow users to create and share folders for organizing maps.
+- [ ] Add a freeform drawing tool for cell canvases.
+- [ ] Implement a commenting system for maps or cells.
 
 ## Firebase Setup
 
