@@ -18,6 +18,17 @@ import { Separator } from '@/components/ui/separator';
 import { Timestamp } from 'firebase/firestore'; 
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 
 export function MapManager() {
@@ -33,6 +44,7 @@ export function MapManager() {
     regeneratePublicViewId,
     addEditorToMap,
     removeEditorFromMap,
+    removeSelfAsEditor,
     editorProfiles, 
     isLoadingEditorProfiles, 
     fetchEditorProfiles, 
@@ -251,7 +263,6 @@ export function MapManager() {
           <Button onClick={() => selectMap(map.id)} className="w-full sm:w-auto flex-grow">
             View Map
           </Button>
-            {(isMapOwner || map.editors?.includes(user?.uid || '')) && (
             <div className="flex gap-2 w-full sm:w-auto">
               <TooltipProvider>
                 <Dialog onOpenChange={(isOpen) => { if (!isOpen) setSelectedMapForSettings(null); }}>
@@ -428,8 +439,36 @@ export function MapManager() {
                             </div>
                           )}
 
-                          {!isMapOwner && (
-                            <p className="text-sm text-muted-foreground">You are an editor for this map. Some settings can only be managed by the owner.</p>
+                          {!isMapOwner && selectedMapForSettings && (
+                            <>
+                              <div>
+                                  <h4 className="text-sm font-medium mb-2">Leave Map</h4>
+                                  <p className="text-xs text-muted-foreground mb-2">If you leave this map, you will lose access and will need to be invited again.</p>
+                                  <AlertDialog>
+                                      <AlertDialogTrigger asChild>
+                                          <Button variant="destructive" className="w-full">
+                                              <UserX className="mr-2 h-4 w-4" /> Leave Map
+                                          </Button>
+                                      </AlertDialogTrigger>
+                                      <AlertDialogContent>
+                                          <AlertDialogHeader>
+                                              <AlertDialogTitle>Are you sure you want to leave this map?</AlertDialogTitle>
+                                              <AlertDialogDescription>
+                                                  You will lose access to &quot;{selectedMapForSettings.name}&quot; and will need to be re-invited by the owner to edit it again.
+                                              </AlertDialogDescription>
+                                          </AlertDialogHeader>
+                                          <AlertDialogFooter>
+                                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                              <DialogClose asChild>
+                                                  <AlertDialogAction onClick={() => removeSelfAsEditor(selectedMapForSettings.id)}>
+                                                      Yes, Leave Map
+                                                  </AlertDialogAction>
+                                              </DialogClose>
+                                          </AlertDialogFooter>
+                                      </AlertDialogContent>
+                                  </AlertDialog>
+                              </div>
+                            </>
                           )}
                         </div>
                       </ScrollArea>
@@ -454,7 +493,7 @@ export function MapManager() {
               </TooltipProvider>
               {isMapOwner && ( 
                 <TooltipProvider>
-                  <Dialog>
+                  <AlertDialog>
                     <Tooltip>
                       <TooltipTrigger asChild>
                           <DialogTrigger asChild>
@@ -465,19 +504,18 @@ export function MapManager() {
                       </TooltipTrigger>
                       <TooltipContent><p>Delete Map</p></TooltipContent>
                     </Tooltip>
-                    <DialogContent>
+                    <AlertDialogContent>
                         <DialogHeader><DialogTitle>Delete Map: {map.name}</DialogTitle></DialogHeader>
                         <DialogDescription>Are you sure you want to delete this map? This action cannot be undone.</DialogDescription>
                         <DialogFooter>
                             <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
-                            <Button variant="destructive" onClick={() => deleteMap(map.id)}>Delete</Button>
+                            <AlertDialogAction onClick={() => deleteMap(map.id)}>Delete</AlertDialogAction>
                         </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </TooltipProvider>
               )}
             </div>
-          )}
         </CardFooter>
       </Card>
     )

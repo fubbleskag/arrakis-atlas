@@ -61,6 +61,7 @@ export function MapDetailsPanel({ mapData, currentUser, className }: MapDetailsP
     regeneratePublicViewId,
     addEditorToMap,
     removeEditorFromMap,
+    removeSelfAsEditor,
     regenerateCollaboratorShareId,
     disableCollaboratorShareId,
     deleteMap,
@@ -144,8 +145,10 @@ export function MapDetailsPanel({ mapData, currentUser, className }: MapDetailsP
     const nameB = b.profile?.displayName || b.uid;
     return nameA.localeCompare(nameB);
   });
-
+  
   const isCurrentUserOwner = mapData.ownerId === currentUser.uid;
+  const isCurrentUserEditor = !isCurrentUserOwner && !!mapData.editors?.includes(currentUser.uid);
+
 
   const copyToClipboard = (text: string, message: string = "Link copied to clipboard.") => {
     navigator.clipboard.writeText(text).then(() => {
@@ -557,8 +560,39 @@ export function MapDetailsPanel({ mapData, currentUser, className }: MapDetailsP
             </div>
           </>
         )}
+        {isCurrentUserEditor && (
+          <>
+            <Separator />
+            <div>
+              <h3 className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center">
+                EDITOR ACTIONS
+              </h3>
+               <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                      <Button variant="destructive" className="w-full">
+                          <UserX className="mr-2 h-4 w-4" /> Leave Map
+                      </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                      <AlertDialogHeader>
+                          <AlertDialogTitle>Are you sure you want to leave this map?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                              You will lose access to &quot;{mapData.name}&quot; and will need to be re-invited by the owner to edit it again. This will return you to the map manager.
+                          </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => removeSelfAsEditor(mapData.id)}>
+                              Yes, Leave Map
+                          </AlertDialogAction>
+                      </AlertDialogFooter>
+                  </AlertDialogContent>
+              </AlertDialog>
+              <p className="text-xs text-muted-foreground mt-2">Leaving this map will remove your editor access.</p>
+            </div>
+          </>
+        )}
       </CardContent>
     </Card>
   );
 }
-

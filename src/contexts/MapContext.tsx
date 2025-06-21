@@ -70,6 +70,7 @@ interface MapContextType {
 
   addEditorToMap: (mapId: string, editorUid: string) => Promise<void>;
   removeEditorFromMap: (mapId: string, editorUid: string) => Promise<void>;
+  removeSelfAsEditor: (mapId: string) => Promise<void>;
 
   regenerateCollaboratorShareId: (mapId: string) => Promise<void>;
   disableCollaboratorShareId: (mapId: string) => Promise<void>;
@@ -461,6 +462,41 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       toast({ title: "Error", description: `Failed to remove editor: ${error.message}`, variant: "destructive" });
     }
   }, [user, toast, userMapList, currentMapData]);
+
+  const removeSelfAsEditor = useCallback(async (mapId: string) => {
+    if (!user) {
+        toast({ title: "Error", description: "Authentication required.", variant: "destructive" });
+        return;
+    }
+    const mapData = userMapList.find(m => m.id === mapId) || (currentMapData?.id === mapId ? currentMapData : null);
+    if (!mapData) {
+        toast({ title: "Error", description: "Map not found.", variant: "destructive" });
+        return;
+    }
+    if (mapData.ownerId === user.uid) {
+        toast({ title: "Action Not Allowed", description: "Owners cannot leave their own map. You can delete it instead.", variant: "destructive" });
+        return;
+    }
+    if (!mapData.editors || !mapData.editors.includes(user.uid)) {
+        toast({ title: "Action Not Allowed", description: "You are not an editor of this map.", variant: "destructive" });
+        return;
+    }
+
+    const mapDocRef = doc(db, "maps", mapId);
+    try {
+        await updateDoc(mapDocRef, {
+            editors: arrayRemove(user.uid),
+            updatedAt: serverTimestamp()
+        });
+        toast({ title: "Success", description: `You have left the map "${mapData.name}".` });
+        if (currentMapId === mapId) {
+            selectMap(null); // Go back to map manager if viewing the map
+        }
+    } catch (error: any) {
+        console.error("Error removing self as editor:", error);
+        toast({ title: "Error", description: `Failed to leave map: ${error.message}`, variant: "destructive" });
+    }
+  }, [user, toast, userMapList, currentMapData, currentMapId, selectMap]);
 
 
   const addPlacedIconToCell = useCallback((rowIndex: number, colIndex: number, iconType: IconType, x: number, y: number) => {
@@ -974,6 +1010,7 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       regeneratePublicViewId,
       addEditorToMap,
       removeEditorFromMap,
+      removeSelfAsEditor,
       regenerateCollaboratorShareId,
       disableCollaboratorShareId,
       claimEditorInvite,
@@ -993,4 +1030,3 @@ export const useMap = (): MapContextType => {
   }
   return context;
 };
-
