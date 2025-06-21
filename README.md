@@ -25,6 +25,21 @@ Built with modern web technologies, this application provides a seamless and res
     - **Editor Invite Links**: Generate a private link to invite collaborators to edit your map.
 - **Authentication**: Secure Google-based authentication for user management.
 
+## Changelog
+
+### June 20, 2024
+- Increased overall grid and individual cell sizes for better usability.
+- Enhanced sharing functionality for both public and collaborator links.
+
+### June 19, 2024
+- Streamlined UI by converting action buttons to icon-only buttons with tooltips.
+- Added distinct border colors for PVE/PVP zone demarcation on the grid.
+- Implemented public view-only sharing functionality.
+- Corrected typo for 'Stravidium' resource.
+
+### June 18, 2024
+- Initial version of the Arrakis Atlas application.
+
 ## Tech Stack
 
 - **Framework**: [Next.js](https://nextjs.org/) (App Router)
