@@ -50,10 +50,54 @@ function AppMenu() {
         </SidebarMenuButton>
       </SidebarMenuItem>
       <SidebarMenuItem>
-          <SidebarMenuButton disabled>
+        <Dialog>
+          <DialogTrigger asChild>
+            <SidebarMenuButton>
               <HelpCircle />
               <span>Help</span>
-          </SidebarMenuButton>
+            </SidebarMenuButton>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Help & Getting Started</DialogTitle>
+              <DialogDescription>
+                A quick guide to using the Arrakis Atlas.
+              </DialogDescription>
+            </DialogHeader>
+            <ScrollArea className="max-h-[60vh] pr-4">
+              <div className="space-y-6 text-sm text-muted-foreground">
+                <div>
+                  <h3 className="font-semibold text-base text-foreground mb-2">Welcome!</h3>
+                  <p>Arrakis Atlas is a collaborative tool for mapping the world of Dune: Awakening. Create maps, mark points of interest, and share them with your guild.</p>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-base text-foreground mb-2">The Basics</h3>
+                  <ul className="list-disc pl-5 space-y-2">
+                    <li><strong>Map Manager:</strong> The "Maps" view is your home base. From here, you can create new maps or select an existing one to view and edit.</li>
+                    <li><strong>The Grid:</strong> The main 9x9 grid represents the deep desert. Click any cell to zoom in and view its detailed contents.</li>
+                    <li><strong>Returning Home:</strong> To return to the Map Manager from a map view, click the "Maps" button in the sidebar menu.</li>
+                  </ul>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-base text-foreground mb-2">Editing a Cell</h3>
+                  <ul className="list-disc pl-5 space-y-2">
+                    <li><strong>Adding Markers:</strong> When zoomed into a cell, drag icons from the "Markers" list in the right-hand panel onto the canvas.</li>
+                    <li><strong>Editing Markers:</strong> Click on a placed marker to open the Marker Editor Panel. Here you can add notes specific to that marker or adjust its precise coordinates.</li>
+                    <li><strong>Cell Notes & Background:</strong> The right-hand panel also allows you to add general notes for the cell or upload a custom background image.</li>
+                  </ul>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-base text-foreground mb-2">Collaboration & Sharing</h3>
+                  <ul className="list-disc pl-5 space-y-2">
+                    <li><strong>Map Settings:</strong> As an owner, click the gear icon (Settings) on a map to manage its name, add editors, and configure sharing links.</li>
+                    <li><strong>Editor Invite Links:</strong> Generate a unique link to invite other users to edit your map.</li>
+                    <li><strong>Public View Links:</strong> Generate a public, view-only link to share your map with anyone, even if they don't have an account.</li>
+                  </ul>
+                </div>
+              </div>
+            </ScrollArea>
+          </DialogContent>
+        </Dialog>
       </SidebarMenuItem>
       <SidebarMenuItem>
         <Dialog>
