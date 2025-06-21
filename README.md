@@ -27,13 +27,9 @@ Built with modern web technologies, this application provides a seamless and res
 
 ## Changelog
 
-### June 22, 2024
-- Implemented feature allowing editors to remove themselves from shared maps.
-
-### June 21, 2024
-- Added keyboard shortcuts for navigation (`Escape` to close panels/views, `Cmd/Ctrl + B` to toggle sidebar).
-
 ### June 20, 2024
+- Implemented feature allowing editors to remove themselves from shared maps.
+- Added keyboard shortcuts for navigation (`Escape` to close panels/views, `Cmd/Ctrl + B` to toggle sidebar).
 - Increased overall grid and individual cell sizes for better usability.
 - Enhanced sharing functionality for both public view-only and collaborator invite links.
 
