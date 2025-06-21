@@ -61,6 +61,10 @@ Built with modern web technologies, this application provides a seamless and res
 - [ ] Allow users to create and share folders for organizing maps.
 - [ ] Add a freeform drawing tool for cell canvases.
 - [ ] Implement a commenting system for maps or cells.
+- [ ] Add map layers to toggle different marker types.
+- [ ] Show real-time cursors for other active users on the map.
+- [ ] Implement an AI-powered "Strategic Suggestion" tool using Genkit.
+- [ ] Add a distance measurement tool.
 
 ## Firebase Setup
 
