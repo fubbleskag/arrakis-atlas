@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
-import { PlusCircle, Loader2, MapPin, Settings2, Trash2, Copy, ExternalLink, UserPlus, UserX, Link as LinkIcon, RefreshCw, XCircle } from 'lucide-react';
+import { PlusCircle, Loader2, MapPin, Settings2, Trash2, Copy, ExternalLink, UserPlus, UserX, Link as LinkIcon, RefreshCw, XCircle, LogOut } from 'lucide-react';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
 import type { MapData, UserProfile } from '@/types';
@@ -440,35 +440,7 @@ export function MapManager() {
                           )}
 
                           {!isMapOwner && selectedMapForSettings && (
-                            <>
-                              <div>
-                                  <h4 className="text-sm font-medium mb-2">Leave Map</h4>
-                                  <p className="text-xs text-muted-foreground mb-2">If you leave this map, you will lose access and will need to be invited again.</p>
-                                  <AlertDialog>
-                                      <AlertDialogTrigger asChild>
-                                          <Button variant="destructive" className="w-full">
-                                              <UserX className="mr-2 h-4 w-4" /> Leave Map
-                                          </Button>
-                                      </AlertDialogTrigger>
-                                      <AlertDialogContent>
-                                          <AlertDialogHeader>
-                                              <AlertDialogTitle>Are you sure you want to leave this map?</AlertDialogTitle>
-                                              <AlertDialogDescription>
-                                                  You will lose access to &quot;{selectedMapForSettings.name}&quot; and will need to be re-invited by the owner to edit it again.
-                                              </AlertDialogDescription>
-                                          </AlertDialogHeader>
-                                          <AlertDialogFooter>
-                                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                              <DialogClose asChild>
-                                                  <AlertDialogAction onClick={() => removeSelfAsEditor(selectedMapForSettings.id)}>
-                                                      Yes, Leave Map
-                                                  </AlertDialogAction>
-                                              </DialogClose>
-                                          </AlertDialogFooter>
-                                      </AlertDialogContent>
-                                  </AlertDialog>
-                              </div>
-                            </>
+                            <p className="text-xs text-muted-foreground italic">You are an editor for this map. Some settings, like adding other editors or changing the map name, can only be managed by the owner.</p>
                           )}
                         </div>
                       </ScrollArea>
@@ -491,6 +463,40 @@ export function MapManager() {
                   )}
                 </Dialog>
               </TooltipProvider>
+
+              {!isMapOwner && (
+                <TooltipProvider>
+                  <AlertDialog>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="destructive" size="icon">
+                            <LogOut className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Leave Map</p>
+                      </TooltipContent>
+                    </Tooltip>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Leave Map: {map.name}?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Are you sure you want to leave this map? You will lose editor access and need to be invited again.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => removeSelfAsEditor(map.id)}>
+                          Leave Map
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </TooltipProvider>
+              )}
+
               {isMapOwner && (
                 <TooltipProvider>
                   <AlertDialog>
