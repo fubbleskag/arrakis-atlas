@@ -52,10 +52,11 @@ Built with modern web technologies, this application provides a seamless and res
 - **Generative AI**: [Google AI & Genkit](https://firebase.google.com/docs/genkit) (for future AI features)
 
 ## Future Features / To-Do List
+- [ ] Allow users to edit their display name.
 - [ ] Allow users to mark maps as favorites and view them in a dedicated section.
 - [ ] Note which editor last updated a map.
 - [ ] Implement a detailed change log for maps with editor attribution.
-- [ ] Optimize uploaded background images for grid usage (compression, resizing).
+- [ ] Optimize uploaded background images for grid usage (compression, resizing - look into the Resize Images addon/extension).
 - [ ] Add new markers for "Control Points".
 - [ ] Add new markers for "House Representatives".
 - [ ] Allow users to create and share folders for organizing maps.
