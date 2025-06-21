@@ -533,7 +533,7 @@ export function MapManager() {
       ) : (
         <div className="space-y-12">
           <section>
-            <div className="flex justify-between items-center mb-6">
+            <div className="flex items-center gap-4 mb-6">
                 <h3 className="text-2xl font-semibold text-primary/80">Your Maps</h3>
                 <Dialog>
                     <TooltipProvider>
