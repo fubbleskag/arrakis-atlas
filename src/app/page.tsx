@@ -129,6 +129,12 @@ function AppMenu() {
             <ScrollArea className="max-h-[60vh] pr-4">
               <div className="space-y-6 text-sm">
                 <div>
+                  <h3 className="font-semibold text-base text-foreground mb-2">June 22, 2024</h3>
+                  <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
+                    <li>Implemented feature allowing editors to remove themselves from shared maps.</li>
+                  </ul>
+                </div>
+                <div>
                   <h3 className="font-semibold text-base text-foreground mb-2">June 21, 2024</h3>
                   <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
                     <li>Added keyboard shortcuts for navigation (`Escape` to close panels/views, `Cmd/Ctrl + B` to toggle sidebar).</li>
