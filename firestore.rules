@@ -1,78 +1,43 @@
-
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions
-    function isAuthenticated() {
-      return request.auth != null;
+    // Helper functions to make rules more readable
+    function isOwner(mapData) {
+      return request.auth.uid == mapData.ownerId;
     }
 
-    // Is the requesting user the owner of the map?
-    function isOwner() {
-      return resource.data.ownerId == request.auth.uid;
+    function isEditor(mapData) {
+      return request.auth.uid in mapData.editors;
     }
 
-    // Is the requesting user an editor of the map?
-    function isEditor() {
-      return request.auth.uid in resource.data.editors;
+    function isPubliclyViewable(mapData) {
+        return mapData.isPublicViewable == true;
+    }
+
+    function isValidEditorUpdate(mapData) {
+        let isGridUpdate = request.resource.data.diff(resource.data).affectedKeys().hasOnly(['gridState', 'updatedAt']);
+        let isLeavingMap = request.resource.data.editors == resource.data.editors.removeAll([request.auth.uid]) &&
+                           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['editors', 'updatedAt']);
+        return isGridUpdate || isLeavingMap;
     }
     
-    // Checks if the ONLY fields being changed by an editor are gridState and updatedAt
-    function isValidGridUpdate() {
-        let changedKeys = request.resource.data.diff(resource.data).affectedKeys();
-        // Editors can only update the grid and the timestamp.
-        return changedKeys.hasOnly(['gridState', 'updatedAt']);
-    }
-
-    // Checks if an editor is ONLY removing themselves from the editors list
-    function isRemovingSelfAsEditor() {
-        let changedKeys = request.resource.data.diff(resource.data).affectedKeys();
-        // Check that the user is in the old list of editors
-        let isCurrentlyEditor = request.auth.uid in resource.data.editors;
-        // Check that the new list of editors is the old list minus the current user
-        let isRemovingSelf = request.resource.data.editors == resource.data.editors.removeAll([request.auth.uid]);
-        // Check that the only fields being changed are 'editors' and 'updatedAt'
-        let onlyModifyingEditorsAndTimestamp = changedKeys.hasOnly(['editors', 'updatedAt']);
-
-        return isCurrentlyEditor && isRemovingSelf && onlyModifyingEditorsAndTimestamp;
-    }
-
-
-    // USER PROFILES
-    match /users/{userId} {
-      // Any authenticated user can create their own profile
-      allow create: if isAuthenticated() && request.auth.uid == userId;
-      // Users can only read or update their own profile
-      allow read, update: if isAuthenticated() && request.auth.uid == userId;
-    }
-
-    // MAPS
     match /maps/{mapId} {
-      // READ:
-      // 1. Publicly viewable maps can be read by anyone.
-      // 2. Authenticated owners/editors can read their maps.
-      allow read: if resource.data.isPublicViewable == true || 
-                   (isAuthenticated() && (isOwner() || isEditor()));
+      allow read: if request.auth != null && (isOwner(resource.data) || isEditor(resource.data)) || isPubliclyViewable(resource.data);
+      allow create: if request.auth != null && isOwner(request.resource.data);
+      allow update: if request.auth != null && (isOwner(resource.data) || (isEditor(resource.data) && isValidEditorUpdate(resource.data)));
+      allow delete: if request.auth != null && isOwner(resource.data);
+    }
 
-      // CREATE:
-      // 1. User must be authenticated.
-      // 2. The ownerId must be the user's own UID.
-      // 3. The incoming editors list must be empty.
-      allow create: if isAuthenticated() &&
-                     request.resource.data.ownerId == request.auth.uid &&
-                     request.resource.data.editors.size() == 0;
-      
-      // DELETE:
-      // 1. Only the owner can delete the map.
-      allow delete: if isAuthenticated() && isOwner();
-      
-      // UPDATE:
-      // An owner can update everything. An editor can only update the grid
-      // or remove themselves from the editor list.
-      allow update: if isAuthenticated() && (
-        isOwner() || (isEditor() && (isValidGridUpdate() || isRemovingSelfAsEditor()))
-      );
+    // Rules for the 'users' collection
+    match /users/{userId} {
+      // Any authenticated user can read any user's profile.
+      // This is needed to display collaborator names on maps.
+      allow read: if request.auth != null;
+
+      // A user can only create or update their own profile.
+      allow write: if request.auth != null && request.auth.uid == userId;
     }
   }
 }
