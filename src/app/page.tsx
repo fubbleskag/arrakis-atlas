@@ -26,6 +26,15 @@ import {
   SidebarSeparator,
   SidebarMenuButton,
 } from '@/components/ui/sidebar';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const SIDE_PANEL_WIDTH_CLASS = "w-[300px]";
 
@@ -47,10 +56,48 @@ function AppMenu() {
           </SidebarMenuButton>
       </SidebarMenuItem>
       <SidebarMenuItem>
-          <SidebarMenuButton disabled>
+        <Dialog>
+          <DialogTrigger asChild>
+            <SidebarMenuButton>
               <BookText />
               <span>Changelog</span>
-          </SidebarMenuButton>
+            </SidebarMenuButton>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Application Changelog</DialogTitle>
+              <DialogDescription>
+                A record of recent updates and new features for Arrakis Atlas.
+              </DialogDescription>
+            </DialogHeader>
+            <ScrollArea className="max-h-[60vh] pr-4">
+              <div className="space-y-6 text-sm">
+                <div>
+                  <h3 className="font-semibold text-base text-foreground mb-2">June 20, 2024</h3>
+                  <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
+                    <li>Increased overall grid and individual cell sizes for better usability.</li>
+                    <li>Enhanced sharing functionality for both public view-only and collaborator invite links.</li>
+                  </ul>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-base text-foreground mb-2">June 19, 2024</h3>
+                  <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
+                    <li>Streamlined UI by converting action buttons to icon-only buttons with tooltips.</li>
+                    <li>Added distinct border colors for PVE/PVP zone demarcation on the grid.</li>
+                    <li>Implemented public view-only sharing functionality.</li>
+                    <li>Corrected typo for 'Stravidium' resource.</li>
+                  </ul>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-base text-foreground mb-2">June 18, 2024</h3>
+                  <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
+                    <li>Initial version of the Arrakis Atlas application.</li>
+                  </ul>
+                </div>
+              </div>
+            </ScrollArea>
+          </DialogContent>
+        </Dialog>
       </SidebarMenuItem>
     </SidebarMenu>
   );
