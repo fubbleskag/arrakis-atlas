@@ -485,43 +485,6 @@ export function MapManager() {
 
   return (
     <div className="w-full max-w-4xl mx-auto p-4 md:p-8">
-      <div className="flex justify-between items-center mb-8">
-        <h2 className="text-3xl font-semibold text-primary">Your Maps</h2>
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button>
-              <PlusCircle className="mr-2 h-5 w-5" /> Create New Map
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Create New Map</DialogTitle>
-              <DialogDescription>
-                Give your new Arrakis map a name. You can change this later.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <Input
-                id="newMapNameInput"
-                placeholder="E.g., My Guild's Map"
-                value={newMapName}
-                onChange={(e) => setNewMapName(e.target.value)}
-                disabled={isCreatingMap}
-              />
-            </div>
-            <DialogFooter>
-              <DialogClose asChild>
-                <Button variant="outline" disabled={isCreatingMap}>Cancel</Button>
-              </DialogClose>
-              <Button onClick={handleCreateMap} disabled={isCreatingMap || !newMapName.trim()}>
-                {isCreatingMap ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                Create Map
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
-
       {userMapList.length === 0 ? (
         <Card className="text-center py-12">
           <CardHeader>
@@ -531,11 +494,90 @@ export function MapManager() {
               It looks like you haven&apos;t created any maps. Get started by creating your first one!
             </CardDescription>
           </CardHeader>
+          <CardFooter className="justify-center">
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button>
+                  <PlusCircle className="mr-2 h-5 w-5" /> Create New Map
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Create New Map</DialogTitle>
+                  <DialogDescription>
+                    Give your new Arrakis map a name. You can change this later.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <Input
+                    id="newMapNameInput"
+                    placeholder="E.g., My Guild's Map"
+                    value={newMapName}
+                    onChange={(e) => setNewMapName(e.target.value)}
+                    disabled={isCreatingMap}
+                  />
+                </div>
+                <DialogFooter>
+                  <DialogClose asChild>
+                    <Button variant="outline" disabled={isCreatingMap}>Cancel</Button>
+                  </DialogClose>
+                  <Button onClick={handleCreateMap} disabled={isCreatingMap || !newMapName.trim()}>
+                    {isCreatingMap ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    Create Map
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </CardFooter>
         </Card>
       ) : (
         <div className="space-y-12">
           <section>
-            <h3 className="text-2xl font-semibold text-primary/80 mb-6">Your Maps</h3>
+            <div className="flex justify-between items-center mb-6">
+                <h3 className="text-2xl font-semibold text-primary/80">Your Maps</h3>
+                <Dialog>
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <DialogTrigger asChild>
+                                    <Button variant="outline" size="icon">
+                                        <PlusCircle className="h-5 w-5" />
+                                    </Button>
+                                </DialogTrigger>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>Create New Map</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+                    <DialogContent className="sm:max-w-[425px]">
+                        <DialogHeader>
+                        <DialogTitle>Create New Map</DialogTitle>
+                        <DialogDescription>
+                            Give your new Arrakis map a name. You can change this later.
+                        </DialogDescription>
+                        </DialogHeader>
+                        <div className="grid gap-4 py-4">
+                        <Input
+                            id="newMapNameInput"
+                            placeholder="E.g., My Guild's Map"
+                            value={newMapName}
+                            onChange={(e) => setNewMapName(e.target.value)}
+                            disabled={isCreatingMap}
+                        />
+                        </div>
+                        <DialogFooter>
+                        <DialogClose asChild>
+                            <Button variant="outline" disabled={isCreatingMap}>Cancel</Button>
+                        </DialogClose>
+                        <Button onClick={handleCreateMap} disabled={isCreatingMap || !newMapName.trim()}>
+                            {isCreatingMap ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                            Create Map
+                        </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+            </div>
             {ownedMaps.length > 0 ? (
               <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {ownedMaps.map(renderMapCard)}
@@ -544,7 +586,7 @@ export function MapManager() {
                <Card className="text-center py-8">
                 <CardHeader>
                   <CardTitle className="text-base font-normal text-muted-foreground">You haven&apos;t created any maps yet.</CardTitle>
-                  <CardDescription>Click &quot;Create New Map&quot; to begin.</CardDescription>
+                  <CardDescription>Click the plus icon to begin.</CardDescription>
                 </CardHeader>
               </Card>
             )}
