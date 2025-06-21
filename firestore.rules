@@ -1,70 +1,78 @@
-rules_version = '2';
 
+rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // =====================================================================
-    // Helper Functions
-    // =====================================================================
-    function isOwner(mapData) {
-      return request.auth.uid == mapData.ownerId;
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
     }
 
-    function isEditor(mapData) {
-      return request.auth.uid in mapData.editors;
+    // Is the requesting user the owner of the map?
+    function isOwner() {
+      return resource.data.ownerId == request.auth.uid;
     }
 
-    // Function to check if an incoming update from an editor is valid.
-    // Editors can ONLY update the gridState OR remove themselves from the editors list.
-    // Any valid update must also include the 'updatedAt' field.
-    function isValidEditorUpdate() {
-      let incomingData = request.resource.data;
-      let existingData = resource.data;
-      let changedKeys = incomingData.diff(existingData).affectedKeys();
-
-      // Check 1: Is the user an editor?
-      if (!isEditor(existingData)) {
-        return false;
-      }
-      
-      // Check 2: Are they ONLY updating the grid?
-      let isGridUpdate = changedKeys.hasOnly(['gridState', 'updatedAt']);
-      
-      // Check 3: Are they ONLY removing themselves from the editors list?
-      let isRemovingSelf = (
-        changedKeys.hasOnly(['editors', 'updatedAt']) &&
-        incomingData.editors == existingData.editors.removeAll([request.auth.uid])
-      );
-      
-      return isGridUpdate || isRemovingSelf;
+    // Is the requesting user an editor of the map?
+    function isEditor() {
+      return request.auth.uid in resource.data.editors;
+    }
+    
+    // Checks if the ONLY fields being changed by an editor are gridState and updatedAt
+    function isValidGridUpdate() {
+        let changedKeys = request.resource.data.diff(resource.data).affectedKeys();
+        // Editors can only update the grid and the timestamp.
+        return changedKeys.hasOnly(['gridState', 'updatedAt']);
     }
 
-    // =====================================================================
-    // Collection Rules
-    // =====================================================================
+    // Checks if an editor is ONLY removing themselves from the editors list
+    function isRemovingSelfAsEditor() {
+        let changedKeys = request.resource.data.diff(resource.data).affectedKeys();
+        // Check that the user is in the old list of editors
+        let isCurrentlyEditor = request.auth.uid in resource.data.editors;
+        // Check that the new list of editors is the old list minus the current user
+        let isRemovingSelf = request.resource.data.editors == resource.data.editors.removeAll([request.auth.uid]);
+        // Check that the only fields being changed are 'editors' and 'updatedAt'
+        let onlyModifyingEditorsAndTimestamp = changedKeys.hasOnly(['editors', 'updatedAt']);
+
+        return isCurrentlyEditor && isRemovingSelf && onlyModifyingEditorsAndTimestamp;
+    }
+
+
+    // USER PROFILES
     match /users/{userId} {
-      allow read: if request.auth != null; // Allow any authenticated user to read profiles
-      allow write: if request.auth != null && request.auth.uid == userId; // Users can only write to their own profile
+      // Any authenticated user can create their own profile
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      // Users can only read or update their own profile
+      allow read, update: if isAuthenticated() && request.auth.uid == userId;
     }
 
+    // MAPS
     match /maps/{mapId} {
-      // READ: Logged-in user is owner, editor, or map is public
-      allow read: if request.auth != null && (
-        isOwner(resource.data) ||
-        isEditor(resource.data) ||
-        resource.data.isPublicViewable == true
-      );
+      // READ:
+      // 1. Publicly viewable maps can be read by anyone.
+      // 2. Authenticated owners/editors can read their maps.
+      allow read: if resource.data.isPublicViewable == true || 
+                   (isAuthenticated() && (isOwner() || isEditor()));
 
-      // CREATE: Logged-in user must be the owner of the new map
-      allow create: if request.auth != null && 
-        request.resource.data.ownerId == request.auth.uid;
+      // CREATE:
+      // 1. User must be authenticated.
+      // 2. The ownerId must be the user's own UID.
+      // 3. The incoming editors list must be empty.
+      allow create: if isAuthenticated() &&
+                     request.resource.data.ownerId == request.auth.uid &&
+                     request.resource.data.editors.size() == 0;
       
-      // UPDATE: Logged-in user is owner OR it's a valid editor action
-      allow update: if request.auth != null && 
-        (isOwner(resource.data) || isValidEditorUpdate());
-
-      // DELETE: Logged-in user must be the owner
-      allow delete: if request.auth != null && isOwner(resource.data);
+      // DELETE:
+      // 1. Only the owner can delete the map.
+      allow delete: if isAuthenticated() && isOwner();
+      
+      // UPDATE:
+      // An owner can update everything. An editor can only update the grid
+      // or remove themselves from the editor list.
+      allow update: if isAuthenticated() && (
+        isOwner() || (isEditor() && (isValidGridUpdate() || isRemovingSelfAsEditor()))
+      );
     }
   }
 }
