@@ -491,26 +491,34 @@ export function MapManager() {
                   )}
                 </Dialog>
               </TooltipProvider>
-              {isMapOwner && ( 
+              {isMapOwner && (
                 <TooltipProvider>
                   <AlertDialog>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                          <DialogTrigger asChild>
-                              <Button variant="destructive" size="icon">
-                                  <Trash2 className="h-4 w-4" />
-                              </Button>
-                          </DialogTrigger>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="destructive" size="icon">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
                       </TooltipTrigger>
-                      <TooltipContent><p>Delete Map</p></TooltipContent>
+                      <TooltipContent>
+                        <p>Delete Map</p>
+                      </TooltipContent>
                     </Tooltip>
                     <AlertDialogContent>
-                        <DialogHeader><DialogTitle>Delete Map: {map.name}</DialogTitle></DialogHeader>
-                        <DialogDescription>Are you sure you want to delete this map? This action cannot be undone.</DialogDescription>
-                        <DialogFooter>
-                            <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
-                            <AlertDialogAction onClick={() => deleteMap(map.id)}>Delete</AlertDialogAction>
-                        </DialogFooter>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Map: {map.name}?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Are you sure you want to delete this map? This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => deleteMap(map.id)}>
+                          Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
                 </TooltipProvider>
