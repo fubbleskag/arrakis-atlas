@@ -1,4 +1,3 @@
-
 "use client";
 
 import React from 'react';
@@ -94,6 +93,19 @@ function AppMenu() {
                     <li><strong>Public View Links:</strong> Generate a public, view-only link to share your map with anyone, even if they don't have an account.</li>
                   </ul>
                 </div>
+                 <div>
+                  <h3 className="font-semibold text-base text-foreground mb-2">Keyboard Shortcuts</h3>
+                  <ul className="list-disc pl-5 space-y-2">
+                    <li><strong>Toggle Sidebar:</strong> Press `Cmd + B` (on Mac) or `Ctrl + B` (on Windows) to quickly show or hide the sidebar menu.</li>
+                    <li><strong>Navigate Back:</strong> Press the `Escape` key to close views in reverse order:
+                      <ul className="list-disc pl-5 space-y-1 mt-1">
+                        <li>Closes the Marker Editor Panel.</li>
+                        <li>Closes the detailed Cell View.</li>
+                        <li>Closes the Map View and returns to the Map Manager.</li>
+                      </ul>
+                    </li>
+                  </ul>
+                </div>
               </div>
             </ScrollArea>
           </DialogContent>
@@ -116,6 +128,12 @@ function AppMenu() {
             </DialogHeader>
             <ScrollArea className="max-h-[60vh] pr-4">
               <div className="space-y-6 text-sm">
+                <div>
+                  <h3 className="font-semibold text-base text-foreground mb-2">June 21, 2024</h3>
+                  <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
+                    <li>Added keyboard shortcuts for navigation (`Escape` to close panels/views, `Cmd/Ctrl + B` to toggle sidebar).</li>
+                  </ul>
+                </div>
                 <div>
                   <h3 className="font-semibold text-base text-foreground mb-2">June 20, 2024</h3>
                   <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
