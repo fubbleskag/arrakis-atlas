@@ -159,8 +159,36 @@ function HomePageContent() {
     selectMap,
     selectedPlacedIconId,
     userMapList,
-    isLoadingMapList
+    isLoadingMapList,
+    setSelectedPlacedIconId,
+    setFocusedCellCoordinates,
   } = useMap();
+
+  React.useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        if (selectedPlacedIconId) {
+          setSelectedPlacedIconId(null);
+        } else if (focusedCellCoordinates) {
+          setFocusedCellCoordinates(null);
+        } else if (currentMapId) {
+          selectMap(null);
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [
+    selectedPlacedIconId, 
+    focusedCellCoordinates, 
+    currentMapId, 
+    setSelectedPlacedIconId, 
+    setFocusedCellCoordinates, 
+    selectMap
+  ]);
 
   const overallLoading = isAuthLoading || isLoadingMapList || (currentMapId && isLoadingMapData && !currentMapData);
   const showMapManager = !currentMapId && !isLoadingMapList && isAuthenticated && !isAuthLoading;
