@@ -4,7 +4,8 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from '@/contexts/AuthContext';
 import { MapProvider } from '@/contexts/MapContext';
-import { SidebarProvider } from '@/components/ui/sidebar'; // Import SidebarProvider
+import { SidebarProvider } from '@/components/ui/sidebar';
+import { UpdateNotifier } from '@/components/util/UpdateNotifier';
 
 export const metadata: Metadata = {
   title: 'Arrakis Atlas',
@@ -27,6 +28,7 @@ export default function RootLayout({
         <AuthProvider>
           <MapProvider>
             <SidebarProvider>
+              <UpdateNotifier />
               {children}
             </SidebarProvider>
             <Toaster />
