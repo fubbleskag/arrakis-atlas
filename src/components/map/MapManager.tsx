@@ -110,17 +110,6 @@ export function MapManager() {
   }, []);
 
   useEffect(() => {
-<<<<<<< HEAD
-    // Fetch profiles for last editors on map list load
-    if (userMapList.length > 0) {
-        const uidsToFetch = userMapList
-            .map(map => map.updatedBy)
-            .filter((uid, index, self) => uid && self.indexOf(uid) === index && !editorProfiles[uid]); // unique UIDs not already loaded
-
-        if (uidsToFetch.length > 0) {
-            fetchEditorProfiles(uidsToFetch);
-        }
-=======
     if (userMapList.length > 0) {
       const uidsToFetch = new Set<string>();
       userMapList.forEach(map => {
@@ -133,7 +122,6 @@ export function MapManager() {
       if (newUids.length > 0) {
         fetchEditorProfiles(newUids);
       }
->>>>>>> new-branch-for-detached-commits
     }
   }, [userMapList, fetchEditorProfiles, editorProfiles]);
 
@@ -191,10 +179,8 @@ export function MapManager() {
       return;
     }
     setIsUpdatingSettings(true);
-    try {
-      await updateMapName(selectedMapForSettings.id, settingsMapName.trim());
-    } catch (error) { /* Handled by context */ }
-    finally { setIsUpdatingSettings(false); }
+    await updateMapName(selectedMapForSettings.id, settingsMapName.trim());
+    setIsUpdatingSettings(false);
   };
 
   const handleTogglePublicView = async (mapId: string, enable: boolean) => {
@@ -287,21 +273,6 @@ export function MapManager() {
 
   const renderMapCard = (map: MapData) => {
     const isMapOwner = user && map.ownerId === user.uid;
-<<<<<<< HEAD
-    const mapRole = isMapOwner ? "Owner" : (map.editors?.includes(user?.uid || '') ? "Editor" : "Viewer (indirectly)");
-    
-    const lastEditorProfile = map.updatedBy ? editorProfiles[map.updatedBy] : undefined;
-    const isLoadingProfile = map.updatedBy && lastEditorProfile === undefined && isLoadingEditorProfiles;
-    let byLine: React.ReactNode = null;
-
-    if (isLoadingProfile) {
-        byLine = <><span className="italic"> by </span><Loader2 className="h-3 w-3 animate-spin inline-block" /></>;
-    } else if (lastEditorProfile) {
-        byLine = <><span className="italic"> by </span>{lastEditorProfile.displayName || `User (${lastEditorProfile.uid.substring(0,4)})`}</>;
-    } else if (map.updatedBy && lastEditorProfile === null) {
-        byLine = <><span className="italic"> by </span>Unknown User</>;
-    }
-=======
     
     const ownerProfile = editorProfiles[map.ownerId];
     const ownerName = (isLoadingEditorProfiles && !ownerProfile)
@@ -312,7 +283,6 @@ export function MapManager() {
     const updaterName = (isLoadingEditorProfiles && map.updatedBy && !updaterProfile)
       ? <Skeleton className="h-4 w-24 inline-block" />
       : updaterProfile?.displayName || (map.updatedBy ? `User (${map.updatedBy.substring(0, 6)}...)` : '');
->>>>>>> new-branch-for-detached-commits
 
     return (
       <Card key={map.id} className="flex flex-col">
@@ -320,22 +290,15 @@ export function MapManager() {
           <div className="flex justify-between items-start">
             <CardTitle className="text-xl group-hover:text-primary transition-colors mb-1">{map.name}</CardTitle>
           </div>
-<<<<<<< HEAD
-          <CardDescription className="text-xs leading-relaxed">
-            Role: {mapRole} <br/>
-            Last updated <ClientRelativeDate dateValue={map.updatedAt} />
-            {byLine}
-=======
           <CardDescription className="text-xs space-y-1">
             <div>
               <span className="font-medium text-foreground/70">Owner: </span>{ownerName}
             </div>
             <div>
               <span className="font-medium text-foreground/70">Updated: </span>
-              {getFormattedDate(map.updatedAt)}
+              <ClientRelativeDate dateValue={map.updatedAt} />
               {map.updatedBy && updaterName && <> by {updaterName}</>}
             </div>
->>>>>>> new-branch-for-detached-commits
           </CardDescription>
         </CardHeader>
         <CardContent className="flex-grow">

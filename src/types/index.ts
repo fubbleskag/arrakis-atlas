@@ -44,11 +44,7 @@ export interface MapData {
   gridState: FirestoreGridState;
   createdAt: Timestamp | string; // Can be Timestamp or serialized string
   updatedAt: Timestamp | string; // Can be Timestamp or serialized string
-<<<<<<< HEAD
-  updatedBy: string; // UID of the user who last made an update
-=======
   updatedBy?: string; // UID of user who last updated
->>>>>>> new-branch-for-detached-commits
   isPublicViewable: boolean;
   publicViewId: string | null;
   collaboratorShareId: string | null; // For editor invite links
