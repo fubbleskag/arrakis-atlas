@@ -132,6 +132,7 @@ function AppMenu() {
                   <h3 className="font-semibold text-base text-foreground mb-2">June 22, 2024</h3>
                   <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
                     <li>Implemented tracking and display of which editor last updated a map.</li>
+                    <li>Allowed users to edit their display name.</li>
                   </ul>
                 </div>
                 <div>

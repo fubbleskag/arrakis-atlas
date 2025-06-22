@@ -3,19 +3,20 @@
 
 import type React from 'react';
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { type User, onAuthStateChanged, signInWithPopup, signOut as firebaseSignOut, type UserInfo } from 'firebase/auth';
+import { type User, onAuthStateChanged, signInWithPopup, signOut as firebaseSignOut, updateProfile } from 'firebase/auth';
 import { auth, googleProvider, db } from '@/firebase/firebaseConfig';
-import { doc, setDoc, serverTimestamp, getDoc, Timestamp } from 'firebase/firestore'; // Added Timestamp
+import { doc, setDoc, serverTimestamp, getDoc, Timestamp, updateDoc } from 'firebase/firestore';
 import { useToast } from "@/hooks/use-toast";
 import type { UserProfile } from '@/types';
 
 interface AuthContextType {
   user: User | null;
-  userProfile: UserProfile | null; // This will represent the data from /users/{uid}
+  userProfile: UserProfile | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   login: () => Promise<void>;
   logout: () => Promise<void>;
+  updateDisplayName: (newName: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -26,30 +27,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const { toast } = useToast();
 
-  const updateUserProfileDocument = useCallback(async (currentUser: User) => {
+  const updateUserProfileDocument = useCallback(async (currentUser: User, isNewUser: boolean = false) => {
     if (!currentUser) return;
     const userDocRef = doc(db, "users", currentUser.uid);
     try {
-      // Data to write to Firestore (uid is the doc ID, not a field)
-      const profileDataForFirestore = {
+      const profileDataForFirestore: { email: string | null; displayName: string | null; lastLogin: any; createdAt?: any; } = {
         email: currentUser.email,
         displayName: currentUser.displayName,
-        lastLogin: serverTimestamp(), // Firestore will convert this to Timestamp
+        lastLogin: serverTimestamp(),
       };
+      
+      if (isNewUser) {
+        profileDataForFirestore.createdAt = serverTimestamp();
+      }
       
       await setDoc(userDocRef, profileDataForFirestore, { merge: true });
 
-      // For local context, create UserProfile including the UID
-      // Note: serverTimestamp() resolves on the server. For immediate local state,
-      // you might use new Date() or fetch the doc after write if precise lastLogin is needed locally.
-      // However, for this app's current needs, this approximation for local state is fine.
       const localProfile: UserProfile = {
         uid: currentUser.uid,
         email: currentUser.email,
         displayName: currentUser.displayName,
-        // lastLogin will be a server timestamp in Firestore.
-        // For local context, it might be undefined until fetched or represented differently.
-        // For simplicity, we'll leave it potentially undefined or handle as needed.
       };
       setUserProfile(localProfile);
 
@@ -81,15 +78,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
       if (currentUser) {
-        await updateUserProfileDocument(currentUser); // Creates or updates profile in Firestore
-        // Optionally fetch to get server-resolved timestamps if needed immediately in userProfile state
-        // const freshProfile = await fetchUserProfile(currentUser.uid);
-        // setUserProfile(freshProfile);
+        const userDoc = await getDoc(doc(db, "users", currentUser.uid));
+        await updateUserProfileDocument(currentUser, !userDoc.exists());
+        const freshProfile = await fetchUserProfile(currentUser.uid);
+        setUserProfile(freshProfile);
       } else {
         setUserProfile(null);
       }
+      setUser(currentUser);
       setIsLoading(false);
     });
     return () => unsubscribe();
@@ -107,7 +104,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: error.message || "An unexpected error occurred during login.",
         variant: "destructive",
       });
-      setIsLoading(false); // Explicitly set loading false on error if onAuthStateChanged doesn't fire quickly
+      setIsLoading(false);
     }
   }, [toast]);
 
@@ -123,12 +120,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: error.message || "An unexpected error occurred during logout.",
         variant: "destructive",
       });
-      setIsLoading(false); // Explicitly set loading false on error
+      setIsLoading(false);
     }
   }, [toast]);
+  
+  const updateDisplayName = useCallback(async (newName: string) => {
+    if (!auth.currentUser) {
+        toast({ title: "Error", description: "You must be logged in to update your name.", variant: "destructive" });
+        return;
+    }
+    const currentUser = auth.currentUser;
+    const trimmedNewName = newName.trim();
+
+    try {
+        await updateProfile(currentUser, { displayName: trimmedNewName });
+        
+        const userDocRef = doc(db, "users", currentUser.uid);
+        await updateDoc(userDocRef, { displayName: trimmedNewName });
+
+        await currentUser.reload();
+        const refreshedUser = auth.currentUser;
+        setUser(refreshedUser);
+        if (refreshedUser) {
+           const profile = await fetchUserProfile(refreshedUser.uid);
+           setUserProfile(profile);
+        }
+
+        toast({ title: "Success", description: "Your display name has been updated." });
+    } catch (error: any) {
+        console.error("Error updating display name:", error);
+        toast({ title: "Update Failed", description: error.message || "Could not update display name.", variant: "destructive" });
+    }
+  }, [toast, fetchUserProfile]);
 
   return (
-    <AuthContext.Provider value={{ user, userProfile, isAuthenticated: !!user, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ user, userProfile, isAuthenticated: !!user, isLoading, login, logout, updateDisplayName }}>
       {children}
     </AuthContext.Provider>
   );
