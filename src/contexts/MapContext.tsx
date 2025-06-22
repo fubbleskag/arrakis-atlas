@@ -313,6 +313,7 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       gridState: convertLocalToFirestoreGrid(initializeLocalGrid()),
       createdAt: now as Timestamp,
       updatedAt: now as Timestamp,
+      updatedBy: user.uid,
       isPublicViewable: false,
       publicViewId: null,
       collaboratorShareId: null,
@@ -354,7 +355,7 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     if (isEditor && !isOwner) {
-      const allowedEditorUpdateKeys = ['gridState', 'updatedAt'];
+      const allowedEditorUpdateKeys = ['gridState', 'updatedAt', 'updatedBy'];
       for (const key in updates) {
         if (!allowedEditorUpdateKeys.includes(key)) {
            toast({ title: "Permission Denied", description: `Editors cannot modify '${key}'.`, variant: "destructive" });
@@ -365,7 +366,7 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const mapDocRef = doc(db, "maps", mapId);
     try {
-      await updateDoc(mapDocRef, { ...updates, updatedAt: serverTimestamp() });
+      await updateDoc(mapDocRef, { ...updates, updatedAt: serverTimestamp(), updatedBy: user.uid });
     } catch (error: any) {
       console.error(`Error updating map ${mapId} in Firestore:`, error);
       toast({ title: "Save Error", description: `Could not save map changes: ${error.message}`, variant: "destructive" });
@@ -420,7 +421,8 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       await updateDoc(mapDocRef, {
         editors: arrayUnion(editorUid),
-        updatedAt: serverTimestamp()
+        updatedAt: serverTimestamp(),
+        updatedBy: user.uid,
       });
       toast({ title: "Success", description: `User added as editor.` });
       fetchEditorProfiles([editorUid]);
@@ -449,7 +451,8 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       await updateDoc(mapDocRef, {
         editors: arrayRemove(editorUid),
-        updatedAt: serverTimestamp()
+        updatedAt: serverTimestamp(),
+        updatedBy: user.uid,
       });
       toast({ title: "Success", description: `Editor removed.` });
       setEditorProfiles(prev => {
@@ -486,7 +489,8 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
         await updateDoc(mapDocRef, {
             editors: arrayRemove(user.uid),
-            updatedAt: serverTimestamp()
+            updatedAt: serverTimestamp(),
+            updatedBy: user.uid,
         });
         toast({ title: "Success", description: `You have left the map "${mapData.name}".` });
         if (currentMapId === mapId) {
@@ -960,6 +964,7 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       await updateDoc(mapDocRef, {
         editors: arrayUnion(user.uid),
         updatedAt: serverTimestamp(),
+        updatedBy: user.uid,
       });
       toast({ title: "Joined Map!", description: `You are now an editor for "${mapData.name}".` });
       return true;

@@ -29,6 +29,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { Skeleton } from '@/components/ui/skeleton';
 
 
 export function MapManager() {
@@ -72,6 +73,22 @@ export function MapManager() {
       setPublicLinkBase(window.location.origin);
     }
   }, []);
+
+  useEffect(() => {
+    if (userMapList.length > 0) {
+      const uidsToFetch = new Set<string>();
+      userMapList.forEach(map => {
+        uidsToFetch.add(map.ownerId);
+        if (map.updatedBy) {
+          uidsToFetch.add(map.updatedBy);
+        }
+      });
+      const newUids = Array.from(uidsToFetch).filter(uid => uid && !editorProfiles[uid]);
+      if (newUids.length > 0) {
+        fetchEditorProfiles(newUids);
+      }
+    }
+  }, [userMapList, fetchEditorProfiles, editorProfiles]);
 
   useEffect(() => {
     if (selectedMapForSettings?.id && userMapList.length > 0) {
@@ -245,16 +262,32 @@ export function MapManager() {
 
   const renderMapCard = (map: MapData) => {
     const isMapOwner = user && map.ownerId === user.uid;
-    const mapRole = isMapOwner ? "Owner" : (map.editors?.includes(user?.uid || '') ? "Editor" : "Viewer (indirectly)");
+    
+    const ownerProfile = editorProfiles[map.ownerId];
+    const ownerName = (isLoadingEditorProfiles && !ownerProfile)
+      ? <Skeleton className="h-4 w-24 inline-block" />
+      : ownerProfile?.displayName || `User (${map.ownerId.substring(0, 6)}...)`;
+      
+    const updaterProfile = map.updatedBy ? editorProfiles[map.updatedBy] : null;
+    const updaterName = (isLoadingEditorProfiles && map.updatedBy && !updaterProfile)
+      ? <Skeleton className="h-4 w-24 inline-block" />
+      : updaterProfile?.displayName || (map.updatedBy ? `User (${map.updatedBy.substring(0, 6)}...)` : '');
+
     return (
       <Card key={map.id} className="flex flex-col">
         <CardHeader>
           <div className="flex justify-between items-start">
             <CardTitle className="text-xl group-hover:text-primary transition-colors mb-1">{map.name}</CardTitle>
           </div>
-          <CardDescription>
-            Role: {mapRole} <br/>
-            Last updated {getFormattedDate(map.updatedAt)}
+          <CardDescription className="text-xs space-y-1">
+            <div>
+              <span className="font-medium text-foreground/70">Owner: </span>{ownerName}
+            </div>
+            <div>
+              <span className="font-medium text-foreground/70">Updated: </span>
+              {getFormattedDate(map.updatedAt)}
+              {map.updatedBy && updaterName && <> by {updaterName}</>}
+            </div>
           </CardDescription>
         </CardHeader>
         <CardContent className="flex-grow">
