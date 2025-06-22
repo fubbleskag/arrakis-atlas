@@ -311,7 +311,7 @@ export function MapDetailsPanel({ mapData, currentUser, className }: MapDetailsP
             <Clock className="h-3.5 w-3.5 mr-1.5 text-primary" /> LAST UPDATED
           </h3>
           <div className="text-foreground">
-            {getFormattedDate(mapData.updatedAt)}
+            <ClientRelativeDate dateValue={mapData.updatedAt} />
             {mapData.updatedBy && updaterName && <> by {updaterName}</>}
           </div>
         </div>
