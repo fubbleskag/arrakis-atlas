@@ -3,19 +3,20 @@
 
 import type React from 'react';
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { type User, onAuthStateChanged, signInWithPopup, signOut as firebaseSignOut, type UserInfo } from 'firebase/auth';
+import { type User, onAuthStateChanged, signInWithPopup, signOut as firebaseSignOut, updateProfile } from 'firebase/auth';
 import { auth, googleProvider, db } from '@/firebase/firebaseConfig';
-import { doc, setDoc, serverTimestamp, getDoc, Timestamp } from 'firebase/firestore'; // Added Timestamp
+import { doc, setDoc, serverTimestamp, getDoc, Timestamp, updateDoc } from 'firebase/firestore';
 import { useToast } from "@/hooks/use-toast";
 import type { UserProfile } from '@/types';
 
 interface AuthContextType {
   user: User | null;
-  userProfile: UserProfile | null; // This will represent the data from /users/{uid}
+  userProfile: UserProfile | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   login: () => Promise<void>;
   logout: () => Promise<void>;
+  updateUserDisplayName: (newName: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -30,26 +31,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!currentUser) return;
     const userDocRef = doc(db, "users", currentUser.uid);
     try {
-      // Data to write to Firestore (uid is the doc ID, not a field)
       const profileDataForFirestore = {
         email: currentUser.email,
         displayName: currentUser.displayName,
-        lastLogin: serverTimestamp(), // Firestore will convert this to Timestamp
+        lastLogin: serverTimestamp(),
       };
       
       await setDoc(userDocRef, profileDataForFirestore, { merge: true });
 
-      // For local context, create UserProfile including the UID
-      // Note: serverTimestamp() resolves on the server. For immediate local state,
-      // you might use new Date() or fetch the doc after write if precise lastLogin is needed locally.
-      // However, for this app's current needs, this approximation for local state is fine.
       const localProfile: UserProfile = {
         uid: currentUser.uid,
         email: currentUser.email,
         displayName: currentUser.displayName,
-        // lastLogin will be a server timestamp in Firestore.
-        // For local context, it might be undefined until fetched or represented differently.
-        // For simplicity, we'll leave it potentially undefined or handle as needed.
       };
       setUserProfile(localProfile);
 
@@ -81,25 +74,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
       if (currentUser) {
-        await updateUserProfileDocument(currentUser); // Creates or updates profile in Firestore
-        // Optionally fetch to get server-resolved timestamps if needed immediately in userProfile state
-        // const freshProfile = await fetchUserProfile(currentUser.uid);
-        // setUserProfile(freshProfile);
+        // If the user object in state is different, update it.
+        // This helps reflect profile changes without a full re-auth.
+        if (currentUser.displayName !== user?.displayName) {
+           setUser(currentUser);
+        } else {
+           setUser(currentUser);
+        }
+        
+        const freshProfile = await fetchUserProfile(currentUser.uid);
+        // If profile doesn't exist or is outdated, create/update it
+        if (!freshProfile || freshProfile.displayName !== currentUser.displayName || freshProfile.email !== currentUser.email) {
+          await updateUserProfileDocument(currentUser);
+        } else {
+           setUserProfile(freshProfile);
+        }
       } else {
+        setUser(null);
         setUserProfile(null);
       }
       setIsLoading(false);
     });
     return () => unsubscribe();
-  }, [updateUserProfileDocument, fetchUserProfile]);
+  }, [updateUserProfileDocument, fetchUserProfile, user?.displayName]);
 
   const login = useCallback(async () => {
     setIsLoading(true);
     try {
       await signInWithPopup(auth, googleProvider);
-      // onAuthStateChanged will handle setting the user and calling updateUserProfileDocument
     } catch (error: any) {
       console.error("Firebase login error:", error);
       toast({
@@ -107,7 +110,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: error.message || "An unexpected error occurred during login.",
         variant: "destructive",
       });
-      setIsLoading(false); // Explicitly set loading false on error if onAuthStateChanged doesn't fire quickly
+      setIsLoading(false);
     }
   }, [toast]);
 
@@ -115,7 +118,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     try {
       await firebaseSignOut(auth);
-      // onAuthStateChanged will handle setting user to null
     } catch (error: any) {
       console.error("Firebase logout error:", error);
       toast({
@@ -123,12 +125,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: error.message || "An unexpected error occurred during logout.",
         variant: "destructive",
       });
-      setIsLoading(false); // Explicitly set loading false on error
+      setIsLoading(false);
     }
   }, [toast]);
 
+  const updateUserDisplayName = useCallback(async (newName: string) => {
+    if (!user) {
+      toast({ title: "Error", description: "You must be logged in to update your profile.", variant: "destructive" });
+      return;
+    }
+
+    try {
+      await updateProfile(user, { displayName: newName });
+    } catch (error: any) {
+       console.error("Error updating Firebase Auth profile:", error);
+       toast({ title: "Profile Update Failed", description: `Could not update your display name in authentication: ${error.message}`, variant: "destructive" });
+       return;
+    }
+
+    const userDocRef = doc(db, "users", user.uid);
+    try {
+      await updateDoc(userDocRef, {
+        displayName: newName
+      });
+    } catch (error: any) {
+        console.error("Error updating Firestore user profile:", error);
+        toast({ title: "Profile Update Failed", description: `Could not save your new display name to the database: ${error.message}`, variant: "destructive" });
+    }
+    
+    setUser(prevUser => prevUser ? { ...prevUser, displayName: newName } as User : null);
+    setUserProfile(currentProfile => currentProfile ? { ...currentProfile, displayName: newName } : null);
+    
+    // Manually update the auth.currentUser object as `reload()` can be slow
+    if(auth.currentUser) {
+        auth.currentUser.displayName = newName;
+    }
+
+    toast({ title: "Success", description: "Your display name has been updated." });
+
+  }, [user, toast]);
+
   return (
-    <AuthContext.Provider value={{ user, userProfile, isAuthenticated: !!user, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ user, userProfile, isAuthenticated: !!user, isLoading, login, logout, updateUserDisplayName }}>
       {children}
     </AuthContext.Provider>
   );
