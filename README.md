@@ -27,6 +27,9 @@ Built with modern web technologies, this application provides a seamless and res
 
 ## Changelog
 
+### June 22, 2024
+- Implemented tracking and display of which editor last updated a map.
+
 ### June 20, 2024
 - Implemented feature allowing editors to remove themselves from shared maps.
 - Added keyboard shortcuts for navigation (`Escape` to close panels/views, `Cmd/Ctrl + B` to toggle sidebar).
@@ -36,7 +39,7 @@ Built with modern web technologies, this application provides a seamless and res
 ### June 19, 2024
 - Streamlined UI by converting action buttons to icon-only buttons with tooltips.
 - Added distinct border colors for PVE/PVP zone demarcation on the grid.
-- Implemented public view-only sharing functionality.
+- Implemented public view-only functionality.
 - Corrected typo for 'Stravidium' resource.
 
 ### June 18, 2024
@@ -54,7 +57,6 @@ Built with modern web technologies, this application provides a seamless and res
 ## Future Features / To-Do List
 - [ ] Allow users to edit their display name.
 - [ ] Allow users to mark maps as favorites and view them in a dedicated section.
-- [ ] Note which editor last updated a map.
 - [ ] Implement a detailed change log for maps with editor attribution.
 - [ ] Optimize uploaded background images for grid usage (compression, resizing - look into the Resize Images addon/extension).
 - [ ] Add new markers for "Control Points".

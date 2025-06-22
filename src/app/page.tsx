@@ -129,6 +129,12 @@ function AppMenu() {
             <ScrollArea className="max-h-[60vh] pr-4">
               <div className="space-y-6 text-sm">
                 <div>
+                  <h3 className="font-semibold text-base text-foreground mb-2">June 22, 2024</h3>
+                  <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
+                    <li>Implemented tracking and display of which editor last updated a map.</li>
+                  </ul>
+                </div>
+                <div>
                   <h3 className="font-semibold text-base text-foreground mb-2">June 20, 2024</h3>
                   <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
                     <li>Implemented feature allowing editors to remove themselves from shared maps.</li>
@@ -142,7 +148,7 @@ function AppMenu() {
                   <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
                     <li>Streamlined UI by converting action buttons to icon-only buttons with tooltips.</li>
                     <li>Added distinct border colors for PVE/PVP zone demarcation on the grid.</li>
-                    <li>Implemented public view-only sharing functionality.</li>
+                    <li>Implemented public view-only functionality.</li>
                     <li>Corrected typo for 'Stravidium' resource.</li>
                   </ul>
                 </div>
