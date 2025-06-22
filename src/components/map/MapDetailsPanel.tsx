@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { formatDistanceToNow, parseISO } from 'date-fns';
+import { formatDistanceToNow, parseISO, isValid } from 'date-fns';
 import { Timestamp } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 import { Users, Clock, Crown, Loader2, X as XIcon, RotateCcw, Settings2, Copy, ExternalLink, UserPlus, UserX, Link as LinkIcon, RefreshCw, XCircle, Trash2 } from 'lucide-react';
@@ -47,6 +47,42 @@ interface MapDetailsPanelProps {
   currentUser: User | null;
   className?: string;
 }
+
+const ClientRelativeDate: React.FC<{ dateValue: Timestamp | string | undefined }> = ({ dateValue }) => {
+  const [formattedDate, setFormattedDate] = useState("...");
+
+  useEffect(() => {
+    if (!dateValue) {
+      setFormattedDate('N/A');
+      return;
+    }
+    try {
+      let date: Date;
+      if (dateValue instanceof Timestamp) {
+        date = dateValue.toDate();
+      } else if (typeof dateValue === 'string') {
+        date = parseISO(dateValue);
+      } else if (typeof dateValue === 'object' && 'seconds' in dateValue && 'nanoseconds' in dateValue) {
+        date = new Timestamp((dateValue as any).seconds, (dateValue as any).nanoseconds).toDate();
+      } else {
+        setFormattedDate('Invalid date format');
+        return;
+      }
+
+      if (!isValid(date)) {
+        setFormattedDate('Invalid date');
+      } else {
+        setFormattedDate(formatDistanceToNow(date, { addSuffix: true }));
+      }
+    } catch (error) {
+      console.error("Error formatting date:", error);
+      setFormattedDate('Date error');
+    }
+  }, [dateValue]);
+
+  return <>{formattedDate}</>;
+};
+
 
 export function MapDetailsPanel({ mapData, currentUser, className }: MapDetailsPanelProps) {
   const {
@@ -102,22 +138,6 @@ export function MapDetailsPanel({ mapData, currentUser, className }: MapDetailsP
   if (!mapData || !currentUser) {
     return null; 
   }
-
-  const getFormattedDate = (dateValue: Timestamp | string | undefined) => {
-    if (!dateValue) return 'N/A';
-    let date: Date;
-    if (dateValue instanceof Timestamp) {
-        date = dateValue.toDate();
-    } else if (typeof dateValue === 'string') {
-        date = parseISO(dateValue);
-    } else if (typeof dateValue === 'object' && 'seconds' in dateValue && 'nanoseconds' in dateValue) {
-        date = new Timestamp((dateValue as any).seconds, (dateValue as any).nanoseconds).toDate();
-    }
-    else {
-        return 'Invalid date';
-    }
-    return formatDistanceToNow(date, { addSuffix: true });
-  };
 
   const allCollaborators: Array<{ uid: string; profile?: UserProfile | null; isOwner: boolean; isLoading: boolean }> = [];
   
@@ -285,7 +305,9 @@ export function MapDetailsPanel({ mapData, currentUser, className }: MapDetailsP
           <h3 className="text-xs font-medium text-muted-foreground mb-0.5 flex items-center">
             <Clock className="h-3.5 w-3.5 mr-1.5 text-primary" /> LAST UPDATED
           </h3>
-          <p className="text-foreground">{getFormattedDate(mapData.updatedAt)}</p>
+          <p className="text-foreground">
+            <ClientRelativeDate dateValue={mapData.updatedAt} />
+          </p>
           {mapData.updatedBy && (
             <p className="text-xs text-muted-foreground">
               by {isLoadingLastEditorProfile 

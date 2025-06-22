@@ -9,15 +9,15 @@ interface JoinPageProps {
 }
 
 async function getMapByCollaboratorShareId(collaboratorShareId: string): Promise<MapData | null> {
-  if (!collaboratorShareId || typeof collaboratorShareId !== 'string' || collaboratorShareId.trim() === '') {
-    console.warn("Invalid collaboratorShareId provided:", collaboratorShareId);
-    return null;
-  }
-  const mapsRef = collection(db, "maps");
-  // Query for maps with the matching collaboratorShareId. In a well-managed system, this ID should be unique.
-  const q = query(mapsRef, where("collaboratorShareId", "==", collaboratorShareId));
-  
   try {
+    if (!collaboratorShareId || typeof collaboratorShareId !== 'string' || collaboratorShareId.trim() === '') {
+      console.warn("Invalid collaboratorShareId provided:", collaboratorShareId);
+      return null;
+    }
+    const mapsRef = collection(db, "maps");
+    // Query for maps with the matching collaboratorShareId. In a well-managed system, this ID should be unique.
+    const q = query(mapsRef, where("collaboratorShareId", "==", collaboratorShareId));
+    
     const querySnapshot = await getDocs(q);
     if (querySnapshot.empty) {
       console.log(`No map found for collaboratorShareId: ${collaboratorShareId}`);
@@ -41,7 +41,7 @@ async function getMapByCollaboratorShareId(collaboratorShareId: string): Promise
     return serializableMapData;
 
   } catch (error) {
-    console.error("Error fetching map by collaboratorShareId:", error);
+    console.error("Critical error fetching map by collaboratorShareId (server-side). This might be due to missing Firebase config.", error);
     return null; 
   }
 }
@@ -65,4 +65,3 @@ export async function generateMetadata({ params }: JoinPageProps) {
     description: `You've been invited to collaborate on the Arrakis Atlas map: ${mapData.name}.`,
   };
 }
-

@@ -10,7 +10,7 @@ import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { PlusCircle, Loader2, MapPin, Settings2, Trash2, Copy, ExternalLink, UserPlus, UserX, Link as LinkIcon, RefreshCw, XCircle, LogOut } from 'lucide-react';
-import { formatDistanceToNow, parseISO } from 'date-fns';
+import { formatDistanceToNow, parseISO, isValid } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
 import type { MapData, UserProfile } from '@/types';
 import { useToast } from '@/hooks/use-toast';
@@ -30,6 +30,41 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 
+
+const ClientRelativeDate: React.FC<{ dateValue: Timestamp | string | undefined }> = ({ dateValue }) => {
+  const [formattedDate, setFormattedDate] = useState("...");
+
+  useEffect(() => {
+    if (!dateValue) {
+      setFormattedDate('N/A');
+      return;
+    }
+    try {
+      let date: Date;
+      if (dateValue instanceof Timestamp) {
+        date = dateValue.toDate();
+      } else if (typeof dateValue === 'string') {
+        date = parseISO(dateValue);
+      } else if (typeof dateValue === 'object' && 'seconds' in dateValue && 'nanoseconds' in dateValue) {
+        date = new Timestamp((dateValue as any).seconds, (dateValue as any).nanoseconds).toDate();
+      } else {
+        setFormattedDate('Invalid date format');
+        return;
+      }
+
+      if (!isValid(date)) {
+        setFormattedDate('Invalid date');
+      } else {
+        setFormattedDate(formatDistanceToNow(date, { addSuffix: true }));
+      }
+    } catch (error) {
+      console.error("Error formatting date:", error);
+      setFormattedDate('Date error');
+    }
+  }, [dateValue]);
+
+  return <>{formattedDate}</>;
+};
 
 export function MapManager() {
   const {
@@ -222,28 +257,6 @@ export function MapManager() {
     });
   };
 
-  const getFormattedDate = (dateValue: Timestamp | string | undefined) => {
-    if (!dateValue) return 'N/A';
-    
-    let date: Date;
-    if (dateValue instanceof Timestamp) {
-        date = dateValue.toDate();
-    } else if (typeof dateValue === 'string') {
-        date = parseISO(dateValue);
-    } else {
-        if (typeof dateValue === 'object' && 'seconds' in dateValue && 'nanoseconds' in dateValue) {
-          try {
-            date = new Timestamp((dateValue as any).seconds, (dateValue as any).nanoseconds).toDate();
-          } catch {
-            return 'Processing date...';
-          }
-        } else {
-          return 'Invalid date';
-        }
-    }
-    return formatDistanceToNow(date, { addSuffix: true });
-  };
-
   if (isLoadingMapList) {
     return (
       <div className="flex flex-col items-center justify-center flex-grow p-8">
@@ -280,7 +293,7 @@ export function MapManager() {
           </div>
           <CardDescription className="text-xs leading-relaxed">
             Role: {mapRole} <br/>
-            Last updated {getFormattedDate(map.updatedAt)}
+            Last updated <ClientRelativeDate dateValue={map.updatedAt} />
             {byLine}
           </CardDescription>
         </CardHeader>

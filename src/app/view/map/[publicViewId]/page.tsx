@@ -13,14 +13,14 @@ interface PublicMapPageProps {
 }
 
 async function getMapByPublicViewId(publicViewId: string): Promise<MapData | null> {
-  if (!publicViewId || typeof publicViewId !== 'string' || publicViewId.trim() === '') {
-    console.warn("Invalid publicViewId provided:", publicViewId);
-    return null;
-  }
-  const mapsRef = collection(db, "maps");
-  const q = query(mapsRef, where("publicViewId", "==", publicViewId), where("isPublicViewable", "==", true));
-  
   try {
+    if (!publicViewId || typeof publicViewId !== 'string' || publicViewId.trim() === '') {
+      console.warn("Invalid publicViewId provided:", publicViewId);
+      return null;
+    }
+    const mapsRef = collection(db, "maps");
+    const q = query(mapsRef, where("publicViewId", "==", publicViewId), where("isPublicViewable", "==", true));
+    
     const querySnapshot = await getDocs(q);
     if (querySnapshot.empty) {
       console.log(`No public map found for publicViewId: ${publicViewId}`);
@@ -30,7 +30,7 @@ async function getMapByPublicViewId(publicViewId: string): Promise<MapData | nul
     // Firestore data will have Timestamps for createdAt and updatedAt
     return { id: mapDoc.id, ...mapDoc.data() } as MapData; 
   } catch (error) {
-    console.error("Error fetching map by publicViewId:", error);
+    console.error("Critical error fetching map by publicViewId (server-side). This might be due to missing Firebase config.", error);
     return null; 
   }
 }
