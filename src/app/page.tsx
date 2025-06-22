@@ -150,7 +150,7 @@ function AppMenu() {
                   <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
                     <li>Streamlined UI by converting action buttons to icon-only buttons with tooltips.</li>
                     <li>Added distinct border colors for PVE/PVP zone demarcation on the grid.</li>
-                    <li>Implemented public view-only sharing functionality.</li>
+                    <li>Implemented public view-only functionality.</li>
                     <li>Corrected typo for 'Stravidium' resource.</li>
                   </ul>
                 </div>

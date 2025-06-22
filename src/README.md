@@ -1,4 +1,3 @@
-
 # Arrakis Atlas: Collaborative Dune Mapper
 
 ## Overview
@@ -29,8 +28,8 @@ Built with modern web technologies, this application provides a seamless and res
 ## Changelog
 
 ### June 22, 2024
-- Added tracking for which editor last updated a map.
-- Added ability for users to edit their display name from their profile.
+- Implemented tracking and display of which editor last updated a map.
+- Allowed users to edit their display name.
 
 ### June 20, 2024
 - Implemented feature allowing editors to remove themselves from shared maps.
@@ -80,11 +79,7 @@ To run this project locally with your own data, you need to set up a Firebase pr
     - **Firestore**: Create a new Firestore database in Production mode. You will need to update the Security Rules to allow reads/writes.
     - **Storage**: Enable Cloud Storage.
 3.  **Get Firebase Config**: In your Firebase project settings, find your web app's configuration object.
-4.  **Create `.env.local` file**:
-    - In the root of your project, create a new file named `.env.local`.
-    - Copy the contents of `.env.local.example` into your new `.env.local` file.
-    - Replace the placeholder values with your actual Firebase project keys.
-    - **Important**: You must restart your development server after creating this file.
+4.  **Update Config File**: Open `src/firebase/firebaseConfig.ts` and replace the placeholder `firebaseConfig` object with your project's actual keys.
 5.  **Configure Storage CORS**: For the custom background image uploads to work, you must configure Cross-Origin Resource Sharing (CORS) for your Firebase Storage bucket. Follow the instructions in the `CORS_STORAGE_SETUP.md` file in the root of this project.
 
 ## Available Scripts

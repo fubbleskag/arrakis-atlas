@@ -16,7 +16,11 @@ interface AuthContextType {
   isLoading: boolean;
   login: () => Promise<void>;
   logout: () => Promise<void>;
+<<<<<<< HEAD
   updateUserDisplayName: (newName: string) => Promise<void>;
+=======
+  updateDisplayName: (newName: string) => Promise<void>;
+>>>>>>> new-branch-for-detached-commits
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -27,15 +31,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const { toast } = useToast();
 
-  const updateUserProfileDocument = useCallback(async (currentUser: User) => {
+  const updateUserProfileDocument = useCallback(async (currentUser: User, isNewUser: boolean = false) => {
     if (!currentUser) return;
     const userDocRef = doc(db, "users", currentUser.uid);
     try {
+<<<<<<< HEAD
       const profileDataForFirestore = {
+=======
+      const profileDataForFirestore: { email: string | null; displayName: string | null; lastLogin: any; createdAt?: any; } = {
+>>>>>>> new-branch-for-detached-commits
         email: currentUser.email,
         displayName: currentUser.displayName,
         lastLogin: serverTimestamp(),
       };
+      
+      if (isNewUser) {
+        profileDataForFirestore.createdAt = serverTimestamp();
+      }
       
       await setDoc(userDocRef, profileDataForFirestore, { merge: true });
 
@@ -75,6 +87,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
+<<<<<<< HEAD
         // If the user object in state is different, update it.
         // This helps reflect profile changes without a full re-auth.
         if (currentUser.displayName !== user?.displayName) {
@@ -90,10 +103,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } else {
            setUserProfile(freshProfile);
         }
+=======
+        const userDoc = await getDoc(doc(db, "users", currentUser.uid));
+        await updateUserProfileDocument(currentUser, !userDoc.exists());
+        const freshProfile = await fetchUserProfile(currentUser.uid);
+        setUserProfile(freshProfile);
+>>>>>>> new-branch-for-detached-commits
       } else {
         setUser(null);
         setUserProfile(null);
       }
+      setUser(currentUser);
       setIsLoading(false);
     });
     return () => unsubscribe();
@@ -128,6 +148,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(false);
     }
   }, [toast]);
+  
+  const updateDisplayName = useCallback(async (newName: string) => {
+    if (!auth.currentUser) {
+        toast({ title: "Error", description: "You must be logged in to update your name.", variant: "destructive" });
+        return;
+    }
+    const currentUser = auth.currentUser;
+    const trimmedNewName = newName.trim();
+
+    try {
+        await updateProfile(currentUser, { displayName: trimmedNewName });
+        
+        const userDocRef = doc(db, "users", currentUser.uid);
+        await updateDoc(userDocRef, { displayName: trimmedNewName });
+
+        await currentUser.reload();
+        const refreshedUser = auth.currentUser;
+        setUser(refreshedUser);
+        if (refreshedUser) {
+           const profile = await fetchUserProfile(refreshedUser.uid);
+           setUserProfile(profile);
+        }
+
+        toast({ title: "Success", description: "Your display name has been updated." });
+    } catch (error: any) {
+        console.error("Error updating display name:", error);
+        toast({ title: "Update Failed", description: error.message || "Could not update display name.", variant: "destructive" });
+    }
+  }, [toast, fetchUserProfile]);
 
   const updateUserDisplayName = useCallback(async (newName: string) => {
     if (!user) {
@@ -166,7 +215,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [user, toast]);
 
   return (
+<<<<<<< HEAD
     <AuthContext.Provider value={{ user, userProfile, isAuthenticated: !!user, isLoading, login, logout, updateUserDisplayName }}>
+=======
+    <AuthContext.Provider value={{ user, userProfile, isAuthenticated: !!user, isLoading, login, logout, updateDisplayName }}>
+>>>>>>> new-branch-for-detached-commits
       {children}
     </AuthContext.Provider>
   );

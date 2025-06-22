@@ -40,6 +40,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Skeleton } from '@/components/ui/skeleton';
 
 
 interface MapDetailsPanelProps {
@@ -116,9 +117,11 @@ export function MapDetailsPanel({ mapData, currentUser, className }: MapDetailsP
   }, [mapData.name]);
 
   useEffect(() => {
-    const uidsInPanel = [mapData.ownerId, ...(mapData.editors || []), mapData.updatedBy].filter(Boolean);
-    const uniqueUids = [...new Set(uidsInPanel)];
-    const uidsToFetch = uniqueUids.filter(uid => uid && typeof editorProfiles[uid] === 'undefined');
+    const uidsInPanel = new Set([mapData.ownerId, ...(mapData.editors || [])]);
+    if (mapData.updatedBy) {
+        uidsInPanel.add(mapData.updatedBy);
+    }
+    const uidsToFetch = Array.from(uidsInPanel).filter(uid => uid && typeof editorProfiles[uid] === 'undefined');
     
     if (uidsToFetch.length > 0) {
       fetchEditorProfiles(uidsToFetch);
@@ -238,8 +241,10 @@ export function MapDetailsPanel({ mapData, currentUser, className }: MapDetailsP
     setIsSettingsDialogOpen(false);
   };
 
-  const lastEditorProfile = mapData.updatedBy ? editorProfiles[mapData.updatedBy] : undefined;
-  const isLoadingLastEditorProfile = mapData.updatedBy && lastEditorProfile === undefined && isLoadingEditorProfiles;
+  const updaterProfile = mapData.updatedBy ? editorProfiles[mapData.updatedBy] : null;
+  const updaterName = (isLoadingEditorProfiles && mapData.updatedBy && !updaterProfile)
+    ? <Skeleton className="h-4 w-24 inline-block" />
+    : (updaterProfile?.displayName || (mapData.updatedBy ? `User (${mapData.updatedBy.substring(0, 6)}...)` : ''));
 
 
   return (
@@ -305,17 +310,10 @@ export function MapDetailsPanel({ mapData, currentUser, className }: MapDetailsP
           <h3 className="text-xs font-medium text-muted-foreground mb-0.5 flex items-center">
             <Clock className="h-3.5 w-3.5 mr-1.5 text-primary" /> LAST UPDATED
           </h3>
-          <p className="text-foreground">
-            <ClientRelativeDate dateValue={mapData.updatedAt} />
-          </p>
-          {mapData.updatedBy && (
-            <p className="text-xs text-muted-foreground">
-              by {isLoadingLastEditorProfile 
-                ? <Loader2 className="h-3 w-3 animate-spin inline-block" /> 
-                : lastEditorProfile?.displayName || 'Unknown User'
-              }
-            </p>
-          )}
+          <div className="text-foreground">
+            {getFormattedDate(mapData.updatedAt)}
+            {mapData.updatedBy && updaterName && <> by {updaterName}</>}
+          </div>
         </div>
 
         {isCurrentUserOwner && (

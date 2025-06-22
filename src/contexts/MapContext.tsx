@@ -373,7 +373,11 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const mapDocRef = doc(db, "maps", mapId);
     try {
+<<<<<<< HEAD
       await updateDoc(mapDocRef, updatesWithMeta);
+=======
+      await updateDoc(mapDocRef, { ...updates, updatedAt: serverTimestamp(), updatedBy: user.uid });
+>>>>>>> new-branch-for-detached-commits
     } catch (error: any) {
       console.error(`Error updating map ${mapId} in Firestore:`, error);
       toast({ title: "Save Error", description: `Could not save map changes: ${error.message}`, variant: "destructive" });
@@ -425,7 +429,15 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     try {
+<<<<<<< HEAD
       await updateMapInFirestore(mapId, { editors: arrayUnion(editorUid) as any });
+=======
+      await updateDoc(mapDocRef, {
+        editors: arrayUnion(editorUid),
+        updatedAt: serverTimestamp(),
+        updatedBy: user.uid,
+      });
+>>>>>>> new-branch-for-detached-commits
       toast({ title: "Success", description: `User added as editor.` });
       fetchEditorProfiles([editorUid]);
     } catch (error: any) {
@@ -449,7 +461,15 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     try {
+<<<<<<< HEAD
       await updateMapInFirestore(mapId, { editors: arrayRemove(editorUid) as any });
+=======
+      await updateDoc(mapDocRef, {
+        editors: arrayRemove(editorUid),
+        updatedAt: serverTimestamp(),
+        updatedBy: user.uid,
+      });
+>>>>>>> new-branch-for-detached-commits
       toast({ title: "Success", description: `Editor removed.` });
       setEditorProfiles(prev => {
         const newProfiles = {...prev};
@@ -481,7 +501,15 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     try {
+<<<<<<< HEAD
         await updateMapInFirestore(mapId, { editors: arrayRemove(user.uid) as any });
+=======
+        await updateDoc(mapDocRef, {
+            editors: arrayRemove(user.uid),
+            updatedAt: serverTimestamp(),
+            updatedBy: user.uid,
+        });
+>>>>>>> new-branch-for-detached-commits
         toast({ title: "Success", description: `You have left the map "${mapData.name}".` });
         if (currentMapId === mapId) {
             selectMap(null); // Go back to map manager if viewing the map
@@ -953,6 +981,7 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       await updateDoc(mapDocRef, {
         editors: arrayUnion(user.uid),
         updatedAt: serverTimestamp(),
+        updatedBy: user.uid,
       });
       toast({ title: "Joined Map!", description: `You are now an editor for "${mapData.name}".` });
       return true;
