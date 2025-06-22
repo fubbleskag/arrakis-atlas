@@ -130,14 +130,9 @@ function AppMenu() {
             <ScrollArea className="max-h-[60vh] pr-4">
               <div className="space-y-6 text-sm">
                 <div>
-                  <h3 className="font-semibold text-base text-foreground mb-2">June 23, 2024</h3>
-                  <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
-                    <li>Added tracking for which editor last updated a map.</li>
-                  </ul>
-                </div>
-                <div>
                   <h3 className="font-semibold text-base text-foreground mb-2">June 22, 2024</h3>
                   <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
+                    <li>Added tracking for which editor last updated a map.</li>
                     <li>Added ability for users to edit their display name from their profile.</li>
                   </ul>
                 </div>

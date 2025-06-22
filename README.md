@@ -28,10 +28,8 @@ Built with modern web technologies, this application provides a seamless and res
 
 ## Changelog
 
-### June 23, 2024
-- Added tracking for which editor last updated a map.
-
 ### June 22, 2024
+- Added tracking for which editor last updated a map.
 - Added ability for users to edit their display name from their profile.
 
 ### June 20, 2024
