@@ -28,7 +28,7 @@ Built with modern web technologies, this application provides a seamless and res
 
 ## Changelog
 
-### June 23, 2024
+### June 22, 2024
 - Added ability for users to edit their display name from their profile.
 
 ### June 20, 2024
