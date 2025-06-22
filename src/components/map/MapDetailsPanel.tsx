@@ -290,10 +290,10 @@ export function MapDetailsPanel({ mapData, currentUser, className }: MapDetailsP
           <h3 className="text-xs font-medium text-muted-foreground mb-0.5 flex items-center">
             <Clock className="h-3.5 w-3.5 mr-1.5 text-primary" /> LAST UPDATED
           </h3>
-          <p className="text-foreground">
+          <div className="text-foreground">
             {getFormattedDate(mapData.updatedAt)}
             {mapData.updatedBy && updaterName && <> by {updaterName}</>}
-          </p>
+          </div>
         </div>
 
         {isCurrentUserOwner && (
