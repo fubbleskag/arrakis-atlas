@@ -28,6 +28,9 @@ Built with modern web technologies, this application provides a seamless and res
 
 ## Changelog
 
+### June 23, 2024
+- Added tracking for which editor last updated a map.
+
 ### June 22, 2024
 - Added ability for users to edit their display name from their profile.
 
@@ -57,7 +60,6 @@ Built with modern web technologies, this application provides a seamless and res
 
 ## Future Features / To-Do List
 - [ ] Allow users to mark maps as favorites and view them in a dedicated section.
-- [ ] Note which editor last updated a map.
 - [ ] Implement a detailed change log for maps with editor attribution.
 - [ ] Optimize uploaded background images for grid usage (compression, resizing - look into the Resize Images addon/extension).
 - [ ] Add new markers for "Control Points".

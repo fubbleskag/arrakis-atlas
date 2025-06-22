@@ -313,6 +313,7 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       gridState: convertLocalToFirestoreGrid(initializeLocalGrid()),
       createdAt: now as Timestamp,
       updatedAt: now as Timestamp,
+      updatedBy: user.uid,
       isPublicViewable: false,
       publicViewId: null,
       collaboratorShareId: null,
@@ -353,8 +354,15 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         throw new Error("Permission denied to update map");
     }
 
+    // Prepare updates, always including updatedAt and updatedBy
+    const updatesWithMeta = {
+      ...updates,
+      updatedAt: serverTimestamp(),
+      updatedBy: user.uid
+    };
+
     if (isEditor && !isOwner) {
-      const allowedEditorUpdateKeys = ['gridState', 'updatedAt'];
+      const allowedEditorUpdateKeys = ['gridState', 'updatedAt', 'updatedBy'];
       for (const key in updates) {
         if (!allowedEditorUpdateKeys.includes(key)) {
            toast({ title: "Permission Denied", description: `Editors cannot modify '${key}'.`, variant: "destructive" });
@@ -365,7 +373,7 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const mapDocRef = doc(db, "maps", mapId);
     try {
-      await updateDoc(mapDocRef, { ...updates, updatedAt: serverTimestamp() });
+      await updateDoc(mapDocRef, updatesWithMeta);
     } catch (error: any) {
       console.error(`Error updating map ${mapId} in Firestore:`, error);
       toast({ title: "Save Error", description: `Could not save map changes: ${error.message}`, variant: "destructive" });
@@ -416,19 +424,14 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return;
     }
 
-    const mapDocRef = doc(db, "maps", mapId);
     try {
-      await updateDoc(mapDocRef, {
-        editors: arrayUnion(editorUid),
-        updatedAt: serverTimestamp()
-      });
+      await updateMapInFirestore(mapId, { editors: arrayUnion(editorUid) as any });
       toast({ title: "Success", description: `User added as editor.` });
       fetchEditorProfiles([editorUid]);
     } catch (error: any) {
       console.error("Error adding editor:", error);
-      toast({ title: "Error", description: `Failed to add editor: ${error.message}`, variant: "destructive" });
     }
-  }, [user, toast, userMapList, currentMapData, fetchEditorProfiles]);
+  }, [user, toast, userMapList, currentMapData, fetchEditorProfiles, updateMapInFirestore]);
 
   const removeEditorFromMap = useCallback(async (mapId: string, editorUid: string) => {
     if (!user) {
@@ -445,12 +448,8 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return;
     }
 
-    const mapDocRef = doc(db, "maps", mapId);
     try {
-      await updateDoc(mapDocRef, {
-        editors: arrayRemove(editorUid),
-        updatedAt: serverTimestamp()
-      });
+      await updateMapInFirestore(mapId, { editors: arrayRemove(editorUid) as any });
       toast({ title: "Success", description: `Editor removed.` });
       setEditorProfiles(prev => {
         const newProfiles = {...prev};
@@ -459,9 +458,8 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
     } catch (error: any) {
       console.error("Error removing editor:", error);
-      toast({ title: "Error", description: `Failed to remove editor: ${error.message}`, variant: "destructive" });
     }
-  }, [user, toast, userMapList, currentMapData]);
+  }, [user, toast, userMapList, currentMapData, updateMapInFirestore]);
 
   const removeSelfAsEditor = useCallback(async (mapId: string) => {
     if (!user) {
@@ -482,21 +480,16 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return;
     }
 
-    const mapDocRef = doc(db, "maps", mapId);
     try {
-        await updateDoc(mapDocRef, {
-            editors: arrayRemove(user.uid),
-            updatedAt: serverTimestamp()
-        });
+        await updateMapInFirestore(mapId, { editors: arrayRemove(user.uid) as any });
         toast({ title: "Success", description: `You have left the map "${mapData.name}".` });
         if (currentMapId === mapId) {
             selectMap(null); // Go back to map manager if viewing the map
         }
     } catch (error: any) {
         console.error("Error removing self as editor:", error);
-        toast({ title: "Error", description: `Failed to leave map: ${error.message}`, variant: "destructive" });
     }
-  }, [user, toast, userMapList, currentMapData, currentMapId, selectMap]);
+  }, [user, toast, userMapList, currentMapData, currentMapId, selectMap, updateMapInFirestore]);
 
 
   const addPlacedIconToCell = useCallback((rowIndex: number, colIndex: number, iconType: IconType, x: number, y: number) => {

@@ -74,6 +74,19 @@ export function MapManager() {
   }, []);
 
   useEffect(() => {
+    // Fetch profiles for last editors on map list load
+    if (userMapList.length > 0) {
+        const uidsToFetch = userMapList
+            .map(map => map.updatedBy)
+            .filter((uid, index, self) => uid && self.indexOf(uid) === index && !editorProfiles[uid]); // unique UIDs not already loaded
+
+        if (uidsToFetch.length > 0) {
+            fetchEditorProfiles(uidsToFetch);
+        }
+    }
+  }, [userMapList, fetchEditorProfiles, editorProfiles]);
+
+  useEffect(() => {
     if (selectedMapForSettings?.id && userMapList.length > 0) {
       const mapInDialogId = selectedMapForSettings.id;
       const freshMapDataFromList = userMapList.find(m => m.id === mapInDialogId);
@@ -246,15 +259,29 @@ export function MapManager() {
   const renderMapCard = (map: MapData) => {
     const isMapOwner = user && map.ownerId === user.uid;
     const mapRole = isMapOwner ? "Owner" : (map.editors?.includes(user?.uid || '') ? "Editor" : "Viewer (indirectly)");
+    
+    const lastEditorProfile = map.updatedBy ? editorProfiles[map.updatedBy] : undefined;
+    const isLoadingProfile = map.updatedBy && lastEditorProfile === undefined && isLoadingEditorProfiles;
+    let byLine: React.ReactNode = null;
+
+    if (isLoadingProfile) {
+        byLine = <><span className="italic"> by </span><Loader2 className="h-3 w-3 animate-spin inline-block" /></>;
+    } else if (lastEditorProfile) {
+        byLine = <><span className="italic"> by </span>{lastEditorProfile.displayName || `User (${lastEditorProfile.uid.substring(0,4)})`}</>;
+    } else if (map.updatedBy && lastEditorProfile === null) {
+        byLine = <><span className="italic"> by </span>Unknown User</>;
+    }
+
     return (
       <Card key={map.id} className="flex flex-col">
         <CardHeader>
           <div className="flex justify-between items-start">
             <CardTitle className="text-xl group-hover:text-primary transition-colors mb-1">{map.name}</CardTitle>
           </div>
-          <CardDescription>
+          <CardDescription className="text-xs leading-relaxed">
             Role: {mapRole} <br/>
             Last updated {getFormattedDate(map.updatedAt)}
+            {byLine}
           </CardDescription>
         </CardHeader>
         <CardContent className="flex-grow">

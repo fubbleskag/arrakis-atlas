@@ -80,13 +80,14 @@ export function MapDetailsPanel({ mapData, currentUser, className }: MapDetailsP
   }, [mapData.name]);
 
   useEffect(() => {
-    const uidsInPanel = [mapData.ownerId, ...(mapData.editors || [])];
-    const uidsToFetch = uidsInPanel.filter(uid => uid && typeof editorProfiles[uid] === 'undefined');
+    const uidsInPanel = [mapData.ownerId, ...(mapData.editors || []), mapData.updatedBy].filter(Boolean);
+    const uniqueUids = [...new Set(uidsInPanel)];
+    const uidsToFetch = uniqueUids.filter(uid => uid && typeof editorProfiles[uid] === 'undefined');
     
     if (uidsToFetch.length > 0) {
       fetchEditorProfiles(uidsToFetch);
     }
-  }, [mapData.ownerId, mapData.editors, editorProfiles, fetchEditorProfiles]);
+  }, [mapData.ownerId, mapData.editors, mapData.updatedBy, editorProfiles, fetchEditorProfiles]);
 
   useEffect(() => {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL;
@@ -217,6 +218,9 @@ export function MapDetailsPanel({ mapData, currentUser, className }: MapDetailsP
     setIsSettingsDialogOpen(false);
   };
 
+  const lastEditorProfile = mapData.updatedBy ? editorProfiles[mapData.updatedBy] : undefined;
+  const isLoadingLastEditorProfile = mapData.updatedBy && lastEditorProfile === undefined && isLoadingEditorProfiles;
+
 
   return (
     <Card className={cn("w-full shadow-lg border-border bg-card", className)}>
@@ -282,6 +286,14 @@ export function MapDetailsPanel({ mapData, currentUser, className }: MapDetailsP
             <Clock className="h-3.5 w-3.5 mr-1.5 text-primary" /> LAST UPDATED
           </h3>
           <p className="text-foreground">{getFormattedDate(mapData.updatedAt)}</p>
+          {mapData.updatedBy && (
+            <p className="text-xs text-muted-foreground">
+              by {isLoadingLastEditorProfile 
+                ? <Loader2 className="h-3 w-3 animate-spin inline-block" /> 
+                : lastEditorProfile?.displayName || 'Unknown User'
+              }
+            </p>
+          )}
         </div>
 
         {isCurrentUserOwner && (

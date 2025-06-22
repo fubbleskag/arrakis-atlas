@@ -44,6 +44,7 @@ export interface MapData {
   gridState: FirestoreGridState;
   createdAt: Timestamp | string; // Can be Timestamp or serialized string
   updatedAt: Timestamp | string; // Can be Timestamp or serialized string
+  updatedBy: string; // UID of the user who last made an update
   isPublicViewable: boolean;
   publicViewId: string | null;
   collaboratorShareId: string | null; // For editor invite links
@@ -61,4 +62,3 @@ export interface FocusedCellCoordinates {
   rowIndex: number;
   colIndex: number;
 }
-
