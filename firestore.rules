@@ -17,9 +17,9 @@ service cloud.firestore {
     }
 
     function isValidEditorUpdate(mapData) {
-        let isGridUpdate = request.resource.data.diff(resource.data).affectedKeys().hasOnly(['gridState', 'updatedAt']);
+        let isGridUpdate = request.resource.data.diff(resource.data).affectedKeys().hasOnly(['gridState', 'updatedAt', 'updatedBy']);
         let isLeavingMap = request.resource.data.editors == resource.data.editors.removeAll([request.auth.uid]) &&
-                           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['editors', 'updatedAt']);
+                           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['editors', 'updatedAt', 'updatedBy']);
         return isGridUpdate || isLeavingMap;
     }
     
