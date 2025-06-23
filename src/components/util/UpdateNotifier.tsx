@@ -4,7 +4,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, CheckCircle2 } from 'lucide-react';
+import { RefreshCw, CheckCircle2, Info } from 'lucide-react';
 import { Skeleton } from '../ui/skeleton';
 
 const CHECK_INTERVAL = 1000 * 60 * 5; // 5 minutes
@@ -23,10 +23,10 @@ export function UpdateNotifier() {
         return res.text();
       })
       .then((id) => {
-        if (id && id.trim().length > 0) {
+        if (id && id.trim().length > 0 && !id.startsWith('<')) {
           setInitialBuildId(id.trim());
         } else {
-          throw new Error('BUILD_ID was empty.');
+          throw new Error('BUILD_ID was empty or invalid.');
         }
       })
       .catch((err) => {
@@ -48,7 +48,7 @@ export function UpdateNotifier() {
             return;
           }
           const latestBuildId = await res.text();
-          if (latestBuildId && latestBuildId.trim() !== initialBuildId) {
+          if (latestBuildId && latestBuildId.trim() !== initialBuildId && !latestBuildId.startsWith('<')) {
             setIsUpdateAvailable(true);
             if (intervalRef.current) {
               clearInterval(intervalRef.current);
@@ -72,9 +72,23 @@ export function UpdateNotifier() {
     return <Skeleton className="h-5 w-20 mx-auto" />;
   }
 
-  // If fetch failed (common in dev), render nothing
+  // If fetch failed (common in dev), render N/A
   if (initialBuildId === 'error') {
-    return null;
+    return (
+      <TooltipProvider delayDuration={150}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="flex items-center justify-center gap-1.5 text-xs font-mono text-muted-foreground/70 py-1">
+              <span>Build: N/A</span>
+              <Info className="h-3 w-3 text-muted-foreground" />
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side="top" align="center">
+            <p>Build info not available in this environment.</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
   }
 
   const displayBuildId = initialBuildId.substring(0, 7);
