@@ -16,14 +16,18 @@ export function UpdateNotifier() {
 
   useEffect(() => {
     fetch('/_next/BUILD_ID')
-      .then((res) => res.text())
-      .then((id) => {
-        if (id) {
-          setInitialBuildId(id);
+      .then((res) => {
+        if (!res.ok || res.headers.get('Content-Type')?.includes('text/html')) {
+          throw new Error('Received HTML instead of BUILD_ID');
         }
+        return res.text();
+      })
+      .then((id) => {
+        setInitialBuildId(id);
       })
       .catch((err) => {
-        console.error('Could not fetch initial BUILD_ID. Update checks disabled.', err);
+        console.warn('Could not fetch initial BUILD_ID, update checks disabled.', err.message);
+        setInitialBuildId(null);
       });
   }, []);
 
@@ -35,6 +39,10 @@ export function UpdateNotifier() {
         }
         try {
           const res = await fetch('/_next/BUILD_ID');
+          if (!res.ok || res.headers.get('Content-Type')?.includes('text/html')) {
+            console.warn('Update check failed: received non-text response.');
+            return;
+          }
           const latestBuildId = await res.text();
           if (latestBuildId && latestBuildId !== initialBuildId) {
             setIsUpdateAvailable(true);
@@ -43,7 +51,7 @@ export function UpdateNotifier() {
             }
           }
         } catch (err) {
-          console.error('Failed to check for new version.', err);
+          console.warn('Failed to check for new version.', err);
         }
       }, CHECK_INTERVAL);
     }
