@@ -23,16 +23,20 @@ export function UpdateNotifier() {
         return res.text();
       })
       .then((id) => {
-        setInitialBuildId(id);
+        if (id && id.trim().length > 0) {
+          setInitialBuildId(id.trim());
+        } else {
+          throw new Error('BUILD_ID was empty.');
+        }
       })
       .catch((err) => {
         console.warn('Could not fetch initial BUILD_ID, update checks disabled.', err.message);
-        setInitialBuildId(null);
+        setInitialBuildId('error'); // Set a sentinel value on error
       });
   }, []);
 
   useEffect(() => {
-    if (initialBuildId && !intervalRef.current && !isUpdateAvailable) {
+    if (initialBuildId && initialBuildId !== 'error' && !intervalRef.current && !isUpdateAvailable) {
       intervalRef.current = setInterval(async () => {
         if (document.visibilityState === 'hidden') {
           return;
@@ -44,7 +48,7 @@ export function UpdateNotifier() {
             return;
           }
           const latestBuildId = await res.text();
-          if (latestBuildId && latestBuildId !== initialBuildId) {
+          if (latestBuildId && latestBuildId.trim() !== initialBuildId) {
             setIsUpdateAvailable(true);
             if (intervalRef.current) {
               clearInterval(intervalRef.current);
@@ -63,8 +67,14 @@ export function UpdateNotifier() {
     };
   }, [initialBuildId, isUpdateAvailable]);
 
-  if (!initialBuildId) {
+  // While loading the initial ID
+  if (initialBuildId === null) {
     return <Skeleton className="h-5 w-20 mx-auto" />;
+  }
+
+  // If fetch failed (common in dev), render nothing
+  if (initialBuildId === 'error') {
+    return null;
   }
 
   const displayBuildId = initialBuildId.substring(0, 7);
