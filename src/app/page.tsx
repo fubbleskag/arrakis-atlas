@@ -35,6 +35,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { UpdateNotifier } from '@/components/util/UpdateNotifier';
 
 const SIDE_PANEL_WIDTH_CLASS = "w-[300px]";
 
@@ -330,7 +331,8 @@ export default function Home() {
           <AppMenu />
         </SidebarContent>
         <SidebarSeparator />
-        <SidebarFooter className="p-2">
+        <SidebarFooter className="p-2 space-y-2">
+          <UpdateNotifier />
           <AuthButton />
         </SidebarFooter>
       </Sidebar>
