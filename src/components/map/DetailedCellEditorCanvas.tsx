@@ -12,7 +12,7 @@ import { AlertTriangle, ImageIcon } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import Image from 'next/image';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { GRID_SIZE } from '@/lib/mapUtils';
+import { GRID_SIZE, getResizedImageUrl } from '@/lib/mapUtils';
 
 interface DetailedCellEditorCanvasProps {
   rowIndex: number;
@@ -232,7 +232,7 @@ export function DetailedCellEditorCanvas({
     >
       {cellData.backgroundImageUrl && (
         <Image
-          src={cellData.backgroundImageUrl}
+          src={getResizedImageUrl(cellData.backgroundImageUrl, '1200x1200')}
           alt="Cell background"
           layout="fill"
           objectFit="contain"

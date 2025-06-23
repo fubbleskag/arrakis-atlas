@@ -67,3 +67,37 @@ export const convertFirestoreToLocalGrid = (firestoreGrid: FirestoreGridState | 
   }
   return newLocalGrid;
 };
+
+/**
+ * Constructs the URL for a resized image based on the original URL.
+ * Assumes the Firebase "Resize Images" extension is configured to create files
+ * with a suffix like `_1200x1200.webp`.
+ * @param originalUrl The full original download URL from Firebase Storage.
+ * @param size The desired size suffix.
+ * @returns The new URL for the resized image, or the original URL as a fallback.
+ */
+export const getResizedImageUrl = (originalUrl: string | undefined, size: '150x150' | '600x600' | '1200x1200'): string => {
+  if (!originalUrl) {
+    return '';
+  }
+
+  try {
+    const urlParts = originalUrl.split('?');
+    const baseUrl = urlParts[0];
+    const queryString = urlParts.length > 1 ? `?${urlParts[1]}` : '';
+
+    const lastDotIndex = baseUrl.lastIndexOf('.');
+    if (lastDotIndex === -1) {
+      return originalUrl; // No extension found, return original
+    }
+
+    const baseName = baseUrl.substring(0, lastDotIndex);
+    
+    const resizedUrl = `${baseName}_${size}.webp${queryString}`;
+    
+    return resizedUrl;
+  } catch (e) {
+    console.error("Error creating resized image URL", e);
+    return originalUrl; // Fallback to original on any error
+  }
+};

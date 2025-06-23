@@ -9,7 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { Lock, ZoomIn } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { GRID_SIZE } from '@/lib/mapUtils';
+import { GRID_SIZE, getResizedImageUrl } from '@/lib/mapUtils';
 import Image from 'next/image';
 
 interface GridCellProps {
@@ -164,7 +164,7 @@ export function GridCell({
     >
       {hasBackgroundImage && cellData.backgroundImageUrl && (
         <Image
-          src={cellData.backgroundImageUrl}
+          src={getResizedImageUrl(cellData.backgroundImageUrl, '150x150')}
           alt={`${cellCoordinate} background`}
           layout="fill"
           objectFit="cover"
@@ -215,4 +215,3 @@ export function GridCell({
 
   return cellButton;
 }
-
