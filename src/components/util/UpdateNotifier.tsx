@@ -15,7 +15,7 @@ export function UpdateNotifier() {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    fetch('/_next/BUILD_ID')
+    fetch('/_next/BUILD_ID', { cache: 'no-store' })
       .then((res) => {
         if (!res.ok || res.headers.get('Content-Type')?.includes('text/html')) {
           throw new Error('Received HTML instead of BUILD_ID');
@@ -42,7 +42,7 @@ export function UpdateNotifier() {
           return;
         }
         try {
-          const res = await fetch('/_next/BUILD_ID');
+          const res = await fetch('/_next/BUILD_ID', { cache: 'no-store' });
           if (!res.ok || res.headers.get('Content-Type')?.includes('text/html')) {
             console.warn('Update check failed: received non-text response.');
             return;
