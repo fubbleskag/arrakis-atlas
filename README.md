@@ -29,24 +29,22 @@ Built with modern web technologies, this application provides a seamless and res
 ## Changelog
 
 ### June 22, 2024
-- Optimized uploaded background images to use resized versions for faster loading.
-- Added tracking for which editor last updated a map.
-- Added ability for users to edit their display name from their profile.
+- **Added:** Profile editing (display name)
+- **Added:** Last update attribution
+- **Improved:** Optimization of background images
 
 ### June 20, 2024
-- Implemented feature allowing editors to remove themselves from shared maps.
-- Added keyboard shortcuts for navigation (`Escape` to close panels/views, `Cmd/Ctrl + B` to toggle sidebar).
-- Increased overall grid and individual cell sizes for better usability.
-- Enhanced sharing functionality for both public view-only and collaborator invite links.
+- **Added:** Keyboard shortcuts
+- **Improved:** Sharing (owner/editor roles, invite URL)
+- **Improved:** Grid/cell size
 
 ### June 19, 2024
-- Streamlined UI by converting action buttons to icon-only buttons with tooltips.
-- Added distinct border colors for PVE/PVP zone demarcation on the grid.
-- Implemented public view-only functionality.
-- Corrected typo for 'Stravidium' resource.
+- **Added:** PVE grid borders
+- **Added:** Sharing (public view-only URL)
+- **Improved:** UI (buttons)
 
 ### June 18, 2024
-- Initial version of the Arrakis Atlas application.
+- Launched initial version.
 
 ## Tech Stack
 

@@ -132,33 +132,31 @@ function AppMenu() {
                 <div>
                   <h3 className="font-semibold text-base text-foreground mb-2">June 22, 2024</h3>
                   <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
-                    <li>Optimized uploaded background images to use resized versions for faster loading.</li>
-                    <li>Added tracking for which editor last updated a map.</li>
-                    <li>Added ability for users to edit their display name from their profile.</li>
+                    <li><strong>Added:</strong> Profile editing (display name)</li>
+                    <li><strong>Added:</strong> Last update attribution</li>
+                    <li><strong>Improved:</strong> Optimization of background images</li>
                   </ul>
                 </div>
                 <div>
                   <h3 className="font-semibold text-base text-foreground mb-2">June 20, 2024</h3>
                   <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
-                    <li>Implemented feature allowing editors to remove themselves from shared maps.</li>
-                    <li>Added keyboard shortcuts for navigation (`Escape` to close panels/views, `Cmd/Ctrl + B` to toggle sidebar).</li>
-                    <li>Increased overall grid and individual cell sizes for better usability.</li>
-                    <li>Enhanced sharing functionality for both public view-only and collaborator invite links.</li>
+                    <li><strong>Added:</strong> Keyboard shortcuts</li>
+                    <li><strong>Improved:</strong> Sharing (owner/editor roles, invite URL)</li>
+                    <li><strong>Improved:</strong> Grid/cell size</li>
                   </ul>
                 </div>
                 <div>
                   <h3 className="font-semibold text-base text-foreground mb-2">June 19, 2024</h3>
                   <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
-                    <li>Streamlined UI by converting action buttons to icon-only buttons with tooltips.</li>
-                    <li>Added distinct border colors for PVE/PVP zone demarcation on the grid.</li>
-                    <li>Implemented public view-only functionality.</li>
-                    <li>Corrected typo for 'Stravidium' resource.</li>
+                    <li><strong>Added:</strong> PVE grid borders</li>
+                    <li><strong>Added:</strong> Sharing (public view-only URL)</li>
+                    <li><strong>Improved:</strong> UI (buttons)</li>
                   </ul>
                 </div>
                 <div>
                   <h3 className="font-semibold text-base text-foreground mb-2">June 18, 2024</h3>
                   <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
-                    <li>Initial version of the Arrakis Atlas application.</li>
+                    <li>Launched initial version.</li>
                   </ul>
                 </div>
               </div>
