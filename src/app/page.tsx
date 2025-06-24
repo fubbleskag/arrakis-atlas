@@ -1,4 +1,3 @@
-
 "use client";
 
 import React from 'react';
@@ -35,7 +34,6 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { UpdateNotifier } from '@/components/util/UpdateNotifier';
 
 const SIDE_PANEL_WIDTH_CLASS = "w-[300px]";
 
@@ -332,7 +330,6 @@ export default function Home() {
         </SidebarContent>
         <SidebarSeparator />
         <SidebarFooter className="p-2 space-y-2">
-          <UpdateNotifier />
           <AuthButton />
         </SidebarFooter>
       </Sidebar>
