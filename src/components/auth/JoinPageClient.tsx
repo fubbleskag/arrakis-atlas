@@ -9,28 +9,73 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertCircle, CheckCircle2, Loader2, LogIn, ExternalLink as LinkExternal } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation'; // For redirecting
+import { useRouter } from 'next/navigation';
+import { db } from '@/firebase/firebaseConfig';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { useToast } from "@/hooks/use-toast";
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface JoinPageClientProps {
-  mapData: MapData | null;
   providedShareId: string;
 }
 
-export function JoinPageClient({ mapData: initialMapData, providedShareId }: JoinPageClientProps) {
+export function JoinPageClient({ providedShareId }: JoinPageClientProps) {
   const { user, isAuthenticated, isLoading: isAuthLoading, login } = useAuth();
   const { claimEditorInvite, selectMap } = useMap();
+  const { toast } = useToast();
   const router = useRouter();
 
-  const [mapData, setMapData] = useState(initialMapData);
+  const [mapData, setMapData] = useState<MapData | null>(null);
+  const [isFetchingMap, setIsFetchingMap] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [joinStatus, setJoinStatus] = useState<"idle" | "success" | "error" | "already_member">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    setMapData(initialMapData); // Update local state if props change (e.g., on re-render)
-    setJoinStatus("idle"); // Reset status if mapData changes (e.g. navigating between join links)
-    setErrorMessage(null);
-  }, [initialMapData]);
+    if (!providedShareId) {
+      setIsFetchingMap(false);
+      return;
+    }
+
+    const fetchMapByShareId = async () => {
+      setIsFetchingMap(true);
+      try {
+        const mapsRef = collection(db, "maps");
+        const q = query(mapsRef, where("collaboratorShareId", "==", providedShareId));
+        const querySnapshot = await getDocs(q);
+
+        if (querySnapshot.empty) {
+          setMapData(null);
+        } else {
+          const mapDoc = querySnapshot.docs[0];
+          const data = { id: mapDoc.id, ...mapDoc.data() } as MapData;
+          setMapData(data);
+        }
+      } catch (error: any) {
+        console.error("Error fetching map by share ID:", error);
+        toast({
+          title: "Database Error",
+          description: "Could not fetch map details. A missing database index is a common cause for this issue. Please check the browser console for a link to create it.",
+          variant: "destructive",
+          duration: 10000,
+        });
+        setMapData(null);
+      } finally {
+        setIsFetchingMap(false);
+      }
+    };
+
+    fetchMapByShareId();
+  }, [providedShareId, toast]);
+
+  useEffect(() => {
+    if (isAuthenticated && user && mapData && joinStatus === "idle" && !isFetchingMap) {
+      if (mapData.ownerId === user.uid || (mapData.editors && mapData.editors.includes(user.uid))) {
+        setJoinStatus("already_member");
+      }
+    }
+  }, [isAuthenticated, user, mapData, joinStatus, isFetchingMap]);
+
 
   const handleJoinMap = async () => {
     if (!mapData || !user) return;
@@ -42,24 +87,35 @@ export function JoinPageClient({ mapData: initialMapData, providedShareId }: Joi
 
     if (success) {
       setJoinStatus("success");
-      // Optional: redirect to map after a short delay or offer a button
-      // selectMap(mapData.id); // Selects the map in context
-      // router.push(`/?mapId=${mapData.id}`); // Redirects
     } else {
       setJoinStatus("error");
-      // Error message is usually set by toast in claimEditorInvite, but can set specific one here if needed
       setErrorMessage("Failed to join the map. The invite link might be invalid, expired, or you may not have permission.");
     }
   };
 
-  useEffect(() => {
-    // Check if user is already owner or editor once authenticated and mapData is available
-    if (isAuthenticated && user && mapData && joinStatus === "idle") {
-      if (mapData.ownerId === user.uid || (mapData.editors && mapData.editors.includes(user.uid))) {
-        setJoinStatus("already_member");
-      }
-    }
-  }, [isAuthenticated, user, mapData, joinStatus]);
+  const navigateToMap = () => {
+    selectMap(mapData!.id);
+    router.push(`/?mapId=${mapData!.id}`);
+  };
+  
+  if (isFetchingMap || isAuthLoading) {
+    return (
+        <div className="flex flex-col items-center justify-center min-h-screen p-8 text-center">
+            <Card className="w-full max-w-md">
+                <CardHeader>
+                    <Loader2 className="mx-auto h-12 w-12 text-primary animate-spin mb-3" />
+                    <CardTitle className="text-2xl">Validating Invite...</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <CardDescription>
+                        Please wait while we verify your invitation link.
+                    </CardDescription>
+                    <Skeleton className="h-10 w-full mt-6" />
+                </CardContent>
+            </Card>
+        </div>
+    );
+  }
 
   if (!mapData) {
     return (
@@ -82,11 +138,6 @@ export function JoinPageClient({ mapData: initialMapData, providedShareId }: Joi
       </div>
     );
   }
-  
-  const navigateToMap = () => {
-    selectMap(mapData.id);
-    router.push(`/?mapId=${mapData.id}`);
-  };
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-8 text-center">
@@ -153,4 +204,3 @@ export function JoinPageClient({ mapData: initialMapData, providedShareId }: Joi
     </div>
   );
 }
-
