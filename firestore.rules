@@ -1,65 +1,45 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isOwner(doc) {
-      return request.auth.uid == doc.data.ownerId;
+    function isOwner(mapData) {
+      return request.auth.uid == mapData.ownerId;
     }
 
-    function isEditor(doc) {
-      // Use 'in' operator for lists which is safer than hasAny for single values.
-      return request.auth.uid in doc.data.editors;
+    function isEditor(mapData) {
+      return request.auth.uid in mapData.editors;
+    }
+
+    function isPubliclyViewable(mapData) {
+        return mapData.isPublicViewable == true;
+    }
+
+    function isJoiningWithInvite(mapData, requestData) {
+      let isAddingSelf = requestData.editors == mapData.editors.concat([request.auth.uid]);
+      let isNotMember = request.auth.uid != mapData.ownerId && !(request.auth.uid in mapData.editors);
+      let hasValidInviteId = mapData.collaboratorShareId != null;
+      let onlyAllowedFieldsChanged = requestData.diff(mapData).affectedKeys().hasOnly(['editors', 'updatedAt', 'updatedBy']);
+      return isAddingSelf && isNotMember && hasValidInviteId && onlyAllowedFieldsChanged;
+    }
+
+    function isValidUpdateByEditor(mapData, requestData) {
+        let isGridUpdate = requestData.diff(mapData).affectedKeys().hasOnly(['gridState', 'updatedAt', 'updatedBy']);
+        let isLeavingMap = requestData.editors == mapData.editors.removeAll([request.auth.uid]) &&
+                           requestData.diff(mapData).affectedKeys().hasOnly(['editors', 'updatedAt', 'updatedBy']);
+        return isGridUpdate || isLeavingMap;
+    }
+       
+    match /maps/{mapId} {
+    	allow read: if isPubliclyViewable(resource.data) || (request.auth != null && (isOwner(resource.data) || isEditor(resource.data) || resource.data.collaboratorShareId != null));
+      allow create: if request.auth != null && isOwner(request.resource.data);
+      allow update: if request.auth != null && (isOwner(resource.data) || (isEditor(resource.data) && isValidUpdateByEditor(resource.data, request.resource.data)) || isJoiningWithInvite(resource.data, request.resource.data));
+      allow delete: if request.auth != null && isOwner(resource.data);
     }
 
     match /users/{userId} {
-      // A user can create their own profile upon signup.
-      allow create: if request.auth != null && request.auth.uid == userId;
-      // A user can read or update their own profile information.
-      allow read, update: if request.auth != null && request.auth.uid == userId;
-    }
-
-    match /maps/{mapId} {
-      // CREATE: Any authenticated user can create a map.
-      // The ownerId in the new document must match the creator's UID.
-      allow create: if request.auth != null && request.resource.data.ownerId == request.auth.uid;
-
-      // READ: A user can read a map if:
-      // 1. They are the owner.
-      // 2. They are an editor.
-      // 3. The map is marked as public.
-      // 4. The map has an active collaborator invite link (this is necessary for the join flow).
-      // NOTE: Condition 4 means any authenticated user can read the full data of any map with an active invite link.
-      allow read: if request.auth != null && (
-        isOwner(resource) ||
-        isEditor(resource) ||
-        resource.data.isPublicViewable == true ||
-        resource.data.collaboratorShareId != null
-      );
-
-      // UPDATE: A user can update a map if:
-      // 1. They are the owner (can change anything except their own ownerId).
-      // 2. They are an editor (can only update gridState and timestamp).
-      // 3. They are adding themselves as a new editor via a valid invite link.
-      allow update: if 
-        (request.auth != null && isOwner(resource) && request.resource.data.ownerId == resource.data.ownerId) ||
-        (request.auth != null && isEditor(resource) && request.resource.data.keys().hasOnly(['gridState', 'updatedAt', 'updatedBy'])) ||
-        (
-          // This block covers a user joining a map via invite.
-          request.auth != null &&
-          // They must not already be an owner or editor.
-          !isOwner(resource) && !isEditor(resource) &&
-          // The map must have an active invite ID.
-          resource.data.collaboratorShareId != null &&
-          // They must only be adding themselves to the 'editors' array.
-          request.resource.data.editors == resource.data.editors.concat([request.auth.uid]) &&
-          // They can only touch the 'editors' and timestamp/by fields.
-          request.resource.data.keys().hasOnly(['editors', 'updatedAt', 'updatedBy'])
-        );
-      
-      // DELETE: Only the owner of the map can delete it.
-      allow delete: if request.auth != null && isOwner(resource);
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
     }
   }
 }
