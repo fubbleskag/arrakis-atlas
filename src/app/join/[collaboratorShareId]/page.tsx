@@ -7,7 +7,7 @@ interface JoinPageProps {
 
 // This page is now a simple wrapper that passes the share ID to the client component.
 // All data fetching and logic will be handled on the client.
-export default async function JoinPage({ params }: JoinPageProps) {
+export default function JoinPage({ params }: JoinPageProps) {
   return <JoinPageClient providedShareId={params.collaboratorShareId} />;
 }
 
