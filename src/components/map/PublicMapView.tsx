@@ -122,6 +122,7 @@ export function PublicMapView({ mapData: initialMapData, localGrid: initialLocal
                 selectedIconIdOverride={selectedIconId}
                 onIconSelectOverride={handleIconSelect}
                 className="w-full h-full"
+                onNavigate={setFocusedCellCoords}
               />
             </div>
           </div>

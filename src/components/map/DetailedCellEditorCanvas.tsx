@@ -2,17 +2,18 @@
 "use client";
 
 import type React from 'react';
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import { useMap } from '@/contexts/MapContext';
 import { ICON_CONFIG_MAP } from '@/components/icons';
-import { ICON_TYPES, type PlacedIcon, type IconType, type MapData, type GridCellData } from '@/types';
+import { ICON_TYPES, type PlacedIcon, type IconType, type MapData, type GridCellData, type FocusedCellCoordinates } from '@/types';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AlertTriangle, ImageIcon } from 'lucide-react';
+import { AlertTriangle, ImageIcon, ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import Image from 'next/image';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { GRID_SIZE, getResizedImageUrl } from '@/lib/mapUtils';
+import { Button } from '@/components/ui/button';
 
 interface DetailedCellEditorCanvasProps {
   rowIndex: number;
@@ -23,6 +24,7 @@ interface DetailedCellEditorCanvasProps {
   cellDataOverride?: GridCellData;
   selectedIconIdOverride?: string | null;
   onIconSelectOverride?: (iconId: string | null) => void;
+  onNavigate?: (coordinates: FocusedCellCoordinates) => void;
 }
 
 interface PlacedIconVisualProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'onClick'> {
@@ -90,6 +92,7 @@ export function DetailedCellEditorCanvas({
   cellDataOverride,
   selectedIconIdOverride,
   onIconSelectOverride,
+  onNavigate,
 }: DetailedCellEditorCanvasProps) {
   const canvasRef = useRef<HTMLDivElement>(null);
 
@@ -133,6 +136,46 @@ export function DetailedCellEditorCanvas({
   } else if (!isContextMode) {
       canEditCanvas = !(isEditorOverride === false);
   }
+
+  const handleNavigate = useCallback((newCoords: FocusedCellCoordinates) => {
+    if (isContextMode && context?.setFocusedCellCoordinates) {
+      context.setFocusedCellCoordinates(newCoords);
+    } else if (onNavigate) {
+      onNavigate(newCoords);
+    }
+  }, [isContextMode, context, onNavigate]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const GRID_MAX_INDEX = GRID_SIZE - 1;
+      let newCoords: FocusedCellCoordinates | null = null;
+
+      switch (event.key) {
+        case 'ArrowUp':
+          if (rowIndex < GRID_MAX_INDEX) newCoords = { rowIndex: rowIndex + 1, colIndex };
+          break;
+        case 'ArrowDown':
+          if (rowIndex > 0) newCoords = { rowIndex: rowIndex - 1, colIndex };
+          break;
+        case 'ArrowLeft':
+          if (colIndex > 0) newCoords = { rowIndex, colIndex: colIndex - 1 };
+          break;
+        case 'ArrowRight':
+          if (colIndex < GRID_MAX_INDEX) newCoords = { rowIndex, colIndex: colIndex + 1 };
+          break;
+      }
+
+      if (newCoords) {
+        event.preventDefault();
+        handleNavigate(newCoords);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [rowIndex, colIndex, handleNavigate]);
 
   useEffect(() => {
     const handlePaste = async (event: ClipboardEvent) => {
@@ -249,52 +292,91 @@ export function DetailedCellEditorCanvas({
   };
 
   return (
-    <div
-      ref={canvasRef}
-      className={cn(
-        "relative overflow-hidden w-full h-full bg-background shadow-xl", // Removed aspect-square
-        dynamicBorderClasses,
-        className
+    <div className={cn("relative w-full h-full group/canvas", className)}>
+      <div
+        ref={canvasRef}
+        className={cn(
+          "relative overflow-hidden w-full h-full bg-background shadow-xl", // Removed aspect-square
+          dynamicBorderClasses
+        )}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+        onClick={handleCanvasClick}
+      >
+        {imageSrc && (
+          <Image
+            src={imageSrc}
+            alt="Cell background"
+            layout="fill"
+            objectFit="contain"
+            className="pointer-events-none"
+            priority
+            data-ai-hint="map texture"
+            onError={() => {
+              if (cellData?.backgroundImageUrl && imageSrc !== cellData.backgroundImageUrl) {
+                setImageSrc(cellData.backgroundImageUrl);
+              }
+            }}
+          />
+        )}
+        {cellData.placedIcons.map((icon: PlacedIcon) => (
+          <PlacedIconVisual
+            key={icon.id}
+            iconData={icon}
+            isSelected={selectedPlacedIconId === icon.id}
+            canEdit={canEditCanvas}
+            onClick={() => {
+              if (effectiveSetSelectedPlacedIconId) effectiveSetSelectedPlacedIconId(icon.id);
+            }}
+            draggable={canEditCanvas && isContextMode && selectedPlacedIconId !== icon.id}
+            onDragStart={ (canEditCanvas && isContextMode) ? (e: React.DragEvent<HTMLDivElement>) => handlePlacedIconDragStart(e, icon) : undefined}
+          />
+        ))}
+        {cellData.placedIcons.length === 0 && !cellData.backgroundImageUrl && (
+           <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
+            <p className="text-muted-foreground text-lg p-4 text-center bg-background/50">
+              {(canEditCanvas && isContextMode) ? "Drag markers, upload, or paste background" : <><ImageIcon className="inline-block h-5 w-5 mr-1" /> No markers or background</>}
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Navigation Buttons */}
+      {/* Up Arrow (to smaller row letter, e.g. B -> A, which is higher rowIndex) */}
+      {rowIndex < (GRID_SIZE - 1) && (
+        <Button variant="outline" size="icon" title="Navigate Up (ArrowUp)"
+          onClick={() => handleNavigate({ rowIndex: rowIndex + 1, colIndex })}
+          className="absolute top-[-20px] left-1/2 -translate-x-1/2 z-20 h-8 w-10 opacity-20 group-hover/canvas:opacity-100 transition-opacity"
+        >
+          <ChevronUp className="h-5 w-5" />
+        </Button>
       )}
-      onDragOver={handleDragOver}
-      onDrop={handleDrop}
-      onClick={handleCanvasClick}
-    >
-      {imageSrc && (
-        <Image
-          src={imageSrc}
-          alt="Cell background"
-          layout="fill"
-          objectFit="contain"
-          className="pointer-events-none"
-          priority
-          data-ai-hint="map texture"
-          onError={() => {
-            if (cellData?.backgroundImageUrl && imageSrc !== cellData.backgroundImageUrl) {
-              setImageSrc(cellData.backgroundImageUrl);
-            }
-          }}
-        />
+      {/* Down Arrow (to larger row letter, e.g. A -> B, which is lower rowIndex) */}
+      {rowIndex > 0 && (
+        <Button variant="outline" size="icon" title="Navigate Down (ArrowDown)"
+          onClick={() => handleNavigate({ rowIndex: rowIndex - 1, colIndex })}
+          className="absolute bottom-[-20px] left-1/2 -translate-x-1/2 z-20 h-8 w-10 opacity-20 group-hover/canvas:opacity-100 transition-opacity"
+        >
+          <ChevronDown className="h-5 w-5" />
+        </Button>
       )}
-      {cellData.placedIcons.map((icon: PlacedIcon) => (
-        <PlacedIconVisual
-          key={icon.id}
-          iconData={icon}
-          isSelected={selectedPlacedIconId === icon.id}
-          canEdit={canEditCanvas}
-          onClick={() => {
-            if (effectiveSetSelectedPlacedIconId) effectiveSetSelectedPlacedIconId(icon.id);
-          }}
-          draggable={canEditCanvas && isContextMode && selectedPlacedIconId !== icon.id}
-          onDragStart={ (canEditCanvas && isContextMode) ? (e: React.DragEvent<HTMLDivElement>) => handlePlacedIconDragStart(e, icon) : undefined}
-        />
-      ))}
-      {cellData.placedIcons.length === 0 && !cellData.backgroundImageUrl && (
-         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
-          <p className="text-muted-foreground text-lg p-4 text-center bg-background/50">
-            {(canEditCanvas && isContextMode) ? "Drag markers, upload, or paste background" : <><ImageIcon className="inline-block h-5 w-5 mr-1" /> No markers or background</>}
-          </p>
-        </div>
+      {/* Left Arrow */}
+      {colIndex > 0 && (
+        <Button variant="outline" size="icon" title="Navigate Left (ArrowLeft)"
+          onClick={() => handleNavigate({ rowIndex, colIndex: colIndex - 1 })}
+          className="absolute left-[-20px] top-1/2 -translate-y-1/2 z-20 h-10 w-8 opacity-20 group-hover/canvas:opacity-100 transition-opacity"
+        >
+          <ChevronLeft className="h-5 w-5" />
+        </Button>
+      )}
+      {/* Right Arrow */}
+      {colIndex < (GRID_SIZE - 1) && (
+        <Button variant="outline" size="icon" title="Navigate Right (ArrowRight)"
+          onClick={() => handleNavigate({ rowIndex, colIndex: colIndex + 1 })}
+          className="absolute right-[-20px] top-1/2 -translate-y-1/2 z-20 h-10 w-8 opacity-20 group-hover/canvas:opacity-100 transition-opacity"
+        >
+          <ChevronRight className="h-5 w-5" />
+        </Button>
       )}
     </div>
   );

@@ -97,6 +97,7 @@ function AppMenu() {
                   <h3 className="font-semibold text-base text-foreground mb-2">Keyboard Shortcuts</h3>
                   <ul className="list-disc pl-5 space-y-2">
                     <li><strong>Toggle Sidebar:</strong> Press `Cmd + B` (on Mac) or `Ctrl + B` (on Windows) to quickly show or hide the sidebar menu.</li>
+                    <li><strong>Cell Navigation:</strong> When viewing a detailed cell, use the `Arrow Keys` to move to adjacent cells.</li>
                     <li><strong>Navigate Back:</strong> Press the `Escape` key to close views in reverse order:
                       <ul className="list-disc pl-5 space-y-1 mt-1">
                         <li>Closes the Marker Editor Panel.</li>
