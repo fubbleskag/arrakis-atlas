@@ -2,7 +2,7 @@
 "use client";
 
 import type React from 'react';
-import { useRef } from 'react';
+import { useRef, useEffect } from 'react';
 import { useMap } from '@/contexts/MapContext';
 import { ICON_CONFIG_MAP } from '@/components/icons';
 import { ICON_TYPES, type PlacedIcon, type IconType, type MapData, type GridCellData } from '@/types';
@@ -111,6 +111,7 @@ export function DetailedCellEditorCanvas({
 
   const addPlacedIconToCell = context?.addPlacedIconToCell;
   const updatePlacedIconPositionInCell = context?.updatePlacedIconPositionInCell;
+  const uploadCellBackgroundImage = context?.uploadCellBackgroundImage;
 
   let canEditCanvas = false;
   if (isContextMode && context && user && mapData) {
@@ -120,6 +121,39 @@ export function DetailedCellEditorCanvas({
   } else if (!isContextMode) {
       canEditCanvas = !(isEditorOverride === false);
   }
+
+  useEffect(() => {
+    const handlePaste = async (event: ClipboardEvent) => {
+      // Only act if this component is active, editable, and the upload function exists.
+      if (!canvasRef.current || !canEditCanvas || !uploadCellBackgroundImage) {
+        return;
+      }
+
+      const items = event.clipboardData?.items;
+      if (!items) return;
+
+      let imageFile: File | null = null;
+      for (const item of Array.from(items)) {
+        if (item.type.startsWith('image/')) {
+          imageFile = item.getAsFile();
+          break; // Use the first image found
+        }
+      }
+
+      if (imageFile) {
+        event.preventDefault();
+        // The upload function already provides user feedback (toasts).
+        await uploadCellBackgroundImage(rowIndex, colIndex, imageFile);
+      }
+    };
+
+    // Listen for paste events globally
+    document.addEventListener('paste', handlePaste);
+
+    return () => {
+      document.removeEventListener('paste', handlePaste);
+    };
+  }, [canEditCanvas, uploadCellBackgroundImage, rowIndex, colIndex]);
 
 
   const isRowA = rowIndex === GRID_SIZE - 1;
@@ -257,7 +291,7 @@ export function DetailedCellEditorCanvas({
       {cellData.placedIcons.length === 0 && !cellData.backgroundImageUrl && (
          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
           <p className="text-muted-foreground text-lg p-4 text-center bg-background/50">
-            {(canEditCanvas && isContextMode) ? "Drag markers or upload background" : <><ImageIcon className="inline-block h-5 w-5 mr-1" /> No markers or background</>}
+            {(canEditCanvas && isContextMode) ? "Drag markers, upload, or paste background" : <><ImageIcon className="inline-block h-5 w-5 mr-1" /> No markers or background</>}
           </p>
         </div>
       )}
