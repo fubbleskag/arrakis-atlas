@@ -113,12 +113,6 @@ export function GridCell({
 
   ariaLabelContent += 'Click to view details.';
 
-  const isRowA = rowIndex === GRID_SIZE - 1;
-  const isA3 = isRowA && colIndex === 2;
-  const isA4 = isRowA && colIndex === 3;
-  const isA6 = isRowA && colIndex === 5;
-  const isA7 = isRowA && colIndex === 6;
-
   let buttonBgClass = '';
   if (hasBackgroundImage) {
     // No specific background class for the button itself, as image covers it
@@ -154,12 +148,7 @@ export function GridCell({
         !isReadOnly && !canEditCell && currentMapData && !hasContent && !hasBackgroundImage && "bg-muted/30",
         !isReadOnly && !canEditCell && currentMapData && (hasContent || hasBackgroundImage) && "opacity-80",
         !isReadOnly && (!currentMapData || !context?.setFocusedCellCoordinates) && "cursor-not-allowed opacity-50",
-        "border", 
-        isRowA ? 'border-emerald-600/75' : 'border-border',
-        isA3 && "!border-r-destructive",
-        isA4 && "!border-l-destructive",
-        isA6 && "!border-r-destructive",
-        isA7 && "!border-l-destructive"
+        "border border-border"
       )}
     >
       {hasBackgroundImage && cellData.backgroundImageUrl && (

@@ -168,23 +168,7 @@ export function DetailedCellEditorCanvas({
   }, [canEditCanvas, uploadCellBackgroundImage, rowIndex, colIndex]);
 
 
-  const isRowA = rowIndex === GRID_SIZE - 1;
-  const isA3 = isRowA && colIndex === 2;
-  const isA4 = isRowA && colIndex === 3;
-  const isA6 = isRowA && colIndex === 5;
-  const isA7 = isRowA && colIndex === 6;
-
-  const dynamicBorderClasses: string[] = ['border-[3px]'];
-
-  if (isRowA) {
-    dynamicBorderClasses.push('border-emerald-600/75');
-    if (isA3) dynamicBorderClasses.push('!border-r-destructive');
-    else if (isA4) dynamicBorderClasses.push('!border-l-destructive');
-    else if (isA6) dynamicBorderClasses.push('!border-r-destructive');
-    else if (isA7) dynamicBorderClasses.push('!border-l-destructive');
-  } else {
-    dynamicBorderClasses.push('border-border');
-  }
+  const dynamicBorderClasses: string[] = ['border-[3px]', 'border-border'];
 
 
   if (isLoading || !mapData) {

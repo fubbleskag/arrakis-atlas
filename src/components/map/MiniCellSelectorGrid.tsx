@@ -52,12 +52,6 @@ export function MiniCellSelectorGrid({
             }
           }
 
-          const isRowA = dataRowIndex === GRID_SIZE - 1;
-          const isA3 = isRowA && dataColIndex === 2;
-          const isA4 = isRowA && dataColIndex === 3;
-          const isA6 = isRowA && dataColIndex === 5;
-          const isA7 = isRowA && dataColIndex === 6;
-
           return (
             <button
               key={`${dataRowIndex}-${dataColIndex}`}
@@ -70,17 +64,13 @@ export function MiniCellSelectorGrid({
                   : cn(
                       hasContent ? 'bg-accent/15' : 'bg-card',
                       'hover:bg-accent hover:text-accent-foreground',
-                      isRowA ? 'border-emerald-600/75' : 'border-transparent'
+                      'border-transparent'
                     ),
                 !isCurrentlySelected && currentFocusedCell && !hasContent && "opacity-80",
-                !isCurrentlySelected && currentFocusedCell && hasContent && "opacity-90",
-                isA3 && "border-r-destructive",
-                isA4 && "border-l-destructive",
-                isA6 && "border-r-destructive",
-                isA7 && "border-l-destructive"
+                !isCurrentlySelected && currentFocusedCell && hasContent && "opacity-90"
               )}
-              title={`Go to cell ${cellLabel}${hasContent ? ' (has content)' : ''}${isRowA ? ' (PVE Zone)' : ''}`}
-              aria-label={`Select cell ${cellLabel}${hasContent ? ', has content' : ''}${isRowA ? ', PVE Zone' : ''}`}
+              title={`Go to cell ${cellLabel}${hasContent ? ' (has content)' : ''}`}
+              aria-label={`Select cell ${cellLabel}${hasContent ? ', has content' : ''}`}
               aria-pressed={isCurrentlySelected}
             >
               {cellLabel}
