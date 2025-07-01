@@ -152,10 +152,10 @@ export function DetailedCellEditorCanvas({
 
       switch (event.key) {
         case 'ArrowUp':
-          if (rowIndex < GRID_MAX_INDEX) newCoords = { rowIndex: rowIndex + 1, colIndex };
+          if (rowIndex > 0) newCoords = { rowIndex: rowIndex - 1, colIndex };
           break;
         case 'ArrowDown':
-          if (rowIndex > 0) newCoords = { rowIndex: rowIndex - 1, colIndex };
+          if (rowIndex < GRID_MAX_INDEX) newCoords = { rowIndex: rowIndex + 1, colIndex };
           break;
         case 'ArrowLeft':
           if (colIndex > 0) newCoords = { rowIndex, colIndex: colIndex - 1 };
@@ -342,19 +342,19 @@ export function DetailedCellEditorCanvas({
       </div>
 
       {/* Navigation Buttons */}
-      {/* Up Arrow (to smaller row letter, e.g. B -> A, which is higher rowIndex) */}
-      {rowIndex < (GRID_SIZE - 1) && (
+      {/* Up Arrow (Moves to a visually higher row, e.g., H -> I, which is a lower rowIndex) */}
+      {rowIndex > 0 && (
         <Button variant="outline" size="icon" title="Navigate Up (ArrowUp)"
-          onClick={() => handleNavigate({ rowIndex: rowIndex + 1, colIndex })}
+          onClick={() => handleNavigate({ rowIndex: rowIndex - 1, colIndex })}
           className="absolute top-[-20px] left-1/2 -translate-x-1/2 z-20 h-8 w-10 opacity-20 group-hover/canvas:opacity-100 transition-opacity"
         >
           <ChevronUp className="h-5 w-5" />
         </Button>
       )}
-      {/* Down Arrow (to larger row letter, e.g. A -> B, which is lower rowIndex) */}
-      {rowIndex > 0 && (
+      {/* Down Arrow (Moves to a visually lower row, e.g., I -> H, which is a higher rowIndex) */}
+      {rowIndex < (GRID_SIZE - 1) && (
         <Button variant="outline" size="icon" title="Navigate Down (ArrowDown)"
-          onClick={() => handleNavigate({ rowIndex: rowIndex - 1, colIndex })}
+          onClick={() => handleNavigate({ rowIndex: rowIndex + 1, colIndex })}
           className="absolute bottom-[-20px] left-1/2 -translate-x-1/2 z-20 h-8 w-10 opacity-20 group-hover/canvas:opacity-100 transition-opacity"
         >
           <ChevronDown className="h-5 w-5" />
