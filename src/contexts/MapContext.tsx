@@ -75,6 +75,7 @@ interface MapContextType {
   regenerateCollaboratorShareId: (mapId: string) => Promise<void>;
   disableCollaboratorShareId: (mapId: string) => Promise<void>;
   claimEditorInvite: (mapIdToJoin: string, providedShareId: string) => Promise<boolean>;
+  transferMapOwnership: (mapId: string, newOwnerUid: string) => Promise<void>;
 
   editorProfiles: Record<string, UserProfile | null>;
   isLoadingEditorProfiles: boolean;
@@ -452,6 +453,55 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [user, toast, userMapList, currentMapData, currentMapId, selectMap]);
 
+  const transferMapOwnership = useCallback(async (mapId: string, newOwnerUid: string) => {
+    if (!user) {
+        toast({ title: "Error", description: "Authentication required.", variant: "destructive" });
+        return;
+    }
+    
+    const mapDocRef = doc(db, "maps", mapId);
+
+    try {
+        const mapDoc = await getDoc(mapDocRef);
+        if (!mapDoc.exists()) {
+            toast({ title: "Error", description: "Map not found.", variant: "destructive" });
+            return;
+        }
+
+        const mapData = mapDoc.data() as MapData;
+        const currentOwnerUid = user.uid;
+
+        if (mapData.ownerId !== currentOwnerUid) {
+            toast({ title: "Permission Denied", description: "Only the current map owner can transfer ownership.", variant: "destructive" });
+            return;
+        }
+        
+        if (!mapData.editors.includes(newOwnerUid)) {
+            toast({ title: "Error", description: "The new owner must be an existing editor on the map.", variant: "destructive" });
+            return;
+        }
+
+        // Prepare the new editors array
+        const newEditorsArray = mapData.editors.filter(uid => uid !== newOwnerUid);
+        newEditorsArray.push(currentOwnerUid);
+
+        await updateDoc(mapDocRef, {
+            ownerId: newOwnerUid,
+            editors: newEditorsArray,
+            updatedAt: serverTimestamp(),
+            updatedBy: currentOwnerUid,
+        });
+
+        toast({ title: "Success", description: "Map ownership transferred successfully." });
+        
+        // The onSnapshot listener will handle updating state, no need for manual state updates here.
+        // It might be good to ensure the user is navigated away if they lose access, but the rules keep them as editor.
+
+    } catch (error: any) {
+        console.error("Error transferring ownership:", error);
+        toast({ title: "Ownership Transfer Failed", description: error.message || "An unexpected error occurred.", variant: "destructive" });
+    }
+  }, [user, toast]);
 
   const addPlacedIconToCell = useCallback((rowIndex: number, colIndex: number, iconType: IconType, x: number, y: number) => {
     setCurrentLocalGrid(prevGrid => {
@@ -910,6 +960,7 @@ export const MapProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       regenerateCollaboratorShareId,
       disableCollaboratorShareId,
       claimEditorInvite,
+      transferMapOwnership,
       editorProfiles,
       isLoadingEditorProfiles,
       fetchEditorProfiles,

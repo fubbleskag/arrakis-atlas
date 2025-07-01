@@ -3,6 +3,7 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Helper functions to make rules more readable
     function isOwner(mapData) {
       return request.auth.uid == mapData.ownerId;
     }
@@ -20,6 +21,7 @@ service cloud.firestore {
       let isNotMember = request.auth.uid != mapData.ownerId && !(request.auth.uid in mapData.editors);
       let hasValidInviteId = mapData.collaboratorShareId != null;
       let onlyAllowedFieldsChanged = requestData.diff(mapData).affectedKeys().hasOnly(['editors', 'updatedAt', 'updatedBy']);
+
       return isAddingSelf && isNotMember && hasValidInviteId && onlyAllowedFieldsChanged;
     }
 
@@ -29,16 +31,48 @@ service cloud.firestore {
                            requestData.diff(mapData).affectedKeys().hasOnly(['editors', 'updatedAt', 'updatedBy']);
         return isGridUpdate || isLeavingMap;
     }
-       
+
+    function isStandardOwnerUpdate(mapData, requestData) {
+        // Check for any update other than changing the ownerId
+        return requestData.ownerId == mapData.ownerId;
+    }
+
+    function isValidOwnershipTransfer(mapData, requestData) {
+      // The new owner must be an existing editor.
+      let newOwnerWasEditor = requestData.ownerId in mapData.editors;
+      // The old owner (requesting user) is becoming an editor.
+      let oldOwnerBecomesEditor = request.auth.uid in requestData.editors;
+      // The new owner is being removed from the editors list.
+      let newOwnerIsRemovedFromEditors = !(requestData.ownerId in requestData.editors);
+      // Verify the final editors array is correct: old editors minus new owner plus old owner.
+      let correctFinalEditors = requestData.editors.toSet() == mapData.editors.removeAll([requestData.ownerId]).append(request.auth.uid).toSet();
+      // Only the allowed fields are changing.
+      let onlyOwnershipFieldsChanged = requestData.diff(mapData).affectedKeys().hasOnly(['ownerId', 'editors', 'updatedAt', 'updatedBy']);
+      
+      return newOwnerWasEditor && oldOwnerBecomesEditor && newOwnerIsRemovedFromEditors && correctFinalEditors && onlyOwnershipFieldsChanged;
+    }
+
     match /maps/{mapId} {
-    	allow read: if isPubliclyViewable(resource.data) || (request.auth != null && (isOwner(resource.data) || isEditor(resource.data) || resource.data.collaboratorShareId != null));
+      allow read: if isPubliclyViewable(resource.data) || (request.auth != null && (isOwner(resource.data) || isEditor(resource.data) || resource.data.collaboratorShareId != null));
+      
       allow create: if request.auth != null && isOwner(request.resource.data);
-      allow update: if request.auth != null && (isOwner(resource.data) || (isEditor(resource.data) && isValidUpdateByEditor(resource.data, request.resource.data)) || isJoiningWithInvite(resource.data, request.resource.data));
+      
+      allow update: if request.auth != null && (
+          (isOwner(resource.data) && (isStandardOwnerUpdate(resource.data, request.resource.data) || isValidOwnershipTransfer(resource.data, request.resource.data))) ||
+          (isEditor(resource.data) && isValidUpdateByEditor(resource.data, request.resource.data)) ||
+          isJoiningWithInvite(resource.data, request.resource.data)
+        );
+      
       allow delete: if request.auth != null && isOwner(resource.data);
     }
 
+    // Rules for the 'users' collection
     match /users/{userId} {
+      // Any authenticated user can read any user's profile.
+      // This is needed to display collaborator names on maps.
       allow read: if request.auth != null;
+
+      // A user can only create or update their own profile.
       allow write: if request.auth != null && request.auth.uid == userId;
     }
   }

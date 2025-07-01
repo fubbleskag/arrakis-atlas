@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
-import { PlusCircle, Loader2, MapPin, Settings2, Trash2, Copy, ExternalLink, UserPlus, UserX, Link as LinkIcon, RefreshCw, XCircle, LogOut } from 'lucide-react';
+import { PlusCircle, Loader2, MapPin, Settings2, Trash2, Copy, ExternalLink, UserPlus, UserX, Link as LinkIcon, RefreshCw, XCircle, LogOut, UserCog } from 'lucide-react';
 import { formatDistanceToNow, parseISO, isValid } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
 import type { MapData, UserProfile } from '@/types';
@@ -86,6 +86,7 @@ export function MapManager() {
     fetchEditorProfiles, 
     regenerateCollaboratorShareId,
     disableCollaboratorShareId,
+    transferMapOwnership,
   } = useMap();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -226,6 +227,14 @@ export function MapManager() {
     setIsManagingEditors(true);
     await removeEditorFromMap(selectedMapForSettings.id, editorUidToRemove);
     setIsManagingEditors(false);
+  };
+  
+  const handleTransferOwnership = async (newOwnerUid: string) => {
+    if (!selectedMapForSettings) return;
+    setIsManagingEditors(true);
+    await transferMapOwnership(selectedMapForSettings.id, newOwnerUid);
+    setIsManagingEditors(false);
+    setSelectedMapForSettings(null);
   };
 
   const handleRegenerateCollaboratorShareId = async (mapId: string) => {
@@ -371,11 +380,41 @@ export function MapManager() {
                                         displayContent = editorId.substring(0,6) + '...';
                                     }
                                     return (
-                                      <li key={editorId} className="flex justify-between items-center">
+                                      <li key={editorId} className="flex justify-between items-center group/editor-item">
                                         <span className="truncate" title={editorId}>{displayContent}</span>
-                                        <Button variant="ghost" size="icon" onClick={() => handleRemoveEditor(editorId)} className="h-6 w-6" disabled={isManagingEditors || !isMapOwner}>
-                                          <UserX className="h-3 w-3 text-destructive"/>
-                                        </Button>
+                                        <div className="flex items-center opacity-0 group-hover/editor-item:opacity-100 transition-opacity">
+                                            <AlertDialog>
+                                                <TooltipProvider>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <AlertDialogTrigger asChild>
+                                                                <Button variant="ghost" size="icon" className="h-6 w-6" disabled={isManagingEditors || !isMapOwner}>
+                                                                    <UserCog className="h-3 w-3 text-primary"/>
+                                                                </Button>
+                                                            </AlertDialogTrigger>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent><p>Transfer Ownership</p></TooltipContent>
+                                                    </Tooltip>
+                                                </TooltipProvider>
+                                                <AlertDialogContent>
+                                                    <AlertDialogHeader>
+                                                        <AlertDialogTitle>Transfer Ownership?</AlertDialogTitle>
+                                                        <AlertDialogDescription>
+                                                            Are you sure you want to make &quot;{profile?.displayName || editorId}&quot; the new owner of this map? You will become an editor and will no longer be able to delete the map or manage other editors. This action cannot be undone.
+                                                        </AlertDialogDescription>
+                                                    </AlertDialogHeader>
+                                                    <AlertDialogFooter>
+                                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                        <AlertDialogAction onClick={() => handleTransferOwnership(editorId)}>
+                                                            Transfer Ownership
+                                                        </AlertDialogAction>
+                                                    </AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
+                                            <Button variant="ghost" size="icon" onClick={() => handleRemoveEditor(editorId)} className="h-6 w-6" disabled={isManagingEditors || !isMapOwner}>
+                                              <UserX className="h-3 w-3 text-destructive"/>
+                                            </Button>
+                                        </div>
                                       </li>
                                     );
                                   })}

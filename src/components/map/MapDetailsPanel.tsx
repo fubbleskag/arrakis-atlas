@@ -16,7 +16,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { formatDistanceToNow, parseISO, isValid } from 'date-fns';
 import { Timestamp } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
-import { Users, Clock, Crown, Loader2, X as XIcon, RotateCcw, Settings2, Copy, ExternalLink, UserPlus, UserX, Link as LinkIcon, RefreshCw, XCircle, Trash2 } from 'lucide-react';
+import { Users, Clock, Crown, Loader2, X as XIcon, RotateCcw, Settings2, Copy, ExternalLink, UserPlus, UserX, Link as LinkIcon, RefreshCw, XCircle, Trash2, UserCog } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -102,6 +102,7 @@ export function MapDetailsPanel({ mapData, currentUser, className }: MapDetailsP
     regenerateCollaboratorShareId,
     disableCollaboratorShareId,
     deleteMap,
+    transferMapOwnership,
   } = useMap();
   const { toast } = useToast();
 
@@ -204,6 +205,14 @@ export function MapDetailsPanel({ mapData, currentUser, className }: MapDetailsP
     setIsUpdatingSettingsDialog(true);
     await removeEditorFromMap(mapData.id, editorUidToRemove);
     setIsUpdatingSettingsDialog(false);
+  };
+  
+  const handleDialogTransferOwnership = async (newOwnerUid: string) => {
+    if (!newOwnerUid || !isCurrentUserOwner) return;
+    setIsUpdatingSettingsDialog(true);
+    await transferMapOwnership(mapData.id, newOwnerUid);
+    setIsUpdatingSettingsDialog(false);
+    setIsSettingsDialogOpen(false); // Close dialog on successful transfer
   };
 
   const handleDialogTogglePublicView = async (enable: boolean) => {
@@ -402,11 +411,39 @@ export function MapDetailsPanel({ mapData, currentUser, className }: MapDetailsP
                                             displayContent = editorId.substring(0,6) + '...';
                                         }
                                         return (
-                                            <li key={editorId} className="flex justify-between items-center">
-                                            <span className="truncate" title={editorId}>{displayContent}</span>
-                                            <Button variant="ghost" size="icon" onClick={() => handleDialogRemoveEditor(editorId)} className="h-6 w-6" disabled={isUpdatingSettingsDialog || !isCurrentUserOwner}>
-                                                <UserX className="h-3 w-3 text-destructive"/>
-                                            </Button>
+                                            <li key={editorId} className="flex justify-between items-center group/editor-item">
+                                                <span className="truncate" title={editorId}>{displayContent}</span>
+                                                <div className="flex items-center opacity-0 group-hover/editor-item:opacity-100 transition-opacity">
+                                                    <AlertDialog>
+                                                        <TooltipProvider>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <AlertDialogTrigger asChild>
+                                                                        <Button variant="ghost" size="icon" className="h-6 w-6" disabled={isUpdatingSettingsDialog || !isCurrentUserOwner}>
+                                                                            <UserCog className="h-3 w-3 text-primary" />
+                                                                        </Button>
+                                                                    </AlertDialogTrigger>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent><p>Transfer Ownership</p></TooltipContent>
+                                                            </Tooltip>
+                                                        </TooltipProvider>
+                                                        <AlertDialogContent>
+                                                            <AlertDialogHeader>
+                                                                <AlertDialogTitle>Transfer Ownership?</AlertDialogTitle>
+                                                                <AlertDialogDescription>
+                                                                    Are you sure you want to make &quot;{profile?.displayName || editorId}&quot; the new owner? You will become an editor and lose owner permissions. This action cannot be undone.
+                                                                </AlertDialogDescription>
+                                                            </AlertDialogHeader>
+                                                            <AlertDialogFooter>
+                                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                                <AlertDialogAction onClick={() => handleDialogTransferOwnership(editorId)}>Transfer Ownership</AlertDialogAction>
+                                                            </AlertDialogFooter>
+                                                        </AlertDialogContent>
+                                                    </AlertDialog>
+                                                    <Button variant="ghost" size="icon" onClick={() => handleDialogRemoveEditor(editorId)} className="h-6 w-6" disabled={isUpdatingSettingsDialog || !isCurrentUserOwner}>
+                                                        <UserX className="h-3 w-3 text-destructive"/>
+                                                    </Button>
+                                                </div>
                                             </li>
                                         );
                                         })}
