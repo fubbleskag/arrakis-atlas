@@ -130,6 +130,13 @@ function AppMenu() {
             <ScrollArea className="max-h-[60vh] pr-4">
               <div className="space-y-6 text-sm">
                 <div>
+                  <h3 className="font-semibold text-base text-foreground mb-2">July 1, 2024</h3>
+                  <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
+                    <li><strong>Added:</strong> Cell to cell nav buttons + keyboard shortcuts</li>
+                    <li><strong>Improved:</strong> Background uploading and processing</li>
+                  </ul>
+                </div>
+                <div>
                   <h3 className="font-semibold text-base text-foreground mb-2">June 22, 2024</h3>
                   <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
                     <li><strong>Added:</strong> Profile editing (display name)</li>

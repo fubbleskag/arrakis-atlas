@@ -28,6 +28,10 @@ Built with modern web technologies, this application provides a seamless and res
 
 ## Changelog
 
+### July 1, 2024
+- **Added:** Cell to cell nav buttons + keyboard shortcuts
+- **Improved:** Background uploading and processing
+
 ### June 22, 2024
 - **Added:** Profile editing (display name)
 - **Added:** Last update attribution
