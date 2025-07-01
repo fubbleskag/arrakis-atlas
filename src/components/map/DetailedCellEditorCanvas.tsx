@@ -2,7 +2,7 @@
 "use client";
 
 import type React from 'react';
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { useMap } from '@/contexts/MapContext';
 import { ICON_CONFIG_MAP } from '@/components/icons';
 import { ICON_TYPES, type PlacedIcon, type IconType, type MapData, type GridCellData } from '@/types';
@@ -102,6 +102,18 @@ export function DetailedCellEditorCanvas({
   const mapData = isContextMode ? context?.currentMapData : mapDataOverride;
   const grid = isContextMode ? context?.currentLocalGrid : null;
   const cellData = isContextMode ? grid?.[rowIndex]?.[colIndex] : cellDataOverride;
+
+  const [imageSrc, setImageSrc] = useState<string | undefined>();
+
+  useEffect(() => {
+    if (cellData?.backgroundImageUrl) {
+      // When the underlying data changes, always try the optimized version first.
+      setImageSrc(getResizedImageUrl(cellData.backgroundImageUrl, '1200x1200'));
+    } else {
+      // If the background image is removed, clear the src.
+      setImageSrc(undefined);
+    }
+  }, [cellData?.backgroundImageUrl]);
 
   const isLoading = isContextMode ? context?.isLoadingMapData ?? false : false;
 
@@ -264,15 +276,20 @@ export function DetailedCellEditorCanvas({
       onDrop={handleDrop}
       onClick={handleCanvasClick}
     >
-      {cellData.backgroundImageUrl && (
+      {imageSrc && (
         <Image
-          src={getResizedImageUrl(cellData.backgroundImageUrl, '1200x1200')}
+          src={imageSrc}
           alt="Cell background"
           layout="fill"
           objectFit="contain"
           className="pointer-events-none"
           priority
           data-ai-hint="map texture"
+          onError={() => {
+            if (cellData?.backgroundImageUrl && imageSrc !== cellData.backgroundImageUrl) {
+              setImageSrc(cellData.backgroundImageUrl);
+            }
+          }}
         />
       )}
       {cellData.placedIcons.map((icon: PlacedIcon) => (
