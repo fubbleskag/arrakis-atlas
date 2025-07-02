@@ -29,6 +29,7 @@ Built with modern web technologies, this application provides a seamless and res
 ## Changelog
 
 ### July 1, 2024
+- **Added:** Owners can transfer map to another editor
 - **Added:** Cell to cell nav buttons + keyboard shortcuts
 - **Improved:** Background uploading and processing
 

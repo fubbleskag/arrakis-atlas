@@ -132,6 +132,7 @@ function AppMenu() {
                 <div>
                   <h3 className="font-semibold text-base text-foreground mb-2">July 1, 2024</h3>
                   <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
+                    <li><strong>Added:</strong> Owners can transfer map to another editor</li>
                     <li><strong>Added:</strong> Cell to cell nav buttons + keyboard shortcuts</li>
                     <li><strong>Improved:</strong> Background uploading and processing</li>
                   </ul>
